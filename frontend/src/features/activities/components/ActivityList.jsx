@@ -20,11 +20,13 @@ export default function ActivityList({
   onRefresh
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
 
   const handleCreated = (newActivity) => {
     if (onActivityCreated) {
-      onActivityCreated(newActivity);
+      onActivityCreated(newActivity, editingActivity?.id);
     }
+    setEditingActivity(null);
   };
 
   return (
@@ -121,6 +123,7 @@ export default function ActivityList({
             <ActivityCard
               key={activity.id || activity.name}
               activity={activity}
+              onEdit={() => { setEditingActivity(activity); setShowAddModal(true); }}
             />
           ))}
         </div>
@@ -131,7 +134,8 @@ export default function ActivityList({
         isOpen={showAddModal}
         eventId={eventId}
         parentEvent={parentEvent}
-        onClose={() => setShowAddModal(false)}
+        editingActivity={editingActivity}
+        onClose={() => { setShowAddModal(false); setEditingActivity(null); }}
         onActivityCreated={handleCreated}
       />
     </div>

@@ -16,7 +16,7 @@ import {
   validateActivityForm 
 } from "../utils/activityHelpers";
 import { toInputDateTime, formatDateTime } from "../../events/utils/eventHelpers";
-import { createActivity } from "../activityApi";
+import { createActivity, updateActivity } from "../activityApi";
 
 export default function ActivityFormModal({
   isOpen,
@@ -37,10 +37,12 @@ export default function ActivityFormModal({
     endDateTime: "",
     registrationDeadline: "",
     registrationType: "INDIVIDUAL",
+    registrationLimit: "UNLIMITED",
     capacity: "",
     minTeamSize: "",
     maxTeamSize: "",
-    rules: ""
+    rules: "",
+    visibility: ""
   });
 
   const [sameVenue, setSameVenue] = useState(true);
@@ -62,10 +64,12 @@ export default function ActivityFormModal({
           endDateTime: editingActivity.endDateTime ? toInputDateTime(editingActivity.endDateTime) : "",
           registrationDeadline: editingActivity.registrationDeadline ? toInputDateTime(editingActivity.registrationDeadline) : "",
           registrationType: editingActivity.registrationType || "INDIVIDUAL",
-          capacity: editingActivity.capacity !== undefined ? String(editingActivity.capacity) : "",
+          registrationLimit: editingActivity.capacity == null ? "UNLIMITED" : "LIMITED",
+          capacity: editingActivity.capacity != null ? String(editingActivity.capacity) : "",
           minTeamSize: editingActivity.minTeamSize !== undefined && editingActivity.minTeamSize !== null ? String(editingActivity.minTeamSize) : "",
           maxTeamSize: editingActivity.maxTeamSize !== undefined && editingActivity.maxTeamSize !== null ? String(editingActivity.maxTeamSize) : "",
-          rules: editingActivity.rules || ""
+          rules: editingActivity.rules || "",
+          visibility: editingActivity.visibility || ""
         });
 
         const isVenueMatch = Boolean(parentEvent?.venue && editingActivity.location === parentEvent.venue);
@@ -92,10 +96,12 @@ export default function ActivityFormModal({
           endDateTime: initialEnd,
           registrationDeadline: initialStart,
           registrationType: "INDIVIDUAL",
+          registrationLimit: "UNLIMITED",
           capacity: "",
           minTeamSize: "",
           maxTeamSize: "",
-          rules: ""
+          rules: "",
+          visibility: ""
         });
 
         setSameVenue(Boolean(initialVenue));
@@ -225,17 +231,19 @@ export default function ActivityFormModal({
     setIsSubmitting(true);
 
     try {
-      const created = await createActivity(eventId, formData);
+      const created = editingActivity
+        ? await updateActivity(eventId, editingActivity.id, formData)
+        : await createActivity(eventId, formData);
       if (onActivityCreated) {
         onActivityCreated(created);
       }
       onClose();
     } catch (err) {
-      console.error("Failed to create activity:", err);
+      console.error("Failed to save activity:", err);
       const msg =
         err.response?.data?.message ||
         (err.response?.data?.validationErrors && Object.values(err.response.data.validationErrors)[0]) ||
-        "Failed to add activity. Please check all fields and try again.";
+        "Failed to save activity. Please check all fields and try again.";
       setServerError(msg);
     } finally {
       setIsSubmitting(false);
@@ -389,6 +397,35 @@ export default function ActivityFormModal({
                 )}
               </div>
             </div>
+
+            {/* Visibility (standalone activities only) */}
+            {!parentEvent && (
+              <div className="space-y-1.5 text-left">
+                <label htmlFor="activity-visibility" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Visibility <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  id="activity-visibility"
+                  name="visibility"
+                  value={formData.visibility}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={`block w-full px-3.5 py-2.5 rounded-lg border text-sm transition-colors bg-white focus:outline-none focus:ring-2 ${
+                    fieldErrors.visibility
+                      ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
+                      : "border-slate-300 focus:border-indigo-600 focus:ring-indigo-600/20"
+                  }`}
+                >
+                  <option value="">Select visibility</option>
+                  <option value="COLLEGE_ONLY">College Only</option>
+                  <option value="OPEN_TO_ALL">Open to All</option>
+                </select>
+                <p className="text-[11px] text-slate-400">Who can discover and register for this activity</p>
+                {fieldErrors.visibility && (
+                  <p className="text-xs text-rose-600 font-medium">{fieldErrors.visibility}</p>
+                )}
+              </div>
+            )}
 
             {/* Description */}
             <div className="space-y-1.5 text-left">
@@ -552,14 +589,19 @@ export default function ActivityFormModal({
                 )}
               </div>
 
-              {/* Capacity */}
-              <div className="space-y-1.5 text-left">
+              <fieldset className="space-y-1.5 text-left">
+                <label htmlFor="activity-capacity" className="block text-xs font-semibold text-slate-700">
+                  Registration limit
+                </label>
+                <label className="mr-3 text-xs text-slate-700"><input className="mr-1" type="radio" name="registrationLimit" value="UNLIMITED" checked={formData.registrationLimit === "UNLIMITED"} onChange={handleChange} />No limit</label>
+                <label className="text-xs text-slate-700"><input className="mr-1" type="radio" name="registrationLimit" value="LIMITED" checked={formData.registrationLimit === "LIMITED"} onChange={handleChange} />Limited</label>
+                {formData.registrationLimit === "UNLIMITED" ? <p className="text-xs text-slate-500">Unlimited registrations until the registration deadline.</p> : <>
                 <label htmlFor="activity-capacity" className="block text-xs font-semibold text-slate-700">
                   {formData.registrationType === "INDIVIDUAL"
-                    ? "Max Participants Capacity"
+                    ? "Maximum Participants"
                     : formData.registrationType === "TEAM"
-                    ? "Max Teams Capacity"
-                    : "Max Total Capacity"}{" "}
+                    ? "Maximum Teams"
+                    : "Maximum Registrations"}{" "}
                   <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -585,7 +627,8 @@ export default function ActivityFormModal({
                 {fieldErrors.capacity && (
                   <p className="text-xs text-rose-600 font-medium">{fieldErrors.capacity}</p>
                 )}
-              </div>
+                </>}
+              </fieldset>
             </div>
 
             {/* Dynamic Team Fields */}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { createEvent } from "../eventApi";
-import { createActivity } from "../../activities/activityApi";
+import { createActivity, createStandaloneActivity } from "../../activities/activityApi";
 import ActivityFormModal from "../../activities/components/ActivityFormModal";
 import CompetitionForm from "../components/CompetitionForm";
 import { 
@@ -205,36 +205,21 @@ export default function CreateEventPage() {
     }
   };
 
-  const handleCreateCompetition = async ({ eventData: competitionEvent, activityData }) => {
+  const handleCreateCompetition = async (activityData) => {
     setIsSubmitting(true);
     setServerError("");
 
-    let createdEvent = null;
-
     try {
-      createdEvent = await createEvent(competitionEvent);
-      await createActivity(createdEvent.id, activityData);
-
-      navigate(`/organizer/events/${createdEvent.id}/edit`, {
+      const activity = await createStandaloneActivity(activityData);
+      navigate("/organizer", {
         state: {
-          flashMessage: `Competition "${createdEvent.title}" created successfully.`,
+          flashMessage: `Competition "${activity.name}" created successfully.`,
           flashTone: "success"
         }
       });
     } catch (err) {
       console.error("Failed to create competition:", err);
 
-      if (createdEvent) {
-        navigate(`/organizer/events/${createdEvent.id}/edit`, {
-          state: {
-            flashMessage: `The event was created, but the activity could not be added: ${
-              err.response?.data?.message || "Please add it from the Activities section."
-            }`,
-            flashTone: "error"
-          }
-        });
-        return;
-      }
 
       const msg =
         err.response?.data?.message ||

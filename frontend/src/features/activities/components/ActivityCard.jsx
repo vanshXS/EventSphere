@@ -5,7 +5,8 @@ import {
   Users, 
   Clock, 
   ChevronRight, 
-  FileText 
+  FileText,
+  UserCheck
 } from "lucide-react";
 import { 
   getActivityTypeLabel, 
@@ -14,9 +15,11 @@ import {
 } from "../utils/activityHelpers";
 import { formatDateTime } from "../../events/utils/eventHelpers";
 import ActivityDetailsModal from "./ActivityDetailsModal";
+import ActivityRegistrationsModal from "../../registration/components/ActivityRegistrationsModal";
 
-export default function ActivityCard({ activity }) {
+export default function ActivityCard({ activity, onEdit }) {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
 
   const capacityInfo = formatCapacitySummary(
     activity.registrationType,
@@ -89,20 +92,36 @@ export default function ActivityCard({ activity }) {
           </div>
         </div>
 
-        {/* Card Footer: View Details Action */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-          <div className="text-[11px] text-slate-400 flex items-center gap-1">
-            <FileText className="w-3 h-3" />
-            <span>Rules included</span>
-          </div>
+        {/* Card Footer: View Details & Actions */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={() => setShowDetailsModal(true)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-colors"
+            onClick={() => setShowRegistrationsModal(true)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer transition-colors"
           >
-            <span>View Details & Rules</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Registrations</span>
           </button>
+          
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDetailsModal(true)}
+              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-colors"
+            >
+              <span>Details</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            {onEdit && (
+              <button 
+                type="button" 
+                onClick={onEdit} 
+                className="text-xs font-medium text-slate-600 hover:text-slate-900 hover:underline cursor-pointer"
+              >
+                Edit
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -111,6 +130,13 @@ export default function ActivityCard({ activity }) {
         isOpen={showDetailsModal}
         activity={activity}
         onClose={() => setShowDetailsModal(false)}
+      />
+
+      {/* Registrations Modal */}
+      <ActivityRegistrationsModal
+        isOpen={showRegistrationsModal}
+        activity={activity}
+        onClose={() => setShowRegistrationsModal(false)}
       />
     </>
   );

@@ -1,5 +1,6 @@
 package com.vansh.eventsphere.eventsphere.event.dto;
 import com.vansh.eventsphere.eventsphere.event.model.ActivityType;
+import com.vansh.eventsphere.eventsphere.event.model.EventVisibility;
 import com.vansh.eventsphere.eventsphere.event.model.RegistrationType;
 import jakarta.validation.constraints.*;
 import lombok.Data;
@@ -54,8 +55,14 @@ public class CreateActivityRequest {
     @NotNull(message = "Registration type is required")
     private RegistrationType registrationType;
 
-    @NotNull(message = "Capacity is required")
-    @Positive(message = "Capacity must be greater than 0")
+    /**
+     * Required only for standalone activities.
+     * Ignored/validated against parent event for event activities
+     */
+    private EventVisibility visibility;
+
+
+    @Positive(message = "Registration capacity must be greater than 0")
     private Integer capacity;
 
     private Integer minTeamSize;

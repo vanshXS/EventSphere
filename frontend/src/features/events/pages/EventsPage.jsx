@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getMyEvent, publishEvent, deleteEvent } from "../eventApi";
 import EventTable from "../components/EventTable";
+import { getStandaloneActivities, publishStandaloneActivity, deleteStandaloneActivity } from "../../activities/activityApi";
 import { 
   Calendar, 
   Plus, 
@@ -24,6 +25,7 @@ export default function EventsPage() {
   const navigate = useNavigate();
 
   const [events, setEvents] = useState([]);
+  const [standaloneActivities, setStandaloneActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -35,7 +37,9 @@ export default function EventsPage() {
 
   // Track async operations per event
   const [publishingIds, setPublishingIds] = useState(new Set());
+  const [publishingActivityIds, setPublishingActivityIds] = useState(new Set());
   const [deletingIds, setDeletingIds] = useState(new Set());
+  const [deletingActivityIds, setDeletingActivityIds] = useState(new Set());
 
   // Handle one-time flash message from navigation
   useEffect(() => {
@@ -49,8 +53,9 @@ export default function EventsPage() {
     try {
       setLoading(true);
       setError("");
-      const data = await getMyEvent();
-      setEvents(Array.isArray(data) ? data : []);
+      const [eventData, activityData] = await Promise.all([getMyEvent(), getStandaloneActivities()]);
+      setEvents(Array.isArray(eventData) ? eventData : []);
+      setStandaloneActivities(activityData);
     } catch (err) {
       console.error("Failed to load events:", err);
       setError(
@@ -118,6 +123,41 @@ export default function EventsPage() {
     }
   };
 
+  const handlePublishActivity = async (activityId) => {
+    try {
+      setPublishingActivityIds((prev) => new Set(prev).add(activityId));
+      const updated = await publishStandaloneActivity(activityId);
+      setStandaloneActivities((prev) => prev.map((activity) => activity.id === activityId ? updated : activity));
+      setSuccessMessage("Competition published successfully. Participants can now register.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to publish competition. Please try again.");
+      throw err;
+    } finally {
+      setPublishingActivityIds((prev) => { const next = new Set(prev); next.delete(activityId); return next; });
+    }
+  };
+
+  const handleDeleteActivity = async (activityId) => {
+    try {
+      setDeletingActivityIds((prev) => new Set(prev).add(activityId));
+      await deleteStandaloneActivity(activityId);
+      setStandaloneActivities((prev) => prev.filter((a) => a.id !== activityId));
+      setSuccessMessage("Activity deleted successfully.");
+    } catch (err) {
+      console.error("Failed to delete activity:", err);
+      setError(
+        err.response?.data?.message || "Failed to delete activity. Please try again."
+      );
+      throw err;
+    } finally {
+      setDeletingActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
   // Filter events based on search query and selected filter
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -137,6 +177,22 @@ export default function EventsPage() {
       return true;
     });
   }, [events, statusFilter, searchQuery]);
+
+  // Filter standalone activities based on search query
+  const filteredActivities = useMemo(() => {
+    const statusMatched = standaloneActivities.filter((activity) => statusFilter === "ALL" || (activity.status || "DRAFT") === statusFilter);
+    if (!searchQuery.trim()) return statusMatched;
+    const query = searchQuery.toLowerCase();
+    return statusMatched.filter((a) => {
+      const matchName = a.name?.toLowerCase().includes(query);
+      const matchDesc = a.description?.toLowerCase().includes(query);
+      const matchLocation = a.location?.toLowerCase().includes(query);
+      return matchName || matchDesc || matchLocation;
+    });
+  }, [standaloneActivities, searchQuery, statusFilter]);
+
+  const totalItems = events.length + standaloneActivities.length;
+  const totalFilteredItems = filteredEvents.length + filteredActivities.length;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
@@ -176,7 +232,7 @@ export default function EventsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              My Events
+              My Events & Activities
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
               Create and manage your college events and activities
@@ -261,7 +317,7 @@ export default function EventsPage() {
         )}
 
         {/* Filter and Search Bar */}
-        {!loading && events.length > 0 && (
+        {!loading && totalItems > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
             {/* Status Filter Buttons */}
             <div className="flex items-center gap-1.5">
@@ -274,7 +330,7 @@ export default function EventsPage() {
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                All ({events.length})
+                All ({totalItems})
               </button>
               <button
                 type="button"
@@ -285,7 +341,7 @@ export default function EventsPage() {
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                Published ({events.filter((e) => e.status === "PUBLISHED").length})
+                Published ({events.filter((e) => e.status === "PUBLISHED").length + standaloneActivities.filter((a) => a.status === "PUBLISHED").length})
               </button>
               <button
                 type="button"
@@ -296,7 +352,7 @@ export default function EventsPage() {
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                Drafts ({events.filter((e) => e.status === "DRAFT").length})
+                Drafts ({events.filter((e) => e.status === "DRAFT").length + standaloneActivities.filter((a) => !a.status || a.status === "DRAFT").length})
               </button>
             </div>
 
@@ -305,7 +361,7 @@ export default function EventsPage() {
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search events by title or venue..."
+                placeholder="Search by name, venue, or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
@@ -331,8 +387,8 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* State 2: No Events at all */}
-        {!loading && !error && events.length === 0 && (
+        {/* State 2: No Events or Activities at all */}
+        {!loading && !error && totalItems === 0 && (
           <div className="bg-white rounded-xl border border-slate-200/80 p-8 sm:p-12 text-center shadow-xs space-y-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600">
               <CalendarDays className="w-6 h-6" />
@@ -359,12 +415,12 @@ export default function EventsPage() {
         )}
 
         {/* State 3: Filter / Search returns 0 items */}
-        {!loading && !error && events.length > 0 && filteredEvents.length === 0 && (
+        {!loading && !error && totalItems > 0 && totalFilteredItems === 0 && (
           <div className="bg-white rounded-xl border border-slate-200/80 p-8 text-center shadow-xs space-y-3">
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
               <Search className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-semibold text-slate-900">No matching events found</h3>
+            <h3 className="text-sm font-semibold text-slate-900">No matching items found</h3>
             <p className="text-xs text-slate-500">
               Try adjusting your search query or switching to a different status filter.
             </p>
@@ -383,14 +439,19 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* State 4: Compact management table */}
-        {!loading && filteredEvents.length > 0 && (
+        {/* State 4: Unified management table */}
+        {!loading && totalFilteredItems > 0 && (
           <EventTable
             events={filteredEvents}
+            standaloneActivities={filteredActivities}
             onPublish={handlePublish}
+            onPublishActivity={handlePublishActivity}
             onDelete={handleDelete}
+            onDeleteActivity={handleDeleteActivity}
             publishingIds={publishingIds}
+            publishingActivityIds={publishingActivityIds}
             deletingIds={deletingIds}
+            deletingActivityIds={deletingActivityIds}
           />
         )}
       </main>

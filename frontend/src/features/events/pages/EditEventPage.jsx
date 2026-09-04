@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { getEventById, updateEvent } from "../eventApi";
+import { getEventById, updateEvent, publishEvent } from "../eventApi";
 import { getActivitiesByEvent } from "../../activities/activityApi";
 import EventForm from "../components/EventForm";
 import EventStatusBadge from "../components/EventStatusBadge";
@@ -20,7 +20,8 @@ import {
   MapPin, 
   Lock,
   Globe,
-  CheckCircle2
+  CheckCircle2,
+  Send
 } from "lucide-react";
 
 export default function EditEventPage() {
@@ -117,12 +118,33 @@ export default function EditEventPage() {
     }
   };
 
-  const handleActivityCreated = (newActivity) => {
-    setActivities((prev) => [newActivity, ...prev]);
-    setActivitySuccessMessage(`Activity "${newActivity.name}" added successfully.`);
+  const handleActivityCreated = (newActivity, replacedActivityId) => {
+    setActivities((prev) => replacedActivityId
+      ? prev.map((item) => item.id === replacedActivityId ? newActivity : item)
+      : [newActivity, ...prev]);
+    setActivitySuccessMessage(`Activity "${newActivity.name}" ${replacedActivityId ? "updated" : "added"} successfully.`);
   };
 
-  const isDraft = event?.status === "DRAFT";
+  const [isPublishing, setIsPublishing] = useState(false);
+
+  const handlePublish = async () => {
+    if (!window.confirm(`Are you sure you want to publish "${event?.title}"? Once published, participants will be able to view and register for this event and its activities.`)) {
+      return;
+    }
+    try {
+      setIsPublishing(true);
+      const updated = await publishEvent(eventId);
+      setEvent(updated);
+      setFlashMessage("Event published successfully! Participants can now view and register for this event.");
+    } catch (err) {
+      console.error("Failed to publish event:", err);
+      setServerError(err.response?.data?.message || "Failed to publish event. Please try again.");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const isDraft = event?.status === "DRAFT" || event?.eventStatus === "DRAFT";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
@@ -180,7 +202,24 @@ export default function EditEventPage() {
                     : "Published festival specifications and scheduled activities."}
                 </p>
               </div>
-              <EventStatusBadge status={event.status} />
+              <div className="flex items-center gap-3">
+                <EventStatusBadge status={event.status || event.eventStatus} />
+                {isDraft && (
+                  <button
+                    type="button"
+                    onClick={handlePublish}
+                    disabled={isPublishing}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isPublishing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isPublishing ? "Publishing..." : "Publish Event"}</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

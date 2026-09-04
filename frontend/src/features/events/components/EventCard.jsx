@@ -23,7 +23,7 @@ export default function EventCard({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
 
-  const isDraft = event.status === "DRAFT";
+  const isDraft = event.status === "DRAFT" || event.eventStatus === "DRAFT";
 
   const handleConfirmPublish = async () => {
     try {

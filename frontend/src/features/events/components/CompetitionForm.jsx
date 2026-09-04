@@ -5,6 +5,7 @@ import {
   ACTIVITY_TYPES,
   validateActivityForm
 } from "../../activities/utils/activityHelpers";
+import { EVENT_VISIBILITIES } from "../../events/utils/eventHelpers";
 
 const inputClassName = (hasError) =>
   `block w-full px-3.5 py-2.5 rounded-lg border text-sm transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 ${
@@ -36,6 +37,10 @@ function validateEventDetails(activityData) {
     errors.location = "Venue cannot exceed 200 characters";
   }
 
+  if (!activityData.visibility) {
+    errors.visibility = "Visibility is required";
+  }
+
   if (!activityData.startDateTime) {
     errors.startDateTime = "Start date and time is required";
   }
@@ -65,10 +70,12 @@ export default function CompetitionForm({ onSubmit, isSubmitting, serverError })
     description: "",
     type: "",
     location: "",
+    visibility: "COLLEGE_ONLY",
     startDateTime: "",
     endDateTime: "",
     registrationDeadline: "",
     registrationType: "INDIVIDUAL",
+    registrationLimit: "UNLIMITED",
     capacity: "",
     minTeamSize: "",
     maxTeamSize: "",
@@ -130,17 +137,7 @@ export default function CompetitionForm({ onSubmit, isSubmitting, serverError })
       return;
     }
 
-    await onSubmit({
-      eventData: {
-        title: formData.name,
-        description: formData.description,
-        venue: formData.location,
-        startDateTime: formData.startDateTime,
-        endDateTime: formData.endDateTime,
-        visibility: "OPEN_TO_ALL"
-      },
-      activityData: formData
-    });
+    await onSubmit(formData);
   };
 
   return (
@@ -237,6 +234,27 @@ export default function CompetitionForm({ onSubmit, isSubmitting, serverError })
             />
             <FieldError message={fieldErrors.location} />
           </div>
+
+          <div className="space-y-1.5 text-left sm:col-span-2">
+            <label htmlFor="competition-visibility" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+              Eligibility & Visibility <span className="text-rose-500">*</span>
+            </label>
+            <select
+              id="competition-visibility"
+              name="visibility"
+              value={formData.visibility}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              className={`${inputClassName(fieldErrors.visibility)} bg-white`}
+            >
+              {EVENT_VISIBILITIES.map((vis) => (
+                <option key={vis.value} value={vis.value}>
+                  {vis.label}
+                </option>
+              ))}
+            </select>
+            <FieldError message={fieldErrors.visibility} />
+          </div>
         </div>
       </section>
 
@@ -298,7 +316,7 @@ export default function CompetitionForm({ onSubmit, isSubmitting, serverError })
       <section className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
         <div className="pb-2 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-900">Registration</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Capacity is the maximum number of registrations.</p>
+          <p className="text-xs text-slate-500 mt-0.5">Each individual or team registration uses one slot.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -326,7 +344,11 @@ export default function CompetitionForm({ onSubmit, isSubmitting, serverError })
             )}
           </div>
 
-          <div className="space-y-1.5 text-left">
+          <fieldset className="space-y-2 text-left">
+            <legend className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">Registration limit</legend>
+            <label className="mr-4 text-sm text-slate-700"><input className="mr-1.5" type="radio" name="registrationLimit" value="UNLIMITED" checked={formData.registrationLimit === "UNLIMITED"} onChange={handleChange} />Unlimited</label>
+            <label className="text-sm text-slate-700"><input className="mr-1.5" type="radio" name="registrationLimit" value="LIMITED" checked={formData.registrationLimit === "LIMITED"} onChange={handleChange} />Limited</label>
+            {formData.registrationLimit === "UNLIMITED" ? <p className="text-xs text-slate-500">Unlimited registrations until the registration deadline.</p> : <>
             <label htmlFor="competition-capacity" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
               {capacityLabel} <span className="text-rose-500">*</span>
             </label>
@@ -343,7 +365,8 @@ export default function CompetitionForm({ onSubmit, isSubmitting, serverError })
               className={inputClassName(fieldErrors.capacity)}
             />
             <FieldError message={fieldErrors.capacity} />
-          </div>
+            </>}
+          </fieldset>
         </div>
 
         {isTeamRegistration && (

@@ -3,6 +3,8 @@ package com.vansh.eventsphere.eventsphere.event.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.vansh.eventsphere.eventsphere.event.model.Activity;
+import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -19,9 +21,40 @@ import lombok.extern.slf4j.Slf4j;
 public class EventStatusSchedular {
 
     private final EventRepository eventRepository;
+    private final ActivityRepository activityRepository;
 
     @Scheduled(fixedRate = 60000, initialDelay = 5000)
-    public void updateEventStatuses() {
+    public void updateStatus() {
+        updateEventStatuses();
+        updateActivityStatues();
+    }
+
+    private void updateActivityStatues() {
+        LocalDateTime now = LocalDateTime.now();
+
+        List<Activity> activities = activityRepository.findByStatusIn(
+                List.of(EventStatus.PUBLISHED, EventStatus.ONGOING)
+        );
+
+        for(Activity activity : activities) {
+            LocalDateTime start = activity.getStartDateTime();
+            LocalDateTime end = activity.getEndDateTime();
+
+            if(end != null && end.isAfter(now)) {
+                if(activity.getStatus() != EventStatus.COMPLETED) {
+                    activity.setStatus(EventStatus.COMPLETED);
+                    activityRepository.save(activity);
+                }
+            }else if(start != null && start.isAfter(now)) {
+                if(activity.getStatus() == EventStatus.PUBLISHED){
+                    activity.setStatus(EventStatus.ONGOING);
+                    activityRepository.save(activity);
+                }
+            }
+        }
+
+    }
+    private void updateEventStatuses() {
         LocalDateTime now = LocalDateTime.now();
         log.info("Updating events statuses... Current time: {}", now);
 

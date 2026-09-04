@@ -5,6 +5,8 @@ import com.vansh.eventsphere.eventsphere.event.dto.EventResponse;
 import com.vansh.eventsphere.eventsphere.event.model.Event;
 import com.vansh.eventsphere.eventsphere.event.model.EventStatus;
 import com.vansh.eventsphere.eventsphere.event.repository.EventRepository;
+import com.vansh.eventsphere.eventsphere.event.service.mappers.EventMapper;
+import com.vansh.eventsphere.eventsphere.event.service.validators.EventValidator;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import com.vansh.eventsphere.eventsphere.user.model.User;
 import com.vansh.eventsphere.eventsphere.user.repository.UserRepository;

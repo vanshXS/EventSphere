@@ -36,6 +36,7 @@ public class SecurityConfig {
                                         "/api/colleges", "/api/colleges/**")
                                 .permitAll()
                                 .requestMatchers("/api/organizer/**").hasRole("ORGANIZER")
+                                .requestMatchers("/api/participant/**").hasRole("PARTICIPANT")
                                 .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

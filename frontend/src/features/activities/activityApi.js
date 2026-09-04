@@ -17,7 +17,8 @@ export const formatActivityPayload = (formData) => {
     endDateTime: toIsoDateTime(formData.endDateTime),
     registrationDeadline: toIsoDateTime(formData.registrationDeadline),
     registrationType: formData.registrationType,
-    capacity: parseInt(formData.capacity, 10)
+    capacity: formData.registrationLimit === "LIMITED" ? Number(formData.capacity) : null,
+    visibility: formData.visibility || "COLLEGE_ONLY"
   };
 
   // Only include team size fields if registration type is TEAM or BOTH
@@ -63,6 +64,31 @@ export const normalizeActivity = (activity) => {
 export const createActivity = async (eventId, formData) => {
   const payload = formatActivityPayload(formData);
   const response = await api.post(`/api/organizer/events/${eventId}/activities`, payload);
+  return normalizeActivity(response.data);
+};
+
+export const createStandaloneActivity = async (formData) => {
+  const response = await api.post("/api/organizer/activities", formatActivityPayload(formData));
+  return normalizeActivity(response.data);
+};
+
+export const getStandaloneActivities = async () => {
+  const response = await api.get("/api/organizer/activities");
+  return Array.isArray(response.data) ? response.data.map(normalizeActivity) : [];
+};
+
+export const publishStandaloneActivity = async (activityId) => {
+  const response = await api.patch(`/api/organizer/activities/${activityId}/publish`);
+  return normalizeActivity(response.data);
+};
+
+export const deleteStandaloneActivity = async (activityId) => {
+  const response = await api.delete(`/api/organizer/activities/${activityId}`);
+  return response.data;
+};
+
+export const updateActivity = async (eventId, activityId, formData) => {
+  const response = await api.put(`/api/organizer/events/${eventId}/activities/${activityId}`, formatActivityPayload(formData));
   return normalizeActivity(response.data);
 };
 

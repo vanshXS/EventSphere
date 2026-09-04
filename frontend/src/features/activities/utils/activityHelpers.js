@@ -59,6 +59,54 @@ export function getActivityTypeBadgeStyle(type) {
 }
 
 /**
+ * Checks if registration for an activity is currently open.
+ * Returns false if registration deadline or end time has passed.
+ */
+export function isRegistrationOpen(activity) {
+  if (!activity) return false;
+
+  const deadline = activity.registrationDeadline || activity.registrationDeadLine;
+  if (deadline) {
+    const deadlineTime = new Date(deadline).getTime();
+    if (!isNaN(deadlineTime) && deadlineTime <= Date.now()) {
+      return false;
+    }
+  }
+
+  if (activity.endDateTime) {
+    const endTime = new Date(activity.endDateTime).getTime();
+    if (!isNaN(endTime) && endTime <= Date.now()) {
+      return false;
+    }
+  }
+
+  if (activity.status === "COMPLETED" || activity.status === "CANCELLED") {
+    return false;
+  }
+
+  if (typeof activity.registrationOpen === "boolean") {
+    return activity.registrationOpen;
+  }
+
+  return true;
+}
+
+/**
+ * Checks if an activity or event has ended.
+ */
+export function isEnded(item) {
+  if (!item) return false;
+  if (item.status === "COMPLETED") return true;
+  if (item.endDateTime) {
+    const endTime = new Date(item.endDateTime).getTime();
+    if (!isNaN(endTime) && endTime <= Date.now()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Formats capacity and team size text for clear display on cards
  * Examples:
  * - "Individual · 50 participants"
@@ -176,8 +224,8 @@ export function validateActivityForm(formData, parentEvent = null) {
   if (formData.startDateTime && formData.registrationDeadline) {
     const start = new Date(formData.startDateTime).getTime();
     const deadline = new Date(formData.registrationDeadline).getTime();
-    if (deadline > start) {
-      errors.registrationDeadline = "Registration deadline must be on or before activity start date/time";
+    if (deadline >= start) {
+      errors.registrationDeadline = "Registration deadline must be before activity start date/time";
     }
   }
 
@@ -205,11 +253,11 @@ export function validateActivityForm(formData, parentEvent = null) {
     errors.registrationType = "Please select a registration type";
   }
 
-  const capacityNum = parseInt(formData.capacity, 10);
-  if (formData.capacity === "" || formData.capacity === null || formData.capacity === undefined) {
-    errors.capacity = "Capacity is required";
-  } else if (isNaN(capacityNum) || capacityNum <= 0) {
-    errors.capacity = "Capacity must be a positive number greater than 0";
+  if (formData.registrationLimit === "LIMITED") {
+    const capacityNum = parseInt(formData.capacity, 10);
+    if (formData.capacity === "" || formData.capacity === null || formData.capacity === undefined || isNaN(capacityNum) || capacityNum <= 0) {
+      errors.capacity = "Please set a registration limit greater than 0, or choose Unlimited.";
+    }
   }
 
   // 8. Team Size Validation (for TEAM or BOTH)
