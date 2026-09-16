@@ -39,6 +39,15 @@ public class Activity {
     private Integer minTeamSize;
     private Integer maxTeamSize;
 
+    @Builder.Default
+    private boolean requiresApproval = false;
+
+    /**
+     * Internal field to detect concurrent writes to this activity.
+     * Not a registration count and not exposed through an DTO
+     */
+    private long revision;
+
     /** Lifecycle for standalone activities; child activities inherit their Event lifecycle. */
     @Indexed
     private EventStatus status;

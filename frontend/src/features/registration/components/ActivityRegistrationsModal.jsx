@@ -12,8 +12,14 @@ import {
   XCircle, 
   Layers 
 } from "lucide-react";
-import { getOrganizerActivityRegistrations } from "../registrationApi";
+import { 
+  getOrganizerActivityRegistrations,
+  approveRegistration,
+  rejectRegistration
+} from "../registrationApi";
 import { formatDateTime } from "../../events/utils/eventHelpers";
+import RegistrationStatusBadge from "./RegistrationStatusBadge";
+import { isActiveRegistration } from "../utils/registrationHelpers";
 
 export default function ActivityRegistrationsModal({
   isOpen,
@@ -23,6 +29,7 @@ export default function ActivityRegistrationsModal({
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState(null);
 
   const fetchRegistrations = async () => {
     if (!activity?.id) return;
@@ -41,6 +48,34 @@ export default function ActivityRegistrationsModal({
     }
   };
 
+  const handleApprove = async (registrationId) => {
+    try {
+      setActionLoadingId(registrationId);
+      await approveRegistration(registrationId);
+      await fetchRegistrations();
+    } catch (err) {
+      console.error("Failed to approve registration:", err);
+      alert(err.response?.data?.message || "Failed to approve registration.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleReject = async (registrationId) => {
+    const reason = window.prompt("Enter rejection reason (optional):");
+    if (reason === null) return;
+    try {
+      setActionLoadingId(registrationId);
+      await rejectRegistration(registrationId, reason);
+      await fetchRegistrations();
+    } catch (err) {
+      console.error("Failed to reject registration:", err);
+      alert(err.response?.data?.message || "Failed to reject registration.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   useEffect(() => {
     if (isOpen && activity) {
       fetchRegistrations();
@@ -53,8 +88,11 @@ export default function ActivityRegistrationsModal({
 
   if (!isOpen || !activity) return null;
 
-  const activeRegistrations = registrations.filter((r) => r.status === "REGISTERED");
-  const cancelledRegistrations = registrations.filter((r) => r.status === "CANCELLED");
+  const activeRegistrations = registrations.filter(isActiveRegistration);
+  const pendingRegistrations = registrations.filter((r) => r.status === "PENDING");
+  const cancelledRegistrations = registrations.filter(
+    (r) => r.status === "CANCELLED" || r.status === "REJECTED"
+  );
   const capacity = activity.capacity;
   const availableSlots = capacity ? Math.max(0, capacity - activeRegistrations.length) : "Unlimited";
 
@@ -161,6 +199,7 @@ export default function ActivityRegistrationsModal({
                     <th className="py-3 px-4">Team</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Registered At</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -192,20 +231,34 @@ export default function ActivityRegistrationsModal({
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        {reg.status === "REGISTERED" ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Registered
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
-                            <XCircle className="w-3 h-3" />
-                            Cancelled
-                          </span>
-                        )}
+                        <RegistrationStatusBadge status={reg.status} />
                       </td>
                       <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
                         {formatDateTime(reg.registeredAt)}
+                      </td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        {reg.status === "PENDING" ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              disabled={actionLoadingId === reg.id}
+                              onClick={() => handleApprove(reg.id)}
+                              className="rounded px-2.5 py-1 text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              {actionLoadingId === reg.id ? "..." : "Approve"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoadingId === reg.id}
+                              onClick={() => handleReject(reg.id)}
+                              className="rounded px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -23,6 +23,13 @@ public class CollegeController {
         return collegeService.searchCollege(name);
     }
 
+    @GetMapping("/{id}")
+    public College getCollegeById(
+            @PathVariable String id
+    ) {
+        return collegeService.getCollegeById(id);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public College createCollege(

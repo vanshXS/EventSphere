@@ -18,6 +18,8 @@ public class AuthResponse {
     private String email;
     private Role role;
     private String collegeId;
+    private String collegeName;
+    private String collegeCode;
 
 }
 

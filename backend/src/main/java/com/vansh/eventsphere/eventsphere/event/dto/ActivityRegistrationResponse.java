@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -26,9 +27,13 @@ public class ActivityRegistrationResponse {
     private RegistrationType registrationType;
     private String teamId;
     private String teamName;
+    private List<String> teamMemberIds;
+    private String teamLeaderId;
     private RegistrationStatus status;
     private LocalDateTime registeredAt;
     private LocalDateTime startDateTime;
     private LocalDateTime endDateTime;
     private String location;
+    private LocalDateTime reviewedAt;
+    private String reviewNote;
 }

@@ -1,8 +1,11 @@
 package com.vansh.eventsphere.eventsphere.event.service;
 
+import com.vansh.eventsphere.eventsphere.common.transaction.TransactionRunner;
 import com.vansh.eventsphere.eventsphere.event.dto.ActivityResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.CreateActivityRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.UpdateActivityRequest;
+import com.vansh.eventsphere.eventsphere.event.model.RegistrationStatus;
+import com.vansh.eventsphere.eventsphere.event.repository.ActivityRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.service.mappers.ActivityMapper;
 import com.vansh.eventsphere.eventsphere.event.model.Activity;
 import com.vansh.eventsphere.eventsphere.event.model.Event;
@@ -26,6 +29,14 @@ public class ActivityService {
     private final ActivityValidator activityValidator;
     private final EventRepository eventRepository;
     private final ActivityMapper activityMapper;
+    private final TransactionRunner transactionRunner;
+    private final ActivityRegistrationRepository activityRegistrationRepository;
+
+    private static final List<RegistrationStatus> CAPACITY_STATUSES = List.of(
+            RegistrationStatus.PENDING,
+            RegistrationStatus.APPROVED,
+            RegistrationStatus.REGISTERED
+    );
 
 
     // =========================================================
@@ -140,6 +151,16 @@ public class ActivityService {
             UpdateActivityRequest request,
             String organizerId
     ) {
+            return transactionRunner.run(() -> {
+                    guardActivity(activityId);
+                    return updateActivityInsideTransaction(activityId, request, organizerId);
+            });
+    }
+    public ActivityResponse updateActivityInsideTransaction(
+            String activityId,
+            UpdateActivityRequest request,
+            String organizerId
+    ) {
 
         Activity activity = getOwnedActivity(
                 activityId,
@@ -174,6 +195,16 @@ public class ActivityService {
     // =========================================================
 
     public ActivityResponse patchActivity(
+            String activityId,
+            UpdateActivityRequest request,
+            String organizerId
+    ) {
+      return  transactionRunner.run(() -> {
+            guardActivity(activityId);
+            return patchActivityInsideTransaction(activityId, request, organizerId);
+        });
+    }
+    public ActivityResponse patchActivityInsideTransaction(
             String activityId,
             UpdateActivityRequest request,
             String organizerId
@@ -338,7 +369,7 @@ public class ActivityService {
                 .capacity(request.getCapacity())
                 .minTeamSize(request.getMinTeamSize())
                 .maxTeamSize(request.getMaxTeamSize())
-                .status(eventId == null ? EventStatus.DRAFT : null)
+                .status(eventId == null ? EventStatus.DRAFT : EventStatus.PUBLISHED)
                 /*
                  * Visibility is owned by the Event for event activities.
                  * Only standalone activities carry their own visibility.
@@ -348,6 +379,7 @@ public class ActivityService {
                                 ? request.getVisibility()
                                 : null
                 )
+                .requiresApproval(request.isRequiresApproval())
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -372,6 +404,10 @@ public class ActivityService {
         // Standalone activities own their visibility; event activities inherit it.
         if (activity.getEventId() == null) {
             activity.setVisibility(request.getVisibility());
+        }
+
+        if(request.getRequiresApproval() != null) {
+            activity.setRequiresApproval(request.getRequiresApproval());
         }
 
         activity.setStartDateTime(
@@ -423,6 +459,10 @@ public class ActivityService {
 
         if (request.getDescription() != null) {
             activity.setDescription(request.getDescription());
+        }
+
+        if(request.getRequiresApproval() != null) {
+            activity.setRequiresApproval(request.getRequiresApproval());
         }
 
         if (request.getType() != null) {
@@ -487,5 +527,29 @@ public class ActivityService {
         activity.setUpdatedAt(
                 LocalDateTime.now()
         );
+    }
+
+    private void guardActivity(String activityId) {
+        if (!activityRepository.existsById(activityId)) {
+            throw new ResourceNotFoundException("Activity not found.");
+        }
+
+        transactionRunner.guard(Activity.class, activityId);
+    }
+
+    private void validateCapacityAgainstRegistrations(Activity activity) {
+        if (activity.getCapacity() == null) {
+            return;
+        }
+
+        long occupiedCount = activityRegistrationRepository
+                .countByActivityIdAndStatusIn(activity.getId(), CAPACITY_STATUSES);
+
+        if (activity.getCapacity() < occupiedCount) {
+            throw new BadRequestException(
+                    "Capacity cannot be lower than the " + occupiedCount
+                            + " entries already reserved."
+            );
+        }
     }
 }

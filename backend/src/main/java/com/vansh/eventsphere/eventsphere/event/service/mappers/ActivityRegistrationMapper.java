@@ -19,8 +19,12 @@ public class ActivityRegistrationMapper {
                         .participantId(registration.getParticipantId())
                         .registrationType(registration.getRegistrationType())
                         .teamId(registration.getTeamId())
+                        .teamMemberIds(registration.getTeamMemberIds())
+                        .teamLeaderId(registration.getTeamLeaderId())
                         .status(registration.getStatus())
                         .registeredAt(registration.getRegisteredAt())
+                        .reviewedAt(registration.getReviewedAt())
+                        .reviewNote(registration.getReviewNote())
                         .build();
     }
 }

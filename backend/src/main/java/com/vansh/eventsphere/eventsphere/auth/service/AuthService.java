@@ -48,7 +48,8 @@ public class AuthService {
         log.info("Organizer registration attempt: {}", request.getEmail()
         );
 
-        if(userRepository.existsByEmail(request.getEmail())){
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        if(userRepository.existsByEmail(normalizedEmail)){
             log.warn(
                 "Email already exists: {}", 
                 request.getEmail()
@@ -64,7 +65,7 @@ public class AuthService {
  
         User organizer = User.builder()
         .name(request.getName())
-        .email(request.getEmail())
+        .email(normalizedEmail)
         .password(passwordEncoder.encode(request.getPassword()))
         .role(Role.ORGANIZER)
         .collegeId(college.getId())
@@ -75,7 +76,7 @@ public class AuthService {
         userRepository.save(organizer);
         log.info(
             "Organizer registered successfully: {}", 
-            request.getEmail()
+            normalizedEmail
         );
     }
 
@@ -105,7 +106,7 @@ public class AuthService {
 
         User participant = User.builder()
                 .name(request.getName())
-                .email(request.getEmail())
+                .email(email)
                 .role(Role.PARTICIPANT)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .active(true)
@@ -149,12 +150,19 @@ public class AuthService {
         String refreshToken = refreshTokenService.createRefreshToken(user);
 
 
+        College college = user.getCollegeId() != null
+                ? collegeRepository.findById(user.getCollegeId()).orElse(null)
+                : null;
+
         AuthResponse response = AuthResponse.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole())
-                .collegeId(user.getCollegeId()).build();
+                .collegeId(user.getCollegeId())
+                .collegeName(college != null ? college.getName() : null)
+                .collegeCode(college != null ? college.getCode() : null)
+                .build();
 
         return new AuthResult(response, accessToken, refreshToken);
 
@@ -171,12 +179,19 @@ public class AuthService {
 
         String newAccessToken = jwtService.generateAccessToken(user);
 
+        College refreshCollege = user.getCollegeId() != null
+                ? collegeRepository.findById(user.getCollegeId()).orElse(null)
+                : null;
+
         AuthResponse response = AuthResponse.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole())
-                .collegeId(user.getCollegeId()).build();
+                .collegeId(user.getCollegeId())
+                .collegeName(refreshCollege != null ? refreshCollege.getName() : null)
+                .collegeCode(refreshCollege != null ? refreshCollege.getCode() : null)
+                .build();
 
         return new AuthResult(
                 response,

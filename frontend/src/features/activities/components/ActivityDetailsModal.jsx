@@ -1,50 +1,67 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { 
-  X, 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  Users, 
-  FileText, 
-  Info, 
-  Sparkles 
+import {
+  X,
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  FileText,
+  Info
 } from "lucide-react";
-import { 
-  getActivityTypeLabel, 
-  getActivityTypeBadgeStyle, 
+
+import {
+  getActivityTypeLabel,
+  getActivityTypeBadgeStyle,
   formatCapacitySummary,
   isRegistrationOpen,
-  isEnded 
+  isEnded
 } from "../utils/activityHelpers";
+
 import { formatDateTime } from "../../events/utils/eventHelpers";
+
+import RegistrationStatusBadge from "../../registration/components/RegistrationStatusBadge";
+import {
+  blocksRegistration,
+  normalizeRegistrationStatus
+} from "../../registration/utils/registrationHelpers";
 
 export default function ActivityDetailsModal({
   isOpen,
   activity,
   isRegistered = false,
+  registration = null,
   onRegisterClick,
   onClose
 }) {
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && isOpen) {
+    if (!isOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
         onClose();
       }
     };
 
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
-    }
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, onClose]);
 
   if (!isOpen || !activity) return null;
+
+  const hasRegistration =
+    blocksRegistration(registration) || isRegistered;
+
+  const registrationStatus = normalizeRegistrationStatus(
+    registration?.status || (isRegistered ? "REGISTERED" : null)
+  );
 
   const capacityInfo = formatCapacitySummary(
     activity.registrationType,
@@ -53,146 +70,190 @@ export default function ActivityDetailsModal({
     activity.maxTeamSize
   );
 
-  const modalContent = (
+  const registrationMessage =
+    registrationStatus === "PENDING"
+      ? "Waiting for organizer approval."
+      : registrationStatus === "REJECTED"
+      ? "Request rejected. See My Registrations for details."
+      : "Your registration is approved.";
+
+  const type = activity.type || activity.activityType;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="activity-details-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
           onClose();
         }
       }}
     >
-      <div
-        className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
-          <div className="space-y-1.5 min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${getActivityTypeBadgeStyle(activity.type || activity.activityType)}`}>
-                {getActivityTypeLabel(activity.type || activity.activityType)}
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5 sm:p-6">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getActivityTypeBadgeStyle(
+                  type
+                )}`}
+              >
+                {getActivityTypeLabel(type)}
               </span>
-              <span className="text-xs font-medium text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+
+              <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-500">
                 {activity.registrationType}
               </span>
-              {isRegistered && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Registered
-                </span>
+
+              {hasRegistration && (
+                <RegistrationStatusBadge
+                  status={registrationStatus}
+                />
               )}
             </div>
-            <h2 id="activity-details-title" className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug">
+
+            <h2
+              id="activity-details-title"
+              className="text-xl font-bold leading-snug text-slate-900 sm:text-2xl"
+            >
               {activity.name}
             </h2>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            aria-label="Close activity details"
+            className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-5 sm:p-6 space-y-6 overflow-y-auto">
-          {/* Description */}
+        <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
           {activity.description && (
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                <span>Description</span>
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+            <section className="space-y-2">
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <Info className="h-3.5 w-3.5" />
+                Description
+              </h3>
+
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
                 {activity.description}
               </p>
-            </div>
+            </section>
           )}
 
-          {/* Key Specifications Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50/80 rounded-xl border border-slate-200/70 text-xs sm:text-sm">
-            {/* Schedule */}
+          <div className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200/70 bg-slate-50/80 p-4 text-sm sm:grid-cols-2">
             <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase flex items-center gap-1">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                <span>Schedule</span>
-              </div>
-              <div className="font-medium text-slate-800">
-                {formatDateTime(activity.startDateTime)} – {formatDateTime(activity.endDateTime)}
-              </div>
+              <h3 className="flex items-center gap-1 text-xs font-medium uppercase text-slate-500">
+                <Calendar className="h-3.5 w-3.5" />
+                Schedule
+              </h3>
+
+              <p className="font-medium text-slate-800">
+                {formatDateTime(activity.startDateTime)}
+                {" – "}
+                {formatDateTime(activity.endDateTime)}
+              </p>
             </div>
 
-            {/* Registration Deadline */}
             <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <span>Registration Deadline</span>
-              </div>
-              <div className="font-medium text-slate-800">
-                {formatDateTime(activity.registrationDeadline || activity.registrationDeadLine)}
-              </div>
+              <h3 className="flex items-center gap-1 text-xs font-medium uppercase text-slate-500">
+                <Clock className="h-3.5 w-3.5" />
+                Registration deadline
+              </h3>
+
+              <p className="font-medium text-slate-800">
+                {formatDateTime(
+                  activity.registrationDeadline ||
+                    activity.registrationDeadLine
+                )}
+              </p>
             </div>
 
-            {/* Venue / Location */}
             <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                <span>Location</span>
-              </div>
-              <div className="font-medium text-slate-800">
+              <h3 className="flex items-center gap-1 text-xs font-medium uppercase text-slate-500">
+                <MapPin className="h-3.5 w-3.5" />
+                Location
+              </h3>
+
+              <p className="font-medium text-slate-800">
                 {activity.location || "Within event venue / Campus"}
-              </div>
+              </p>
             </div>
 
-            {/* Registration & Capacity */}
             <div className="space-y-1">
-              <div className="text-xs font-medium text-slate-500 uppercase flex items-center gap-1">
-                <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span>Participation & Capacity</span>
-              </div>
-              <div className="font-medium text-slate-800">
+              <h3 className="flex items-center gap-1 text-xs font-medium uppercase text-slate-500">
+                <Users className="h-3.5 w-3.5" />
+                Participation & capacity
+              </h3>
+
+              <p className="font-medium text-slate-800">
                 {capacityInfo.typeText} · {capacityInfo.capacityText}
-              </div>
+              </p>
+
               {capacityInfo.teamText && (
-                <div className="text-xs text-slate-500 font-medium">
+                <p className="text-xs text-slate-500">
                   Team requirement: {capacityInfo.teamText}
-                </div>
+                </p>
               )}
             </div>
           </div>
 
-          {/* Rules & Guidelines */}
-          <div className="space-y-2">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <FileText className="w-3.5 h-3.5 text-slate-400" />
-              <span>Rules & Guidelines</span>
+          {activity.requiresApproval === true && (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              New registrations require organizer approval.
+            </p>
+          )}
+
+          {registration?.reviewNote && (
+            <section className="space-y-2 rounded-lg border border-slate-200 p-3">
+              <h3 className="text-xs font-semibold text-slate-700">
+                Organizer note
+              </h3>
+
+              <p className="whitespace-pre-wrap break-words text-sm text-slate-600">
+                {registration.reviewNote}
+              </p>
+
+              {registration.reviewedAt && (
+                <p className="text-xs text-slate-400">
+                  Reviewed {formatDateTime(registration.reviewedAt)}
+                </p>
+              )}
+            </section>
+          )}
+
+          <section className="space-y-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <FileText className="h-3.5 w-3.5" />
+              Rules & guidelines
+            </h3>
+
+            <div className="whitespace-pre-wrap rounded-xl border border-slate-200/60 bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">
+              {activity.rules ||
+                "Standard competition rules and fair play guidelines apply."}
             </div>
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-              {activity.rules || "Standard competition rules and fair play guidelines apply."}
-            </div>
-          </div>
+          </section>
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 p-4 sm:p-5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
           >
             Close
           </button>
 
-          {onRegisterClick && (
-            isRegistered ? (
-              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg">
-                You are registered for this activity
-              </span>
+          {onRegisterClick &&
+            (hasRegistration ? (
+              <p className="max-w-sm text-xs font-medium text-slate-600">
+                {registrationMessage}
+              </p>
             ) : isRegistrationOpen(activity) ? (
               <button
                 type="button"
@@ -200,22 +261,20 @@ export default function ActivityDetailsModal({
                   onClose();
                   onRegisterClick(activity);
                 }}
-                className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors cursor-pointer"
+                className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-medium text-white shadow-xs hover:bg-indigo-700"
               >
                 Register Now
               </button>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-lg">
-                {isEnded(activity) ? "Activity Ended" : "Registration Closed"}
+              <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                {isEnded(activity)
+                  ? "Activity Ended"
+                  : "Registration Closed"}
               </span>
-            )
-          )}
-        </div>
+            ))}
+        </footer>
       </div>
-    </div>
+    </div>,
+    document.body
   );
-
-  return typeof document !== "undefined"
-    ? createPortal(modalContent, document.body)
-    : modalContent;
 }

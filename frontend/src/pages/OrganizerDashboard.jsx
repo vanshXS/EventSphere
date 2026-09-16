@@ -1,6 +1,7 @@
 import React from "react";
 import { useAuth } from "../features/auth/AuthContext";
 import { LogOut, User, Building, Calendar } from "lucide-react";
+import CollegeNavbarBadge from "../components/common/CollegeNavbarBadge";
 
 export default function OrganizerDashboard() {
     const { user, logoutUser } = useAuth();
@@ -8,22 +9,42 @@ export default function OrganizerDashboard() {
     return (
         <div className="min-h-screen bg-slate-50">
             <header className="bg-white border-b border-slate-200 py-4 px-6 sm:px-8 flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                    <div className="bg-indigo-600 text-white p-2 rounded-lg">
+                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+                    <div className="bg-indigo-600 text-white p-2 rounded-lg shrink-0">
                         <Calendar className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-lg text-slate-900">EventSphere</span>
-                    <span className="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-indigo-100">
-                        Organizer
-                    </span>
+                    <div className="shrink-0 flex items-center">
+                        <span className="font-bold text-lg text-slate-900">EventSphere</span>
+                        <span className="ml-2 bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-indigo-100">
+                            Organizer
+                        </span>
+                    </div>
+
+                    <div className="hidden md:block h-6 w-px bg-slate-200" />
+
+                    <CollegeNavbarBadge
+                        collegeName={user?.collegeName}
+                        collegeCode={user?.collegeCode}
+                        collegeId={user?.collegeId}
+                        className="hidden md:flex"
+                    />
                 </div>
-                <button
-                    onClick={logoutUser}
-                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                >
-                    <LogOut className="w-4 h-4 text-slate-500" />
-                    <span>Sign Out</span>
-                </button>
+                <div className="flex items-center space-x-3 shrink-0">
+                    <CollegeNavbarBadge
+                        collegeName={user?.collegeName}
+                        collegeCode={user?.collegeCode}
+                        collegeId={user?.collegeId}
+                        compact={true}
+                        className="flex md:hidden"
+                    />
+                    <button
+                        onClick={logoutUser}
+                        className="inline-flex items-center space-x-1.5 px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                    >
+                        <LogOut className="w-4 h-4 text-slate-500" />
+                        <span>Sign Out</span>
+                    </button>
+                </div>
             </header>
 
             <main className="max-w-4xl mx-auto py-10 px-4 sm:px-6">
@@ -51,8 +72,11 @@ export default function OrganizerDashboard() {
                                 College Affiliation
                             </div>
                             <div className="text-sm font-semibold text-slate-800">
-                                {user?.collegeId ? `College ID: ${user.collegeId}` : "Not Specified"}
+                                {user?.collegeName || (user?.collegeId ? `College ID: ${user.collegeId}` : "Not Specified")}
                             </div>
+                            {user?.collegeCode && (
+                                <div className="text-xs text-slate-500 mt-1">Code: {user.collegeCode}</div>
+                            )}
                         </div>
                     </div>
                 </div>

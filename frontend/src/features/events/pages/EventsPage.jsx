@@ -18,6 +18,7 @@ import {
   Layers,
   Trophy
 } from "lucide-react";
+import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 
 export default function EventsPage() {
   const { user, logoutUser } = useAuth();
@@ -199,17 +200,35 @@ export default function EventsPage() {
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="bg-indigo-600 text-white p-2 rounded-lg">
+          <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+            <div className="bg-indigo-600 text-white p-2 rounded-lg shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <span className="font-bold text-lg text-slate-900 tracking-tight">EventSphere</span>
-            <span className="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-indigo-100">
-              Organizer
-            </span>
+            <div className="shrink-0 flex items-center">
+              <span className="font-bold text-lg text-slate-900 tracking-tight">EventSphere</span>
+              <span className="ml-2.5 bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-indigo-100">
+                Organizer
+              </span>
+            </div>
+
+            <div className="hidden md:block h-6 w-px bg-slate-200" />
+
+            <CollegeNavbarBadge
+              collegeName={user?.collegeName}
+              collegeCode={user?.collegeCode}
+              collegeId={user?.collegeId}
+              className="hidden md:flex"
+            />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <CollegeNavbarBadge
+              collegeName={user?.collegeName}
+              collegeCode={user?.collegeCode}
+              collegeId={user?.collegeId}
+              compact={true}
+              className="flex md:hidden"
+            />
             {user?.name && (
               <span className="hidden sm:inline text-xs text-slate-500 font-medium">
                 {user.name}

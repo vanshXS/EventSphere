@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -21,11 +23,31 @@ public class ActivityRegistrationValidator {
     private final ActivityRegistrationRepository activityRegistrationRepository;
     private final TeamRepository teamRepository;
 
+    private static final List<RegistrationStatus> CAPACITY_STATUSES = List.of(
+            RegistrationStatus.PENDING,
+            RegistrationStatus.APPROVED,
+            RegistrationStatus.REGISTERED
+    );
+
+    private static final List<RegistrationStatus> DUPLICATE_BLOCKING_STATUSES = List.of(
+            RegistrationStatus.PENDING,
+            RegistrationStatus.APPROVED,
+            RegistrationStatus.REGISTERED,
+            RegistrationStatus.REJECTED
+    );
+
+
     public void validateRegistrationType(
             Activity activity,
             RegistrationType type
     ) {
         if(type == null) throw new BadRequestException("Registration type is required.");
+
+        if(type == RegistrationType.BOTH){
+            throw new BadRequestException(
+                    "Choose individual or team registration."
+            );
+        }
 
         RegistrationType allowedType = activity.getRegistrationType();
 
@@ -38,7 +60,7 @@ public class ActivityRegistrationValidator {
         }
     }
 
-    public void validateTeamRequirements(
+    public Team validateTeamRequirements(
             Activity activity,
             ActivityRegistrationRequest request,
             String participantId
@@ -51,7 +73,7 @@ public class ActivityRegistrationValidator {
                         "Team ID must not be provided for individual registration."
                 );
             }
-            return;
+            return null;
         }
 
         if (request.getTeamId() == null || request.getTeamId().isBlank()) {
@@ -59,29 +81,36 @@ public class ActivityRegistrationValidator {
         }
 
         Team team = teamRepository.findById(request.getTeamId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Team not found."
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found."));
 
         if (team.getMembersId() == null || !team.getMembersId().contains(participantId)) {
+            throw new BadRequestException("You are not a member of this team.");
+        }
+
+        if (!participantId.equals(team.getLeaderId())) {
             throw new BadRequestException(
-                    "You are not a member of this team."
+                    "Only the team leader can register this team for an activity."
             );
         }
 
-        int teamSize = team.getMembersId() != null ? team.getMembersId().size() : 0;
+        int teamSize = team.getMembersId().size();
 
         if (activity.getMinTeamSize() != null && teamSize < activity.getMinTeamSize()) {
             throw new BadRequestException(
-                    "Team size must be at least " + activity.getMinTeamSize() + " members. Your team currently has " + teamSize + (teamSize == 1 ? " member." : " members.")
+                    "Team size must be at least " + activity.getMinTeamSize()
+                            + " members. Your team currently has " + teamSize
+                            + (teamSize == 1 ? " member." : " members.")
             );
         }
 
         if (activity.getMaxTeamSize() != null && teamSize > activity.getMaxTeamSize()) {
             throw new BadRequestException(
-                    "Team size cannot exceed " + activity.getMaxTeamSize() + " members. Your team currently has " + teamSize + " members."
+                    "Team size cannot exceed " + activity.getMaxTeamSize()
+                            + " members. Your team currently has " + teamSize + " members."
             );
         }
+
+        return team;
     }
 
     public void validateRegistrationDeadline(
@@ -99,28 +128,72 @@ public class ActivityRegistrationValidator {
     public void validateDuplicateRegistration(
             String activityId,
             String participantId,
-            ActivityRegistrationRequest request
+            ActivityRegistrationRequest request,
+            Team team
     ) {
-        if(request.getRegistrationType() == RegistrationType.INDIVIDUAL) {
-            if(activityRegistrationRepository.existsByActivityIdAndParticipantIdAndStatus(
-                    activityId,
-                    participantId,
-                    RegistrationStatus.REGISTERED
-            )) {
+        if (request.getRegistrationType() == RegistrationType.INDIVIDUAL) {
+
+            boolean ownEntry = activityRegistrationRepository
+                    .existsByActivityIdAndParticipantIdAndStatusIn(
+                            activityId, participantId, DUPLICATE_BLOCKING_STATUSES
+                    );
+
+            if (ownEntry) {
                 throw new BadRequestException(
-                        "You are already registered for this activity."
+                        "You already have a registration or a rejected request "
+                                + "for this activity."
                 );
             }
+
+            boolean insideTeamEntry = activityRegistrationRepository
+                    .existsByActivityIdAndStatusInAndTeamMemberIdsIn(
+                            activityId, DUPLICATE_BLOCKING_STATUSES, List.of(participantId)
+                    );
+
+            if (insideTeamEntry) {
+                throw new BadRequestException(
+                        "You are already part of a team entry for this activity."
+                );
+            }
+
             return;
         }
 
-        if(activityRegistrationRepository.existsByActivityIdAndTeamIdAndStatus(
-                activityId,
-                request.getTeamId(),
-                RegistrationStatus.REGISTERED
-        )) {
+        boolean teamEntry = activityRegistrationRepository
+                .existsByActivityIdAndTeamIdAndStatusIn(
+                        activityId, team.getId(), DUPLICATE_BLOCKING_STATUSES
+                );
+
+        if (teamEntry) {
             throw new BadRequestException(
-                    "This team is already registered for this activity."
+                    "This team already has a registration or a rejected request "
+                            + "for this activity."
+            );
+        }
+
+        List<String> memberIds = new ArrayList<>(team.getMembersId());
+
+        boolean memberHasIndividualEntry = activityRegistrationRepository
+                .existsByActivityIdAndStatusInAndParticipantIdIn(
+                        activityId, DUPLICATE_BLOCKING_STATUSES, memberIds
+                );
+
+        if (memberHasIndividualEntry) {
+            throw new BadRequestException(
+                    "A member of this team already has an individual entry "
+                            + "for this activity."
+            );
+        }
+
+        boolean memberInAnotherTeam = activityRegistrationRepository
+                .existsByActivityIdAndStatusInAndTeamMemberIdsIn(
+                        activityId, DUPLICATE_BLOCKING_STATUSES, memberIds
+                );
+
+        if (memberInAnotherTeam) {
+            throw new BadRequestException(
+                    "A member of this team is already part of another team entry "
+                            + "for this activity."
             );
         }
     }
@@ -129,12 +202,12 @@ public class ActivityRegistrationValidator {
 
         if(activity.getCapacity() == null) return;
 
-        long registerCount = activityRegistrationRepository.countByActivityIdAndStatus(
+        long occupiedCount = activityRegistrationRepository.countByActivityIdAndStatusIn(
                 activity.getId(),
-                RegistrationStatus.REGISTERED
+                CAPACITY_STATUSES
         );
 
-        if(registerCount >= activity.getCapacity()) {
+        if(occupiedCount >= activity.getCapacity()) {
             throw new BadRequestException(
                     "Registration slots for this activity are full."
             );

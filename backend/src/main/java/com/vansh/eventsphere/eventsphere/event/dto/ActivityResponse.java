@@ -42,6 +42,8 @@ public class ActivityResponse {
 
     private Integer maxTeamSize;
 
+    private boolean requiresApproval;
+
     private EventStatus status;
 
     /**

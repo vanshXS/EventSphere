@@ -1,4 +1,4 @@
-package com.vansh.eventsphere.eventsphere.config;
+package com.vansh.eventsphere.eventsphere.common.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -1,28 +1,21 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { 
-  X, 
-  Calendar, 
-  MapPin, 
-  Info, 
-  Layers, 
-  Trophy, 
-  Clock, 
-  Users, 
-  ShieldCheck, 
-  CheckCircle2, 
-  Loader2, 
-  Globe 
+import {
+  X,
+  Calendar,
+  MapPin,
+  Loader2,
+  RefreshCw
 } from "lucide-react";
-import { formatDateTime, formatDateRange, getVisibilityLabel } from "../utils/eventHelpers";
-import { 
-  getActivityTypeLabel, 
-  getActivityTypeBadgeStyle, 
-  formatCapacitySummary,
-  isRegistrationOpen,
-  isEnded 
-} from "../../activities/utils/activityHelpers";
+
+import {
+  formatDateRange,
+  getVisibilityLabel
+} from "../utils/eventHelpers";
+
 import { getActivitiesOfVisibleEvent } from "../../registration/registrationApi";
+import { getActivityRegistration } from "../../registration/utils/registrationHelpers";
+import ParticipantActivityCard from "../../registration/components/ParticipantActivityCard";
 
 export default function EventDetailsModal({
   isOpen,
@@ -30,274 +23,261 @@ export default function EventDetailsModal({
   myRegistrations = [],
   onClose,
   onRegisterActivity,
-  onViewActivityDetails
+  onViewActivityDetails,
+  onViewMyRegistrations
 }) {
-  const [activities, setActivities] = useState([]);
-  const [loadingActivities, setLoadingActivities] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (isOpen && event?.id) {
-      loadActivities(event.id);
-    } else {
-      setActivities([]);
-      setError("");
-    }
-  }, [isOpen, event?.id]);
-
-  const loadActivities = async (eventId) => {
-    try {
-      setLoadingActivities(true);
-      setError("");
-      const data = await getActivitiesOfVisibleEvent(eventId);
-      setActivities(data);
-    } catch (err) {
-      console.error("Failed to load activities for event:", err);
-      setError("Unable to load activities for this event.");
-    } finally {
-      setLoadingActivities(false);
-    }
-  };
-
   if (!isOpen || !event) return null;
 
-  const modalContent = (
+  return createPortal(
+    <EventDetailsContent
+      key={event.id}
+      event={event}
+      myRegistrations={myRegistrations}
+      onClose={onClose}
+      onRegisterActivity={onRegisterActivity}
+      onViewActivityDetails={onViewActivityDetails}
+      onViewMyRegistrations={onViewMyRegistrations}
+    />,
+    document.body
+  );
+}
+
+function EventDetailsContent({
+  event,
+  myRegistrations,
+  onClose,
+  onRegisterActivity,
+  onViewActivityDetails,
+  onViewMyRegistrations
+}) {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+
+    getActivitiesOfVisibleEvent(event.id)
+      .then((data) => {
+        if (!ignore) {
+          setActivities(data);
+          setError("");
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setError(
+            err.response?.data?.message ||
+              "Could not load activities for this event."
+          );
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [event.id, reloadKey]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+
+    const handleKeyDown = (keyboardEvent) => {
+      if (keyboardEvent.key === "Escape") onClose();
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  const refreshActivities = () => {
+    setLoading(true);
+    setError("");
+    setReloadKey((previous) => previous + 1);
+  };
+
+  return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="event-details-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
+      onClick={(clickEvent) => {
+        if (clickEvent.target === clickEvent.currentTarget) {
           onClose();
         }
       }}
     >
-      <div
-        className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="p-6 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
-          <div className="space-y-1.5 min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-                <Layers className="w-3 h-3" />
+      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5 sm:p-6">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
                 Event
               </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-                <Globe className="w-3 h-3 text-slate-400" />
+
+              <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-600">
                 {getVisibilityLabel(event.visibility)}
               </span>
             </div>
-            <h2 id="event-details-title" className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug">
+
+            <h2
+              id="event-details-title"
+              className="text-xl font-bold text-slate-900 sm:text-2xl"
+            >
               {event.title}
             </h2>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close modal"
-            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+            aria-label="Close event details"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
-        </div>
+        </header>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-6 space-y-6 overflow-y-auto">
-          {/* Key Info Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50/80 rounded-xl border border-slate-200/70 text-xs sm:text-sm">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
+        <div className="space-y-6 overflow-y-auto p-5 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm sm:grid-cols-2">
+            <div className="flex items-start gap-2">
+              <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
               <div>
-                <span className="text-[11px] text-slate-500 block">Schedule</span>
-                <span className="font-semibold text-slate-800">
-                  {formatDateRange(event.startDateTime, event.endDateTime)}
-                </span>
+                <p className="text-xs text-slate-500">Schedule</p>
+                <p className="mt-1 font-medium text-slate-800">
+                  {formatDateRange(
+                    event.startDateTime,
+                    event.endDateTime
+                  )}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
               <div>
-                <span className="text-[11px] text-slate-500 block">Venue</span>
-                <span className="font-semibold text-slate-800">
+                <p className="text-xs text-slate-500">Venue</p>
+                <p className="mt-1 font-medium text-slate-800">
                   {event.venue || "Venue not set"}
-                </span>
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Description */}
           {event.description && (
-            <div className="space-y-1.5">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-slate-400" />
-                <span>About this Event</span>
-              </div>
-              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                About this event
+              </h3>
+
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
                 {event.description}
               </p>
-            </div>
+            </section>
           )}
 
-          {/* Sub-Activities & Competitions */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Activities & Competitions ({activities.length})
-                </h3>
-              </div>
-              <span className="text-xs text-slate-500">
-                Participate in individual competitions under this event
-              </span>
+          <section className="space-y-4 border-t border-slate-100 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-slate-900">
+                Activities & Competitions ({activities.length})
+              </h3>
+
+              <button
+                type="button"
+                onClick={refreshActivities}
+                disabled={loading}
+                aria-label="Refresh event activities"
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    loading ? "animate-spin" : ""
+                  }`}
+                />
+              </button>
             </div>
 
-            {loadingActivities ? (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-center gap-2 text-slate-500">
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                <span className="text-xs font-medium">Loading activities...</span>
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                Loading activities...
               </div>
             ) : error ? (
-              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
-                {error}
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+              >
+                <p>{error}</p>
+                <button
+                  type="button"
+                  onClick={refreshActivities}
+                  className="mt-2 font-semibold underline"
+                >
+                  Try again
+                </button>
               </div>
             ) : activities.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200/80 text-slate-500 text-xs">
-                No activities or competitions listed under this event yet.
-              </div>
+              <p className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                No activities are listed under this event yet.
+              </p>
             ) : (
-              <div className="space-y-3">
-                {activities.map((act) => {
-                  const isRegistered = myRegistrations.some(
-                    (r) => r.activityId === act.id && r.status === "REGISTERED"
-                  );
-                  const capInfo = formatCapacitySummary(
-                    act.registrationType,
-                    act.capacity,
-                    act.minTeamSize,
-                    act.maxTeamSize
-                  );
-                  const typeBadge = getActivityTypeBadgeStyle(act.type || act.activityType);
-
-                  return (
-                    <div
-                      key={act.id}
-                      className="p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition-colors shadow-2xs space-y-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${typeBadge}`}>
-                              {getActivityTypeLabel(act.type || act.activityType)}
-                            </span>
-                            <span className="text-[11px] font-medium text-slate-500">
-                              {act.registrationType}
-                            </span>
-                          </div>
-                          <h4 className="text-sm font-bold text-slate-900">
-                            {act.name}
-                          </h4>
-                        </div>
-
-                        {isRegistered ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                            <CheckCircle2 className="w-3 h-3" />
-                            Registered
-                          </span>
-                        ) : isRegistrationOpen(act) ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onRegisterActivity(act);
-                            }}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Register</span>
-                          </button>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 shrink-0">
-                            {isEnded(act) ? "Ended" : "Registration Closed"}
-                          </span>
-                        )}
-                      </div>
-
-                      {act.description && (
-                        <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                          {act.description}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            Deadline: {formatDateTime(act.registrationDeadline || act.registrationDeadLine)}
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Users className="w-3.5 h-3.5 text-slate-400" />
-                            {capInfo.typeText} · {capInfo.capacityText}
-                          </span>
-                        </div>
-
-                        {onViewActivityDetails && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              onViewActivityDetails(act);
-                            }}
-                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-                          >
-                            Full Details & Rules →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              activities.map((activity) => (
+                <ParticipantActivityCard
+                  key={activity.id}
+                  activity={activity}
+                  registration={getActivityRegistration(
+                    myRegistrations,
+                    activity.id
+                  )}
+                  onRegisterClick={
+                    onRegisterActivity
+                      ? () => {
+                          onClose();
+                          onRegisterActivity(activity);
+                        }
+                      : undefined
+                  }
+                  onViewDetails={
+                    onViewActivityDetails
+                      ? () => {
+                          onClose();
+                          onViewActivityDetails(activity);
+                        }
+                      : undefined
+                  }
+                  onViewMyRegistrations={
+                    onViewMyRegistrations
+                      ? () => {
+                          onClose();
+                          onViewMyRegistrations();
+                        }
+                      : undefined
+                  }
+                />
+              ))
             )}
-          </div>
+          </section>
         </div>
 
-        {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 flex justify-end bg-slate-50/50">
+        <footer className="flex justify-end border-t border-slate-100 bg-slate-50/50 p-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
           >
             Close
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   );
-
-  return typeof document !== "undefined"
-    ? createPortal(modalContent, document.body)
-    : modalContent;
 }

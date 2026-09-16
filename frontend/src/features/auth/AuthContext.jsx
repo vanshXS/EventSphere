@@ -7,19 +7,40 @@ import {
 
 import {
     logout,
-    refreshAccessToken
+    refreshAccessToken,
+    getCollegeById
 } from "./authApi";
 import { Loader2 } from "lucide-react";
 
 const AuthContext = createContext(null);
+
+const enrichUserData = async (userData) => {
+    if (!userData || !userData.collegeId || userData.collegeName) {
+        return userData;
+    }
+    try {
+        const college = await getCollegeById(userData.collegeId);
+        if (college) {
+            return {
+                ...userData,
+                collegeName: college.name,
+                collegeCode: college.code
+            };
+        }
+    } catch (e) {
+        console.warn("Could not load college details:", e);
+    }
+    return userData;
+};
 
 export default function AuthProvider({ children }) {
 
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const loginUser = (userData) => {
-        setUser(userData);
+    const loginUser = async (userData) => {
+        const enriched = await enrichUserData(userData);
+        setUser(enriched);
     };
 
     const logoutUser = async () => {
@@ -44,7 +65,8 @@ export default function AuthProvider({ children }) {
                 const userData =
                     await refreshAccessToken();
 
-                setUser(userData);
+                const enriched = await enrichUserData(userData);
+                setUser(enriched);
 
             } catch (error) {
 

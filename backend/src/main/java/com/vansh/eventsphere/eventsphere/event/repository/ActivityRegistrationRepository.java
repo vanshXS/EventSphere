@@ -23,4 +23,41 @@ public interface ActivityRegistrationRepository extends MongoRepository<Activity
             RegistrationStatus status
     );
 
+    boolean existsByActivityIdAndParticipantIdAndStatusIn(
+            String activityId,
+            String participantId,
+            List<RegistrationStatus> statuses
+    );
+
+    boolean existsByActivityIdAndTeamIdAndStatusIn(
+            String activityId,
+            String teamId,
+            List<RegistrationStatus> statuses
+    );
+
+    long countByActivityIdAndStatusIn(
+            String activityId,
+            List<RegistrationStatus> statuses
+    );
+
+    /** Registrations a participant submitted, plus team entries they were part of. */
+    List<ActivityRegistration> findByParticipantIdOrTeamMemberIdsContaining(
+            String participantId,
+            String memberId
+    );
+
+    /** Any of these people already hold an individual entry for this activity. */
+    boolean existsByActivityIdAndStatusInAndParticipantIdIn(
+            String activityId,
+            List<RegistrationStatus> statuses,
+            List<String> participantIds
+    );
+
+    /** Any of these people are already inside a team entry for this activity. */
+    boolean existsByActivityIdAndStatusInAndTeamMemberIdsIn(
+            String activityId,
+            List<RegistrationStatus> statuses,
+            List<String> memberIds
+    );
+
 }

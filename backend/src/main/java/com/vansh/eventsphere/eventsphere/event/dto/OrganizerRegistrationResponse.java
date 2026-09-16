@@ -27,6 +27,9 @@ public class OrganizerRegistrationResponse {
 
     // Registration metadata
     private RegistrationType registrationType;
+    private String reviewedBy;
+    private LocalDateTime reviewedAt;
+    private String reviewNote;
     private RegistrationStatus status;
     private LocalDateTime registeredAt;
 
@@ -34,4 +37,15 @@ public class OrganizerRegistrationResponse {
     private String teamId;
     private String teamName;
     private List<String> teamMemberIds;
+
+    // Backward-compatible alias for reviewBy
+    public String getReviewBy() {
+        return reviewedBy;
+    }
+
+    public void setReviewBy(String reviewBy) {
+        if (this.reviewedBy == null) {
+            this.reviewedBy = reviewBy;
+        }
+    }
 }

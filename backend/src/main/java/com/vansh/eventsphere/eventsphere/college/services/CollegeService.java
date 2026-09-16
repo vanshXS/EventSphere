@@ -29,6 +29,11 @@ public class CollegeService {
         return collegeRepository.save(college);
     }
 
+    public College getCollegeById(String id) {
+        return collegeRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("College not found with id: " + id));
+    }
+
     public List<College> searchCollege(String query) {
 
         log.info("Searching for College {}", query);

@@ -1,5 +1,6 @@
 import React from "react";
 import { Calendar, BookmarkCheck, Users, LogOut } from "lucide-react";
+import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 
 export default function ParticipantHeader({
   user,
@@ -12,19 +13,35 @@ export default function ParticipantHeader({
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-16">
-        <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600 text-white p-2 rounded-xl shadow-xs">
+        <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+          <div className="bg-indigo-600 text-white p-2 rounded-xl shadow-xs shrink-0">
             <Calendar className="w-5 h-5" />
           </div>
-          <div>
+          <div className="shrink-0 flex items-center">
             <span className="font-bold text-lg text-slate-900 tracking-tight">EventSphere</span>
             <span className="ml-2.5 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-0.5 rounded-full border border-emerald-200">
               Participant
             </span>
           </div>
+
+          <div className="hidden md:block h-6 w-px bg-slate-200" />
+
+          <CollegeNavbarBadge
+            collegeName={user?.collegeName}
+            collegeCode={user?.collegeCode}
+            collegeId={user?.collegeId}
+            className="hidden md:flex"
+          />
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3 sm:space-x-4 shrink-0">
+          <CollegeNavbarBadge
+            collegeName={user?.collegeName}
+            collegeCode={user?.collegeCode}
+            collegeId={user?.collegeId}
+            compact={true}
+            className="flex md:hidden"
+          />
           <div className="hidden sm:block text-right">
             <div className="text-xs font-semibold text-slate-800">{user?.name || "Participant"}</div>
             <div className="text-[11px] text-slate-500">{user?.email}</div>

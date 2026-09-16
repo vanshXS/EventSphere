@@ -55,4 +55,7 @@ public class UpdateActivityRequest {
     private Integer minTeamSize;
 
     private Integer maxTeamSize;
+
+    private Boolean requiresApproval;
+
 }

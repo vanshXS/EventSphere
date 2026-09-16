@@ -69,6 +69,8 @@ public class CreateActivityRequest {
 
     private Integer maxTeamSize;
 
+    private boolean requiresApproval = false;
+
 
 
 }

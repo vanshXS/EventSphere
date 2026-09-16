@@ -58,3 +58,8 @@ export const createCollege = async (data) => {
     return response.data;
 
 };
+
+export const getCollegeById = async (id) => {
+    const response = await api.get(`/api/colleges/${id}`);
+    return response.data;
+};

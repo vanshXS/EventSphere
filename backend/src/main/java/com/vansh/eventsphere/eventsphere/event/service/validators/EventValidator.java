@@ -21,7 +21,7 @@ public class EventValidator {
             );
         }
     }
-
+    
     public void validateEventAccess(Event event, String organizerId) {
 
         if(!event.getOrganizerId().equals(organizerId)) {

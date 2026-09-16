@@ -1,9 +1,6 @@
 import api from "../../lib/api";
 import { toIsoDateTime } from "../events/utils/eventHelpers";
 
-/**
- * Normalizes form state into backend CreateActivityRequest payload
- */
 export const formatActivityPayload = (formData) => {
   const isIndividual = formData.registrationType === "INDIVIDUAL";
 
@@ -17,15 +14,19 @@ export const formatActivityPayload = (formData) => {
     endDateTime: toIsoDateTime(formData.endDateTime),
     registrationDeadline: toIsoDateTime(formData.registrationDeadline),
     registrationType: formData.registrationType,
-    capacity: formData.registrationLimit === "LIMITED" ? Number(formData.capacity) : null,
+    requiresApproval: formData.requiresApproval === true,
+    capacity:
+      formData.registrationLimit === "LIMITED"
+        ? Number(formData.capacity)
+        : null,
     visibility: formData.visibility || "COLLEGE_ONLY"
   };
 
-  // Only include team size fields if registration type is TEAM or BOTH
   if (!isIndividual) {
     if (formData.minTeamSize) {
       payload.minTeamSize = parseInt(formData.minTeamSize, 10);
     }
+
     if (formData.maxTeamSize) {
       payload.maxTeamSize = parseInt(formData.maxTeamSize, 10);
     }
@@ -34,11 +35,9 @@ export const formatActivityPayload = (formData) => {
   return payload;
 };
 
-/**
- * Normalizes an ActivityResponse from backend
- */
 export const normalizeActivity = (activity) => {
   if (!activity) return null;
+
   return {
     ...activity,
     id: activity.id || activity._id,
@@ -58,57 +57,78 @@ export const normalizeActivity = (activity) => {
   };
 };
 
-/**
- * Creates a new activity under an event
- */
 export const createActivity = async (eventId, formData) => {
-  const payload = formatActivityPayload(formData);
-  const response = await api.post(`/api/organizer/events/${eventId}/activities`, payload);
+  const response = await api.post(
+    `/api/organizer/events/${eventId}/activities`,
+    formatActivityPayload(formData)
+  );
+
   return normalizeActivity(response.data);
 };
 
 export const createStandaloneActivity = async (formData) => {
-  const response = await api.post("/api/organizer/activities", formatActivityPayload(formData));
+  const response = await api.post(
+    "/api/organizer/activities",
+    formatActivityPayload(formData)
+  );
+
   return normalizeActivity(response.data);
 };
 
 export const getStandaloneActivities = async () => {
   const response = await api.get("/api/organizer/activities");
-  return Array.isArray(response.data) ? response.data.map(normalizeActivity) : [];
+
+  return Array.isArray(response.data)
+    ? response.data.map(normalizeActivity)
+    : [];
 };
 
 export const publishStandaloneActivity = async (activityId) => {
-  const response = await api.patch(`/api/organizer/activities/${activityId}/publish`);
+  const response = await api.patch(
+    `/api/organizer/activities/${activityId}/publish`
+  );
+
   return normalizeActivity(response.data);
 };
 
 export const deleteStandaloneActivity = async (activityId) => {
-  const response = await api.delete(`/api/organizer/activities/${activityId}`);
+  const response = await api.delete(
+    `/api/organizer/activities/${activityId}`
+  );
+
   return response.data;
 };
 
-export const updateActivity = async (eventId, activityId, formData) => {
-  const response = await api.put(`/api/organizer/events/${eventId}/activities/${activityId}`, formatActivityPayload(formData));
+export const updateActivity = async (
+  eventId,
+  activityId,
+  formData
+) => {
+  const response = await api.put(
+    `/api/organizer/events/${eventId}/activities/${activityId}`,
+    formatActivityPayload(formData)
+  );
+
   return normalizeActivity(response.data);
 };
 
-/**
- * Retrieves activities for a specific event
- * Note: If backend GET endpoint is not implemented, returns empty array safely
- */
 export const getActivitiesByEvent = async (eventId) => {
   try {
-    const response = await api.get(`/api/organizer/events/${eventId}/activities`);
-    const data = response.data;
-    if (Array.isArray(data)) {
-      return data.map(normalizeActivity);
-    }
-    return [];
-  } catch (err) {
-    // Graceful fallback if GET endpoint is not implemented on backend
-    if (err.response?.status === 404 || err.response?.status === 405) {
+    const response = await api.get(
+      `/api/organizer/events/${eventId}/activities`
+    );
+
+    return Array.isArray(response.data)
+      ? response.data.map(normalizeActivity)
+      : [];
+  } catch (error) {
+    if (
+      error.response?.status === 404 ||
+      error.response?.status === 405
+    ) {
       return [];
     }
-    throw err;
+
+    throw error;
   }
 };

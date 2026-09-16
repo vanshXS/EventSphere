@@ -16,12 +16,12 @@ import java.time.LocalDateTime;
 
 @CompoundIndex(
         name = "event_status_start_idx",
-        def = "{'status' : 1, 'startDateTime': 1}"
+        def = "{'event_status' : 1, 'startDateTime': 1}"
 )
 
 @CompoundIndex(
         name = "event_status_end_idx",
-        def = "{'status': 1, 'endDateTime': 1}"
+        def = "{'event_status': 1, 'endDateTime': 1}"
 )
 @Document(collection = "events")
 @Data

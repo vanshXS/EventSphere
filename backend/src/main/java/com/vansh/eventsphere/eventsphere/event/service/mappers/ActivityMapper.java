@@ -16,7 +16,7 @@ public class ActivityMapper {
                 .description(activity.getDescription())
                 .type(activity.getType())
                 .rules(activity.getRules())
-
+                .requiresApproval(activity.isRequiresApproval())
                 .location(activity.getLocation())
                 .startDateTime(activity.getStartDateTime())
                 .endDateTime(activity.getEndDateTime())

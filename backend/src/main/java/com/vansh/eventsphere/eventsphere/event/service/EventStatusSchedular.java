@@ -40,12 +40,12 @@ public class EventStatusSchedular {
             LocalDateTime start = activity.getStartDateTime();
             LocalDateTime end = activity.getEndDateTime();
 
-            if(end != null && end.isAfter(now)) {
+            if(end != null && !end.isAfter(now)) {
                 if(activity.getStatus() != EventStatus.COMPLETED) {
                     activity.setStatus(EventStatus.COMPLETED);
                     activityRepository.save(activity);
                 }
-            }else if(start != null && start.isAfter(now)) {
+            }else if(start != null && !start.isAfter(now)) {
                 if(activity.getStatus() == EventStatus.PUBLISHED){
                     activity.setStatus(EventStatus.ONGOING);
                     activityRepository.save(activity);
