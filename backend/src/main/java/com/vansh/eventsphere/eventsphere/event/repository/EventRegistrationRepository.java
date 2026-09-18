@@ -8,11 +8,17 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface EventRegistrationRepository extends MongoRepository<EventRegistration, String> {
+public interface EventRegistrationRepository
+        extends MongoRepository<EventRegistration, String> {
 
     boolean existsByEventIdAndParticipantIdAndStatusIn(
             String eventId,
             String participantId,
+            List<RegistrationStatus> statuses
+    );
+
+    boolean existsByEventIdAndStatusIn(
+            String eventId,
             List<RegistrationStatus> statuses
     );
 
