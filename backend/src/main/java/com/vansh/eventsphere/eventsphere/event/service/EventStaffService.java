@@ -243,7 +243,7 @@ public class EventStaffService {
                         .email(email)
                         .password(passwordEncoder.encode(password))
                         .role(Role.VOLUNTEER)
-                        .collegeId(resolveCollegeId(assignment))
+                        .collegeId(null)
                         .active(true)
                         .createdAt(now)
                         .updatedAt(now)
@@ -376,22 +376,6 @@ public class EventStaffService {
                 .orElseThrow(() -> new BadRequestException(
                         "This invitation is invalid or has already been used."
                 ));
-    }
-
-    private String resolveCollegeId(EventStaffAssignment assignment) {
-        if (assignment.getEventId() != null) {
-            return getEvent(assignment.getEventId()).getCollegeId();
-        }
-
-        Activity activity = getActivity(assignment.getActivityId());
-
-        if (activity.getEventId() != null) {
-            return getEvent(activity.getEventId()).getCollegeId();
-        }
-
-        return userRepository.findById(assignment.getOrganizerId())
-                .map(User::getCollegeId)
-                .orElse(null);
     }
 
     private void assertOrganizerOwnsAssignment(
