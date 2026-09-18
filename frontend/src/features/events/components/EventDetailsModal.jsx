@@ -36,6 +36,7 @@ export default function EventDetailsModal({
       myRegistrations={myRegistrations}
       onClose={onClose}
       onRegisterActivity={onRegisterActivity}
+      onRegisterEvent={onRegisterEvent}
       onViewActivityDetails={onViewActivityDetails}
       onViewMyRegistrations={onViewMyRegistrations}
     />,
@@ -105,6 +106,15 @@ function EventDetailsContent({
     setError("");
     setReloadKey((previous) => previous + 1);
   };
+
+  const activeEventRegistration = myRegistrations.find(
+    (registration) =>
+      !registration.activityId &&
+      registration.eventId === event.id &&
+      ["PENDING", "APPROVED", "REGISTERED"].includes(
+        registration.status
+      )
+  );
 
   return (
     <div
@@ -199,7 +209,7 @@ function EventDetailsContent({
                       This event has no activities. Register once for event entry and receive an event QR ticket.
                     </p>
                   </div>
-                  {onRegisterEvent ? (
+                  {onRegisterEvent && !activeEventRegistration ? (
                     <button
                       type="button"
                       onClick={() => onRegisterEvent(event)}
