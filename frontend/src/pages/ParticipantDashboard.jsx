@@ -23,6 +23,7 @@ import {
   cancelRegistration,
   registerForEvent
 } from "../features/registration/registrationApi";
+import { getMyVolunteerAssignments } from "../features/attendance/attendanceApi";
 
 import {
   isActiveRegistration,
@@ -52,6 +53,7 @@ export default function ParticipantDashboard() {
   const [standaloneActivities, setStandaloneActivities] = useState([]);
   const [myRegistrations, setMyRegistrations] = useState([]);
   const [myTeams, setMyTeams] = useState([]);
+  const [volunteerAssignments, setVolunteerAssignments] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadVersion, setLoadVersion] = useState(0);
@@ -84,15 +86,17 @@ export default function ParticipantDashboard() {
       getVisibleEvents(),
       getVisibleStandaloneActivities(),
       getMyRegistrations(),
-      getMyTeams()
+      getMyTeams(),
+      getMyVolunteerAssignments()
     ])
-      .then(([eventsData, activitiesData, registrationsData, teamsData]) => {
+      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData]) => {
         if (ignore) return;
 
         setEvents(eventsData);
         setStandaloneActivities(activitiesData);
         setMyRegistrations(registrationsData);
         setMyTeams(teamsData);
+        setVolunteerAssignments(assignmentsData);
         setError("");
       })
       .catch((err) => {
@@ -259,6 +263,7 @@ export default function ParticipantDashboard() {
         setActiveTab={setActiveTab}
         activeRegistrationsCount={activeRegistrationsCount}
         teamsCount={myTeams.length}
+        volunteerAssignmentsCount={volunteerAssignments.length}
         onLogout={logoutUser}
       />
 
