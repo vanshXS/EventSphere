@@ -1,5 +1,6 @@
 package com.vansh.eventsphere.eventsphere.event.service;
 
+import com.vansh.eventsphere.eventsphere.common.transaction.TransactionRunner;
 import com.vansh.eventsphere.eventsphere.event.dto.AcceptStaffInvitationRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.EventStaffAssignmentResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.InviteStaffRequest;
@@ -45,6 +46,7 @@ public class EventStaffService {
     private final ActivityRepository activityRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final TransactionRunner transactionRunner;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
@@ -54,31 +56,35 @@ public class EventStaffService {
             InviteStaffRequest request,
             String organizerId
     ) {
-        Event event = getEvent(eventId);
-        assertEventOwner(event, organizerId);
+        return transactionRunner.run(() -> {
+            transactionRunner.guard(Event.class, eventId);
 
-        String email = normalizeEmail(request.getEmail());
+            Event event = getEvent(eventId);
+            assertEventOwner(event, organizerId);
 
-        if (assignmentRepository.existsByEventIdAndEmailAndPermissionAndStatusIn(
-                eventId,
-                email,
-                EventStaffPermission.CHECK_IN,
-                OPEN_STATUSES
-        )) {
-            throw new BadRequestException(
-                    "This volunteer is already invited or assigned to this event."
+            String email = normalizeEmail(request.getEmail());
+
+            if (assignmentRepository.existsByEventIdAndEmailAndPermissionAndStatusIn(
+                    eventId,
+                    email,
+                    EventStaffPermission.CHECK_IN,
+                    OPEN_STATUSES
+            )) {
+                throw new BadRequestException(
+                        "This volunteer is already invited or assigned to this event."
+                );
+            }
+
+            return createInvitation(
+                    organizerId,
+                    eventId,
+                    null,
+                    event.getTitle(),
+                    null,
+                    email,
+                    request.getName()
             );
-        }
-
-        return createInvitation(
-                organizerId,
-                eventId,
-                null,
-                event.getTitle(),
-                null,
-                email,
-                request.getName()
-        );
+        });
     }
 
     public EventStaffAssignmentResponse inviteToActivity(
@@ -86,44 +92,48 @@ public class EventStaffService {
             InviteStaffRequest request,
             String organizerId
     ) {
-        Activity activity = getActivity(activityId);
+        return transactionRunner.run(() -> {
+            transactionRunner.guard(Activity.class, activityId);
 
-        Event parentEvent = activity.getEventId() != null
-                ? getEvent(activity.getEventId())
-                : null;
+            Activity activity = getActivity(activityId);
 
-        String ownerId = parentEvent != null
-                ? parentEvent.getOrganizerId()
-                : activity.getOrganizerId();
+            Event parentEvent = activity.getEventId() != null
+                    ? getEvent(activity.getEventId())
+                    : null;
 
-        if (!organizerId.equals(ownerId)) {
-            throw new BadRequestException(
-                    "You are not allowed to manage staff for this activity."
+            String ownerId = parentEvent != null
+                    ? parentEvent.getOrganizerId()
+                    : activity.getOrganizerId();
+
+            if (!organizerId.equals(ownerId)) {
+                throw new BadRequestException(
+                        "You are not allowed to manage staff for this activity."
+                );
+            }
+
+            String email = normalizeEmail(request.getEmail());
+
+            if (assignmentRepository.existsByActivityIdAndEmailAndPermissionAndStatusIn(
+                    activityId,
+                    email,
+                    EventStaffPermission.CHECK_IN,
+                    OPEN_STATUSES
+            )) {
+                throw new BadRequestException(
+                        "This volunteer is already invited or assigned to this activity."
+                );
+            }
+
+            return createInvitation(
+                    organizerId,
+                    parentEvent != null ? parentEvent.getId() : null,
+                    activityId,
+                    parentEvent != null ? parentEvent.getTitle() : null,
+                    activity.getName(),
+                    email,
+                    request.getName()
             );
-        }
-
-        String email = normalizeEmail(request.getEmail());
-
-        if (assignmentRepository.existsByActivityIdAndEmailAndPermissionAndStatusIn(
-                activityId,
-                email,
-                EventStaffPermission.CHECK_IN,
-                OPEN_STATUSES
-        )) {
-            throw new BadRequestException(
-                    "This volunteer is already invited or assigned to this activity."
-            );
-        }
-
-        return createInvitation(
-                organizerId,
-                parentEvent != null ? parentEvent.getId() : null,
-                activityId,
-                parentEvent != null ? parentEvent.getTitle() : null,
-                activity.getName(),
-                email,
-                request.getName()
-        );
+        });
     }
 
     public List<EventStaffAssignmentResponse> getEventStaff(
@@ -186,58 +196,72 @@ public class EventStaffService {
             String rawToken,
             AcceptStaffInvitationRequest request
     ) {
-        EventStaffAssignment assignment = findInvitation(rawToken);
+        return transactionRunner.run(() -> {
+            EventStaffAssignment assignment = findInvitation(rawToken);
 
-        if (!assignment.getInvitationExpiresAt().isAfter(LocalDateTime.now())) {
-            assignment.setStatus(EventStaffStatus.EXPIRED);
-            assignmentRepository.save(assignment);
-            throw new BadRequestException("This invitation has expired.");
-        }
+            transactionRunner.guard(
+                    EventStaffAssignment.class,
+                    assignment.getId()
+            );
 
-        String email = assignment.getEmail();
-        User user = userRepository.findByEmail(email).orElse(null);
-
-        if (user == null) {
-            String name = firstNonBlank(request.getName(), assignment.getInvitedName());
-
-            if (name == null) {
-                throw new BadRequestException(
-                        "Name is required to create the volunteer account."
-                );
+            if (!assignment.getInvitationExpiresAt().isAfter(LocalDateTime.now())) {
+                assignment.setStatus(EventStaffStatus.EXPIRED);
+                assignmentRepository.save(assignment);
+                throw new BadRequestException("This invitation has expired.");
             }
 
-            if (request.getPassword() == null
-                    || request.getPassword().isBlank()
-                    || request.getPassword().length() < 8) {
-                throw new BadRequestException(
-                        "A password with at least 8 characters is required to create the account."
+            String email = assignment.getEmail();
+            User user = userRepository.findByEmail(email).orElse(null);
+
+            if (user == null) {
+                String name = firstNonBlank(
+                        request == null ? null : request.getName(),
+                        assignment.getInvitedName()
                 );
+
+                String password = request == null ? null : request.getPassword();
+
+                if (name == null) {
+                    throw new BadRequestException(
+                            "Name is required to create the volunteer account."
+                    );
+                }
+
+                if (password == null
+                        || password.isBlank()
+                        || password.length() < 8) {
+                    throw new BadRequestException(
+                            "A password with at least 8 characters is required to create the account."
+                    );
+                }
+
+                LocalDateTime now = LocalDateTime.now();
+
+                user = User.builder()
+                        .name(name)
+                        .email(email)
+                        .password(passwordEncoder.encode(password))
+                        .role(Role.VOLUNTEER)
+                        .collegeId(resolveCollegeId(assignment))
+                        .active(true)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+
+                userRepository.save(user);
+            } else if (!user.isActive()) {
+                throw new BadRequestException("The invited account is inactive.");
             }
 
-            LocalDateTime now = LocalDateTime.now();
+            assignment.setUserId(user.getUserId());
+            assignment.setStatus(EventStaffStatus.ACTIVE);
+            assignment.setAcceptedAt(LocalDateTime.now());
+            assignment.setInvitationTokenHash(null);
 
-            user = User.builder()
-                    .name(name)
-                    .email(email)
-                    .password(passwordEncoder.encode(request.getPassword()))
-                    .role(Role.VOLUNTEER)
-                    .collegeId(resolveCollegeId(assignment))
-                    .active(true)
-                    .createdAt(now)
-                    .updatedAt(now)
-                    .build();
-
-            userRepository.save(user);
-        } else if (!user.isActive()) {
-            throw new BadRequestException("The invited account is inactive.");
-        }
-
-        assignment.setUserId(user.getUserId());
-        assignment.setStatus(EventStaffStatus.ACTIVE);
-        assignment.setAcceptedAt(LocalDateTime.now());
-        assignment.setInvitationTokenHash(null);
-
-        return toResponseWithoutLink(assignmentRepository.save(assignment));
+            return toResponseWithoutLink(
+                    assignmentRepository.save(assignment)
+            );
+        });
     }
 
     public void revoke(String assignmentId, String organizerId) {
@@ -285,8 +309,6 @@ public class EventStaffService {
                         return true;
                     }
 
-                    // An event-level check-in volunteer may also accept
-                    // an activity ticket at the main event gate.
                     return eventId != null
                             && eventId.equals(assignment.getEventId())
                             && assignment.getActivityId() == null;
@@ -305,20 +327,22 @@ public class EventStaffService {
         String rawToken = generateToken();
         LocalDateTime now = LocalDateTime.now();
 
-        EventStaffAssignment assignment = EventStaffAssignment.builder()
-                .eventId(eventId)
-                .activityId(activityId)
-                .organizerId(organizerId)
-                .email(email)
-                .invitedName(blankToNull(invitedName))
-                .permission(EventStaffPermission.CHECK_IN)
-                .status(EventStaffStatus.INVITED)
-                .invitationTokenHash(sha256(rawToken))
-                .invitationExpiresAt(now.plusDays(INVITATION_VALIDITY_DAYS))
-                .invitedAt(now)
-                .build();
-
-        EventStaffAssignment saved = assignmentRepository.save(assignment);
+        EventStaffAssignment saved = assignmentRepository.save(
+                EventStaffAssignment.builder()
+                        .eventId(eventId)
+                        .activityId(activityId)
+                        .organizerId(organizerId)
+                        .email(email)
+                        .invitedName(blankToNull(invitedName))
+                        .permission(EventStaffPermission.CHECK_IN)
+                        .status(EventStaffStatus.INVITED)
+                        .invitationTokenHash(sha256(rawToken))
+                        .invitationExpiresAt(
+                                now.plusDays(INVITATION_VALIDITY_DAYS)
+                        )
+                        .invitedAt(now)
+                        .build()
+        );
 
         return EventStaffAssignmentResponse.builder()
                 .id(saved.getId())
