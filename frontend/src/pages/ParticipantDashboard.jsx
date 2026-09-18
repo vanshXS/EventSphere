@@ -195,23 +195,28 @@ export default function ParticipantDashboard() {
     }
   };
 
-  const handleCancelRegistration = async (registrationId) => {
+  const handleCancelRegistration = async (registration) => {
     if (cancellationLock.current || refreshLock.current) {
       return { success: false, message: "Action in progress. Please wait." };
     }
 
     cancellationLock.current = true;
-    setCancellingId(registrationId);
+    setCancellingId(registration.id);
     setError("");
 
     try {
-      const updated = await cancelRegistration(registrationId);
+      const updated = await cancelRegistration(registration);
 
       setMyRegistrations((previous) =>
-        previous.map((registration) =>
-          registration.id === updated.id
-            ? updated
-            : registration
+        previous.map((item) =>
+          item.id === updated.id
+            ? {
+                ...item,
+                ...updated,
+                registrationKind:
+                  updated.registrationKind || item.registrationKind
+              }
+            : item
         )
       );
 
