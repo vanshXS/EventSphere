@@ -2,12 +2,7 @@ package com.vansh.eventsphere.eventsphere.event.service;
 
 import com.vansh.eventsphere.eventsphere.common.transaction.TransactionRunner;
 import com.vansh.eventsphere.eventsphere.event.dto.AttendanceResponse;
-import com.vansh.eventsphere.eventsphere.event.model.Activity;
-import com.vansh.eventsphere.eventsphere.event.model.Attendance;
-import com.vansh.eventsphere.eventsphere.event.model.Event;
-import com.vansh.eventsphere.eventsphere.event.model.EventStatus;
-import com.vansh.eventsphere.eventsphere.event.model.Ticket;
-import com.vansh.eventsphere.eventsphere.event.model.TicketScope;
+import com.vansh.eventsphere.eventsphere.event.model.*;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.AttendanceRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.EventRepository;
@@ -16,7 +11,6 @@ import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import com.vansh.eventsphere.eventsphere.user.model.User;
 import com.vansh.eventsphere.eventsphere.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -34,27 +28,36 @@ public class AttendanceService {
     private final EventStaffService eventStaffService;
     private final TransactionRunner transactionRunner;
 
-    public AttendanceResponse checkIn(String qrPayload, String staffUserId) {
+    public AttendanceResponse checkIn(
+            String qrPayload,
+            CheckInType checkInType,
+            String staffUserId
+    ) {
         return transactionRunner.run(() -> {
             String ticketId = ticketService.extractTicketId(qrPayload);
             transactionRunner.guard(Ticket.class, ticketId);
 
             Ticket ticket = ticketService.verifyToken(qrPayload);
-            validateTicketLifecycle(ticket);
+            validateTicketScope(ticket, checkInType);
+            validateTicketLifecycle(ticket, checkInType);
 
             if (!eventStaffService.hasCheckInAccess(
                     staffUserId,
                     ticket.getEventId(),
                     ticket.getActivityId(),
-                    ticket.getScope()
+                    ticket.getScope(),
+                    checkInType
             )) {
                 throw new BadRequestException(
-                        "You are not assigned to check in this ticket."
+                        "You are not assigned to perform this type of check-in."
                 );
             }
 
             Attendance existing = attendanceRepository
-                    .findByRegistrationId(ticket.getRegistrationId())
+                    .findByRegistrationIdAndCheckInType(
+                            ticket.getRegistrationId(),
+                            checkInType
+                    )
                     .orElse(null);
 
             if (existing != null) {
@@ -63,31 +66,22 @@ public class AttendanceService {
                 return response;
             }
 
-            Attendance attendance = Attendance.builder()
-                    .ticketId(ticket.getId())
-                    .registrationId(ticket.getRegistrationId())
-                    .eventId(ticket.getEventId())
-                    .activityId(ticket.getActivityId())
-                    .participantId(ticket.getParticipantId())
-                    .checkedInBy(staffUserId)
-                    .checkedInAt(LocalDateTime.now())
-                    .build();
+            Attendance saved = attendanceRepository.save(
+                    Attendance.builder()
+                            .ticketId(ticket.getId())
+                            .registrationId(ticket.getRegistrationId())
+                            .eventId(ticket.getEventId())
+                            .activityId(ticket.getActivityId())
+                            .participantId(ticket.getParticipantId())
+                            .checkInType(checkInType)
+                            .checkedInBy(staffUserId)
+                            .checkedInAt(LocalDateTime.now())
+                            .build()
+            );
 
-            try {
-                Attendance saved = attendanceRepository.save(attendance);
-
-                AttendanceResponse response = toResponse(saved);
-                response.setAlreadyCheckedIn(false);
-                return response;
-            } catch (DuplicateKeyException exception) {
-                Attendance duplicate = attendanceRepository
-                        .findByRegistrationId(ticket.getRegistrationId())
-                        .orElseThrow(() -> exception);
-
-                AttendanceResponse response = toResponse(duplicate);
-                response.setAlreadyCheckedIn(true);
-                return response;
-            }
+            AttendanceResponse response = toResponse(saved);
+            response.setAlreadyCheckedIn(false);
+            return response;
         });
     }
 
@@ -121,9 +115,9 @@ public class AttendanceService {
 
         if (activity.getEventId() != null) {
             Event event = eventRepository.findById(activity.getEventId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Parent event not found."
-                    ));
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Parent event not found.")
+                    );
             ownerId = event.getOrganizerId();
         }
 
@@ -139,42 +133,54 @@ public class AttendanceService {
                 .toList();
     }
 
-    private void validateTicketLifecycle(Ticket ticket) {
-        if (ticket.getScope() == TicketScope.EVENT) {
+    private void validateTicketScope(
+            Ticket ticket,
+            CheckInType checkInType
+    ) {
+        if (checkInType == CheckInType.EVENT_ENTRY) {
+            if (ticket.getEventId() == null) {
+                throw new BadRequestException(
+                        "This ticket cannot be used for event entry."
+                );
+            }
+            return;
+        }
+
+        if (ticket.getScope() != TicketScope.ACTIVITY
+                || ticket.getActivityId() == null) {
+            throw new BadRequestException(
+                    "This ticket cannot be used for activity check-in."
+            );
+        }
+    }
+
+    private void validateTicketLifecycle(
+            Ticket ticket,
+            CheckInType checkInType
+    ) {
+        if (checkInType == CheckInType.EVENT_ENTRY) {
             Event event = eventRepository.findById(ticket.getEventId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Event not found."));
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Event not found.")
+                    );
 
             if (event.getEventStatus() != EventStatus.PUBLISHED
                     && event.getEventStatus() != EventStatus.ONGOING) {
                 throw new BadRequestException(
-                        "Check-in is not available for this event."
+                        "Event entry check-in is not available right now."
                 );
             }
             return;
         }
 
         Activity activity = activityRepository.findById(ticket.getActivityId())
-                .orElseThrow(() -> new ResourceNotFoundException("Activity not found."));
-
-        if (activity.getEventId() != null) {
-            Event event = eventRepository.findById(activity.getEventId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Parent event not found."
-                    ));
-
-            if (event.getEventStatus() != EventStatus.PUBLISHED
-                    && event.getEventStatus() != EventStatus.ONGOING) {
-                throw new BadRequestException(
-                        "Check-in is not available for this activity."
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Activity not found.")
                 );
-            }
-            return;
-        }
 
-        if (activity.getStatus() != EventStatus.PUBLISHED
-                && activity.getStatus() != EventStatus.ONGOING) {
+        if (activity.getStatus() != EventStatus.ONGOING) {
             throw new BadRequestException(
-                    "Check-in is not available for this activity."
+                    "Activity check-in is available only while the activity is ongoing."
             );
         }
     }
@@ -201,6 +207,7 @@ public class AttendanceService {
                 .activityName(activity != null ? activity.getName() : null)
                 .participantId(attendance.getParticipantId())
                 .participantName(participant != null ? participant.getName() : null)
+                .checkInType(attendance.getCheckInType())
                 .checkedInBy(attendance.getCheckedInBy())
                 .checkedInAt(attendance.getCheckedInAt())
                 .build();
