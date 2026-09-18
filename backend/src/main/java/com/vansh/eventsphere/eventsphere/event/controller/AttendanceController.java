@@ -26,6 +26,7 @@ public class AttendanceController {
     ) {
         return attendanceService.checkIn(
                 request.getQrPayload(),
+                request.getCheckInType(),
                 authentication.getName()
         );
     }
