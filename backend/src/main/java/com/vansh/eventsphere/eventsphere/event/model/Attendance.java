@@ -5,11 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
+@CompoundIndex(
+        name = "registration_checkin_type_idx",
+        def = "{'registrationId': 1, 'checkInType': 1}",
+        unique = true
+)
 @Document(collection = "attendance")
 @Data
 @Builder
@@ -20,7 +26,7 @@ public class Attendance {
     @Id
     private String id;
 
-    @Indexed(unique = true)
+    @Indexed
     private String registrationId;
 
     @Indexed
@@ -34,6 +40,8 @@ public class Attendance {
 
     @Indexed
     private String participantId;
+
+    private CheckInType checkInType;
 
     @Indexed
     private String checkedInBy;
