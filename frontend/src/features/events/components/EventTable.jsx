@@ -10,7 +10,8 @@ import {
   Trophy,
   Eye,
   MoreVertical,
-  Loader2
+  Loader2,
+  ClipboardCheck
 } from "lucide-react";
 import ConfirmDialog from "./ConfirmDialog";
 import EventStatusBadge from "./EventStatusBadge";
