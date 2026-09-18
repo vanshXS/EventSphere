@@ -42,7 +42,7 @@ public class ActivityRegistrationService {
     private final ActivityRegistrationValidator validator;
     private final MongoTemplate mongoTemplate;
     private final TransactionRunner transactionRunner;
-
+    private final TicketService ticketService;
 
     public ActivityRegistrationResponse register(
             String activityId,
@@ -54,38 +54,57 @@ public class ActivityRegistrationService {
             return registerInsideTransaction(activityId, participantId, request);
         });
     }
+
     public ActivityRegistrationResponse registerInsideTransaction(
             String activityId,
             String participantId,
             ActivityRegistrationRequest request
     ) {
-        log.info("ActivityRegistrationService.register called for activityId: {}, participantId: {}", activityId, participantId);
-
         User participant = getUser(participantId);
         Activity activity = getActivity(activityId);
 
         if (activity.getEventId() != null) {
             Event event = getEvent(activity.getEventId());
             if (!visibilityService.canViewEvent(event, participant)) {
-                throw new BadRequestException("You are not allowed to register for this activity.");
+                throw new BadRequestException(
+                        "You are not allowed to register for this activity."
+                );
             }
             validateRegistrationLifecycle(event.getEventStatus());
         } else {
             User organizer = activity.getOrganizerId() != null
                     ? userRepository.findById(activity.getOrganizerId()).orElse(null)
                     : null;
-            if (!visibilityService.canViewStandAloneActivity(activity, organizer, participant)) {
-                throw new BadRequestException("You are not allowed to register for this activity.");
+
+            if (!visibilityService.canViewStandAloneActivity(
+                    activity,
+                    organizer,
+                    participant
+            )) {
+                throw new BadRequestException(
+                        "You are not allowed to register for this activity."
+                );
             }
+
             validateRegistrationLifecycle(activity.getStatus());
         }
 
         validator.validateRegistrationDeadline(activity);
         validator.validateRegistrationType(activity, request.getRegistrationType());
 
-        Team team = validator.validateTeamRequirements(activity, request, participantId);
+        Team team = validator.validateTeamRequirements(
+                activity,
+                request,
+                participantId
+        );
 
-        validator.validateDuplicateRegistration(activityId, participantId, request, team);
+        validator.validateDuplicateRegistration(
+                activityId,
+                participantId,
+                request,
+                team
+        );
+
         validator.validateCapacity(activity);
 
         RegistrationStatus initialStatus = activity.isRequiresApproval()
@@ -98,38 +117,44 @@ public class ActivityRegistrationService {
                 .participantId(participantId)
                 .registrationType(request.getRegistrationType())
                 .teamId(request.getTeamId())
-                .teamMemberIds(team == null ? null : List.copyOf(team.getMembersId()))
+                .teamMemberIds(team == null
+                        ? null
+                        : List.copyOf(team.getMembersId()))
                 .teamLeaderId(team == null ? null : team.getLeaderId())
                 .status(initialStatus)
                 .registeredAt(LocalDateTime.now())
                 .build();
 
         ActivityRegistration saved = activityRegistrationRepository.save(registration);
-        return enrichRegistrationResponse(saved);
+        return enrichRegistrationResponse(saved, participantId);
     }
 
-    public List<ActivityRegistrationResponse> getMyRegistrations(String participantId) {
-        log.info("ActivityRegistrationService.getMyRegistrations called for participant: {}",
-                participantId);
-
-        List<ActivityRegistration> registrations = activityRegistrationRepository
-                .findByParticipantIdOrTeamMemberIdsContaining(participantId, participantId);
-
-        return registrations.stream()
-                .map(this::enrichRegistrationResponse)
+    public List<ActivityRegistrationResponse> getMyRegistrations(
+            String participantId
+    ) {
+        return activityRegistrationRepository
+                .findByParticipantIdOrTeamMemberIdsContaining(
+                        participantId,
+                        participantId
+                )
+                .stream()
+                .map(registration -> enrichRegistrationResponse(
+                        registration,
+                        participantId
+                ))
                 .toList();
     }
 
-    public ActivityRegistrationResponse cancelRegistration(String registrationId, String participantId) {
-        log.info("ActivityRegistrationService.cancelRegistration called for registrationId: {} by participant: {}", registrationId, participantId);
-
+    public ActivityRegistrationResponse cancelRegistration(
+            String registrationId,
+            String participantId
+    ) {
         ActivityRegistration registration = activityRegistrationRepository.findById(registrationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Registration not found"));
 
         RegistrationStatus status = registration.getStatus();
 
         if (!registration.getParticipantId().equals(participantId)) {
-
             boolean isTeamMember = registration.getTeamMemberIds() != null
                     && registration.getTeamMemberIds().contains(participantId);
 
@@ -146,11 +171,11 @@ public class ActivityRegistrationService {
             throw new BadRequestException("Registration is already cancelled.");
         }
 
-        if(status != RegistrationStatus.PENDING
-        && status != RegistrationStatus.APPROVED
-        && status != RegistrationStatus.REGISTERED) {
+        if (status != RegistrationStatus.PENDING
+                && status != RegistrationStatus.APPROVED
+                && status != RegistrationStatus.REGISTERED) {
             throw new BadRequestException(
-                    "Only pending or approval registration can be cancelled"
+                    "Only pending or approved registrations can be cancelled."
             );
         }
 
@@ -164,12 +189,9 @@ public class ActivityRegistrationService {
                         )
         );
 
-        Update update = new Update()
-                .set("status", RegistrationStatus.CANCELLED);
-
         ActivityRegistration updated = mongoTemplate.findAndModify(
                 query,
-                update,
+                new Update().set("status", RegistrationStatus.CANCELLED),
                 FindAndModifyOptions.options().returnNew(true),
                 ActivityRegistration.class
         );
@@ -180,7 +202,9 @@ public class ActivityRegistrationService {
             );
         }
 
-        return enrichRegistrationResponse(updated);
+        ticketService.revokeByRegistrationId(registrationId);
+
+        return enrichRegistrationResponse(updated, participantId);
     }
 
     public OrganizerRegistrationResponse approveRegistration(
@@ -208,18 +232,19 @@ public class ActivityRegistrationService {
         );
     }
 
-    private ActivityRegistrationResponse enrichRegistrationResponse(ActivityRegistration reg) {
+    private ActivityRegistrationResponse enrichRegistrationResponse(
+            ActivityRegistration reg,
+            String viewerParticipantId
+    ) {
         ActivityRegistrationResponse res = mapper.mapToResponse(reg);
 
-        if (reg.getActivityId() != null) {
-            Activity act = activityRepository.findById(reg.getActivityId()).orElse(null);
-            if (act != null) {
-                res.setActivityName(act.getName());
-                res.setActivityType(act.getType());
-                res.setStartDateTime(act.getStartDateTime());
-                res.setEndDateTime(act.getEndDateTime());
-                res.setLocation(act.getLocation());
-            }
+        Activity activity = activityRepository.findById(reg.getActivityId()).orElse(null);
+        if (activity != null) {
+            res.setActivityName(activity.getName());
+            res.setActivityType(activity.getType());
+            res.setStartDateTime(activity.getStartDateTime());
+            res.setEndDateTime(activity.getEndDateTime());
+            res.setLocation(activity.getLocation());
         }
 
         if (reg.getEventId() != null) {
@@ -239,21 +264,37 @@ public class ActivityRegistrationService {
         res.setTeamMemberIds(reg.getTeamMemberIds());
         res.setTeamLeaderId(reg.getTeamLeaderId());
 
+        if (reg.getStatus() == RegistrationStatus.APPROVED
+                || reg.getStatus() == RegistrationStatus.REGISTERED) {
+            res.setTicket(
+                    ticketService.getOrIssueActivityTicket(
+                            reg.getId(),
+                            viewerParticipantId
+                    )
+            );
+        }
+
         return res;
     }
 
-    public List<OrganizerRegistrationResponse> getRegistrationsForActivity(String activityId, String organizerId) {
-        log.info("ActivityRegistrationService.getRegistrationsForActivity called for activityId: {} by organizer: {}", activityId, organizerId);
-
+    public List<OrganizerRegistrationResponse> getRegistrationsForActivity(
+            String activityId,
+            String organizerId
+    ) {
         Activity activity = getActivity(activityId);
 
-        if (!organizerId.equals(activity.getOrganizerId())) {
-            throw new BadRequestException("You are not allowed to view registrations for this activity.");
+        String ownerId = activity.getEventId() != null
+                ? getEvent(activity.getEventId()).getOrganizerId()
+                : activity.getOrganizerId();
+
+        if (!organizerId.equals(ownerId)) {
+            throw new BadRequestException(
+                    "You are not allowed to view registrations for this activity."
+            );
         }
 
-        List<ActivityRegistration> registrations = activityRegistrationRepository.findByActivityId(activityId);
-
-        return registrations.stream()
+        return activityRegistrationRepository.findByActivityId(activityId)
+                .stream()
                 .map(this::mapToOrganizerResponse)
                 .toList();
     }
@@ -270,8 +311,6 @@ public class ActivityRegistrationService {
             Team team = teamRepository.findById(reg.getTeamId()).orElse(null);
             if (team != null) {
                 teamName = team.getName();
-
-                // Pre-snapshot rows fall back to the current roster.
                 if (teamMemberIds == null) {
                     teamMemberIds = team.getMembersId();
                 }
@@ -297,7 +336,6 @@ public class ActivityRegistrationService {
                 .build();
     }
 
-    // Helper functions
     private Activity getActivity(String activityId) {
         return activityRepository.findById(activityId)
                 .orElseThrow(() -> new ResourceNotFoundException("Activity not found"));
@@ -408,13 +446,6 @@ public class ActivityRegistrationService {
             );
         }
 
-        log.info(
-                "Registration {} reviewed by organizer {}: {}",
-                registrationId,
-                organizerId,
-                decision
-        );
-
         return mapToOrganizerResponse(updated);
     }
 
@@ -425,5 +456,4 @@ public class ActivityRegistrationService {
 
         transactionRunner.guard(Activity.class, activityId);
     }
-
 }

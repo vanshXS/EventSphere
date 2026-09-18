@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, BookmarkCheck, Users, LogOut } from "lucide-react";
+import { Calendar, BookmarkCheck, Users, LogOut, ShieldCheck } from "lucide-react";
 import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 
 export default function ParticipantHeader({
@@ -8,6 +8,7 @@ export default function ParticipantHeader({
   setActiveTab,
   activeRegistrationsCount,
   teamsCount,
+  volunteerAssignmentsCount = 0,
   onLogout
 }) {
   return (
@@ -86,6 +87,16 @@ export default function ParticipantHeader({
             </span>
           )}
         </button>
+
+        {volunteerAssignmentsCount > 0 && (
+          <a
+            href="/volunteer"
+            className="py-3 text-xs font-semibold border-b-2 border-transparent text-slate-600 hover:text-slate-900 flex items-center gap-2"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Volunteer Tools</span>
+          </a>
+        )}
 
         <button
           onClick={() => setActiveTab("MY_TEAMS")}

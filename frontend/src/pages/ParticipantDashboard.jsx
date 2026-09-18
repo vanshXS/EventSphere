@@ -20,8 +20,10 @@ import {
   getVisibleEvents,
   getVisibleStandaloneActivities,
   getMyRegistrations,
-  cancelRegistration
+  cancelRegistration,
+  registerForEvent
 } from "../features/registration/registrationApi";
+import { getMyVolunteerAssignments } from "../features/attendance/attendanceApi";
 
 import {
   isActiveRegistration,
@@ -51,6 +53,7 @@ export default function ParticipantDashboard() {
   const [standaloneActivities, setStandaloneActivities] = useState([]);
   const [myRegistrations, setMyRegistrations] = useState([]);
   const [myTeams, setMyTeams] = useState([]);
+  const [volunteerAssignments, setVolunteerAssignments] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadVersion, setLoadVersion] = useState(0);
@@ -83,9 +86,10 @@ export default function ParticipantDashboard() {
       getVisibleEvents(),
       getVisibleStandaloneActivities(),
       getMyRegistrations(),
-      getMyTeams()
+      getMyTeams(),
+      getMyVolunteerAssignments()
     ])
-      .then(([eventsData, activitiesData, registrationsData, teamsData]) => {
+      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData]) => {
         if (ignore) return;
 
         const sortByNewest = (list) =>
@@ -106,6 +110,7 @@ export default function ParticipantDashboard() {
         setStandaloneActivities(sortByNewest(activitiesData));
         setMyRegistrations(sortRegistrationsByNewest(registrationsData));
         setMyTeams(teamsData);
+        setVolunteerAssignments(assignmentsData);
         setError("");
       })
       .catch((err) => {
@@ -156,6 +161,30 @@ export default function ParticipantDashboard() {
     ]);
 
     setSuccessMessage(getRegistrationMessage(registration));
+  };
+
+  const handleEventRegistrationSuccess = (registration) => {
+    setError("");
+
+    setMyRegistrations((previous) => [
+      registration,
+      ...previous.filter((item) => item.id !== registration.id)
+    ]);
+
+    setSuccessMessage("Event registration created. Your event QR ticket is ready.");
+  };
+
+  const handleRegisterForEvent = async (event) => {
+    try {
+      const registration = await registerForEvent(event.id);
+      handleEventRegistrationSuccess(registration);
+      setSelectedEventForDetails(null);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Could not register for this event."
+      );
+    }
   };
 
   const refreshRegistrations = async () => {
@@ -254,6 +283,7 @@ export default function ParticipantDashboard() {
         setActiveTab={setActiveTab}
         activeRegistrationsCount={activeRegistrationsCount}
         teamsCount={myTeams.length}
+        volunteerAssignmentsCount={volunteerAssignments.length}
         onLogout={logoutUser}
       />
 
@@ -428,6 +458,7 @@ export default function ParticipantDashboard() {
         myRegistrations={myRegistrations}
         onClose={closeEventDetails}
         onRegisterActivity={setSelectedActivityForReg}
+        onRegisterEvent={handleRegisterForEvent}
         onViewActivityDetails={setSelectedActivityForDetails}
         onViewMyRegistrations={showMyRegistrations}
       />

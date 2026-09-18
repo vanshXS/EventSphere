@@ -23,6 +23,7 @@ export default function EventDetailsModal({
   myRegistrations = [],
   onClose,
   onRegisterActivity,
+  onRegisterEvent,
   onViewActivityDetails,
   onViewMyRegistrations
 }) {
@@ -35,6 +36,7 @@ export default function EventDetailsModal({
       myRegistrations={myRegistrations}
       onClose={onClose}
       onRegisterActivity={onRegisterActivity}
+      onRegisterEvent={onRegisterEvent}
       onViewActivityDetails={onViewActivityDetails}
       onViewMyRegistrations={onViewMyRegistrations}
     />,
@@ -47,6 +49,7 @@ function EventDetailsContent({
   myRegistrations,
   onClose,
   onRegisterActivity,
+  onRegisterEvent,
   onViewActivityDetails,
   onViewMyRegistrations
 }) {
@@ -108,6 +111,15 @@ function EventDetailsContent({
     setError("");
     setReloadKey((previous) => previous + 1);
   };
+
+  const activeEventRegistration = myRegistrations.find(
+    (registration) =>
+      !registration.activityId &&
+      registration.eventId === event.id &&
+      ["PENDING", "APPROVED", "REGISTERED"].includes(
+        registration.status
+      )
+  );
 
   return (
     <div
@@ -191,6 +203,30 @@ function EventDetailsContent({
           )}
 
           <section className="space-y-4 border-t border-slate-100 pt-4">
+            {activities.length === 0 && (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      General event entry
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-600">
+                      This event has no activities. Register once for event entry and receive an event QR ticket.
+                    </p>
+                  </div>
+                  {onRegisterEvent && !activeEventRegistration ? (
+                    <button
+                      type="button"
+                      onClick={() => onRegisterEvent(event)}
+                      className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                      Register for Event
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-sm font-bold text-slate-900">
                 Activities & Competitions ({activities.length})

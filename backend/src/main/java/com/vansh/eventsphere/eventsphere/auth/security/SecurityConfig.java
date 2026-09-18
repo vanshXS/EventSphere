@@ -1,5 +1,6 @@
 package com.vansh.eventsphere.eventsphere.auth.security;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -13,8 +14,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -32,29 +31,47 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
                         auth -> auth
-                                .requestMatchers("/api/auth/register/**", "/api/auth/login", "/api/auth/refresh",
-                                        "/api/colleges", "/api/colleges/**")
+                                .requestMatchers(
+                                        "/api/auth/register/**",
+                                        "/api/auth/login",
+                                        "/api/auth/refresh",
+                                        "/api/colleges",
+                                        "/api/colleges/**",
+                                        "/api/staff/invitations/**"
+                                )
                                 .permitAll()
-                                .requestMatchers("/api/organizer/**").hasRole("ORGANIZER")
-                                .requestMatchers("/api/participant/**").hasRole("PARTICIPANT")
-                                .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                                .requestMatchers("/api/organizer/**")
+                                .hasRole("ORGANIZER")
+                                .requestMatchers("/api/participant/**")
+                                .hasRole("PARTICIPANT")
+                                .anyRequest()
+                                .authenticated()
+                )
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                )
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                );
 
         return http.build();
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailService);
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider(userDetailService);
         provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config
+    ) throws Exception {
         return config.getAuthenticationManager();
     }
-
 }

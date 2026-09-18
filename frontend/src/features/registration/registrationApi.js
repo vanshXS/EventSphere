@@ -26,6 +26,13 @@ export const getActivitiesOfVisibleEvent = async (eventId) => {
   return Array.isArray(response.data) ? response.data : [];
 };
 
+export const registerForEvent = async (eventId) => {
+  const response = await api.post(
+    "/api/participant/event-registrations/events/" + eventId
+  );
+  return response.data;
+};
+
 export const registerForActivity = async (
   activityId,
   { registrationType, teamId }
