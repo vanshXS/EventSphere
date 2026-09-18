@@ -104,6 +104,14 @@ export const cancelRegistration = async (registrationOrId) => {
   };
 };
 
+export const getOrganizerEventRegistrations = async (eventId) => {
+  const response = await api.get(
+    `/api/organizer/events/${eventId}/registrations`
+  );
+
+  return Array.isArray(response.data) ? response.data : [];
+};
+
 export const getOrganizerActivityRegistrations = async (
   activityId,
   eventId = null
