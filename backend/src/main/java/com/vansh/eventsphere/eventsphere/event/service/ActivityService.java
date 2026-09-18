@@ -12,6 +12,7 @@ import com.vansh.eventsphere.eventsphere.event.model.Event;
 import com.vansh.eventsphere.eventsphere.event.model.EventStatus;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.EventRepository;
+import com.vansh.eventsphere.eventsphere.event.repository.EventRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.service.validators.ActivityValidator;
 import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
@@ -31,6 +32,7 @@ public class ActivityService {
     private final ActivityMapper activityMapper;
     private final TransactionRunner transactionRunner;
     private final ActivityRegistrationRepository activityRegistrationRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
 
     private static final List<RegistrationStatus> CAPACITY_STATUSES = List.of(
             RegistrationStatus.PENDING,
@@ -49,19 +51,32 @@ public class ActivityService {
             String organizerId
     ) {
 
-        Event event = getOwnedEvent(eventId, organizerId);
+        return transactionRunner.run(() -> {
+            transactionRunner.guard(Event.class, eventId);
 
-        activityValidator.validate(request, event);
+            Event event = getOwnedEvent(eventId, organizerId);
 
-        Activity activity = buildActivity(
-                request,
-                eventId,
-                organizerId
-        );
+            if (eventRegistrationRepository.existsByEventIdAndStatusIn(
+                    eventId,
+                    CAPACITY_STATUSES
+            )) {
+                throw new BadRequestException(
+                        "Activities cannot be added after participants have registered for event entry."
+                );
+            }
 
-        return activityMapper.mapToResponse(
-                activityRepository.save(activity)
-        );
+            activityValidator.validate(request, event);
+
+            Activity activity = buildActivity(
+                    request,
+                    eventId,
+                    organizerId
+            );
+
+            return activityMapper.mapToResponse(
+                    activityRepository.save(activity)
+            );
+        });
     }
 
 
