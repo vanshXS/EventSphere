@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -38,14 +39,24 @@ public class TicketService {
             EventRegistration registration,
             String participantId
     ) {
-        assertParticipant(registration.getParticipantId(), participantId);
+        if (!registration.getParticipantId().equals(participantId)) {
+            throw new BadRequestException(
+                    "You are not allowed to access this ticket."
+            );
+        }
+
         assertActive(registration.getStatus());
 
-        Ticket ticket = ticketRepository.findByRegistrationId(registration.getId())
+        Ticket ticket = ticketRepository
+                .findByRegistrationIdAndHolderParticipantId(
+                        registration.getId(),
+                        participantId
+                )
                 .orElseGet(() -> Ticket.builder()
                         .registrationId(registration.getId())
                         .eventId(registration.getEventId())
                         .participantId(participantId)
+                        .holderParticipantId(participantId)
                         .scope(TicketScope.EVENT)
                         .build());
 
@@ -61,15 +72,25 @@ public class TicketService {
             ActivityRegistration registration,
             String participantId
     ) {
-        assertParticipant(registration.getParticipantId(), participantId);
+        if (!isActivityParticipant(registration, participantId)) {
+            throw new BadRequestException(
+                    "You are not a participant in this registration."
+            );
+        }
+
         assertActive(registration.getStatus());
 
-        Ticket ticket = ticketRepository.findByRegistrationId(registration.getId())
+        Ticket ticket = ticketRepository
+                .findByRegistrationIdAndHolderParticipantId(
+                        registration.getId(),
+                        participantId
+                )
                 .orElseGet(() -> Ticket.builder()
                         .registrationId(registration.getId())
                         .eventId(registration.getEventId())
                         .activityId(registration.getActivityId())
-                        .participantId(participantId)
+                        .participantId(registration.getParticipantId())
+                        .holderParticipantId(participantId)
                         .scope(TicketScope.ACTIVITY)
                         .build());
 
@@ -85,8 +106,14 @@ public class TicketService {
             String registrationId,
             String participantId
     ) {
-        EventRegistration registration = eventRegistrationRepository.findById(registrationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Event registration not found."));
+        EventRegistration registration = eventRegistrationRepository.findById(
+                registrationId
+        ).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "Event registration not found."
+                )
+        );
+
         return issueForEventRegistration(registration, participantId);
     }
 
@@ -94,30 +121,49 @@ public class TicketService {
             String registrationId,
             String participantId
     ) {
-        ActivityRegistration registration = activityRegistrationRepository.findById(registrationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Activity registration not found."));
+        ActivityRegistration registration =
+                activityRegistrationRepository.findById(registrationId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException(
+                                        "Activity registration not found."
+                                )
+                        );
+
         return issueForActivityRegistration(registration, participantId);
     }
 
-    public TicketResponse getActiveTicketForRegistration(String registrationId) {
-        return ticketRepository.findByRegistrationId(registrationId)
+    public TicketResponse getActiveTicketForRegistration(
+            String registrationId,
+            String participantId
+    ) {
+        return ticketRepository
+                .findByRegistrationIdAndHolderParticipantId(
+                        registrationId,
+                        participantId
+                )
                 .filter(Ticket::isActive)
                 .map(this::toResponse)
                 .orElse(null);
     }
 
     public Ticket verifyToken(String rawToken) {
-        String[] parts = rawToken == null ? new String[0] : rawToken.split("\\.", -1);
+        String[] parts = rawToken == null
+                ? new String[0]
+                : rawToken.split("\\.", -1);
 
         if (parts.length != 3) {
             throw new BadRequestException("Invalid QR ticket.");
         }
 
         Ticket ticket = ticketRepository.findById(parts[0])
-                .orElseThrow(() -> new BadRequestException("Invalid QR ticket."));
+                .orElseThrow(() ->
+                        new BadRequestException("Invalid QR ticket.")
+                );
 
         if (!ticket.isActive() || !parts[1].equals(ticket.getNonce())) {
-            throw new BadRequestException("This QR ticket is no longer active.");
+            throw new BadRequestException(
+                    "This QR ticket is no longer active."
+            );
         }
 
         String expectedSignature = sign(parts[0] + "." + parts[1]);
@@ -133,31 +179,49 @@ public class TicketService {
     }
 
     public String extractTicketId(String rawToken) {
-        String[] parts = rawToken == null ? new String[0] : rawToken.split("\\.", -1);
+        String[] parts = rawToken == null
+                ? new String[0]
+                : rawToken.split("\\.", -1);
+
         if (parts.length != 3 || parts[0].isBlank()) {
             throw new BadRequestException("Invalid QR ticket.");
         }
+
         return parts[0];
     }
 
     public void revokeByRegistrationId(String registrationId) {
-        ticketRepository.findByRegistrationId(registrationId).ifPresent(ticket -> {
+        List<Ticket> tickets = ticketRepository.findByRegistrationId(
+                registrationId
+        );
+
+        LocalDateTime now = LocalDateTime.now();
+
+        tickets.forEach(ticket -> {
             ticket.setActive(false);
-            ticket.setRevokedAt(LocalDateTime.now());
-            ticketRepository.save(ticket);
+            ticket.setRevokedAt(now);
         });
+
+        if (!tickets.isEmpty()) {
+            ticketRepository.saveAll(tickets);
+        }
     }
 
-    private void assertParticipant(String ownerId, String participantId) {
-        if (!ownerId.equals(participantId)) {
-            throw new BadRequestException("You are not allowed to access this ticket.");
-        }
+    private boolean isActivityParticipant(
+            ActivityRegistration registration,
+            String participantId
+    ) {
+        return participantId.equals(registration.getParticipantId())
+                || (registration.getTeamMemberIds() != null
+                && registration.getTeamMemberIds().contains(participantId));
     }
 
     private void assertActive(RegistrationStatus status) {
         if (status != RegistrationStatus.APPROVED
                 && status != RegistrationStatus.REGISTERED) {
-            throw new BadRequestException("A ticket is not available for this registration.");
+            throw new BadRequestException(
+                    "A ticket is not available for this registration."
+            );
         }
     }
 
@@ -179,7 +243,7 @@ public class TicketService {
                 .registrationId(ticket.getRegistrationId())
                 .eventId(ticket.getEventId())
                 .activityId(ticket.getActivityId())
-                .participantId(ticket.getParticipantId())
+                .participantId(ticket.getHolderParticipantId())
                 .qrPayload(payload)
                 .issuedAt(ticket.getIssuedAt())
                 .build();
@@ -192,13 +256,19 @@ public class TicketService {
                     ticketSecret.getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256"
             ));
+
             return Base64.getUrlEncoder()
                     .withoutPadding()
                     .encodeToString(
-                            mac.doFinal(value.getBytes(StandardCharsets.UTF_8))
+                            mac.doFinal(
+                                    value.getBytes(StandardCharsets.UTF_8)
+                            )
                     );
         } catch (Exception exception) {
-            throw new IllegalStateException("Unable to sign ticket.", exception);
+            throw new IllegalStateException(
+                    "Unable to sign ticket.",
+                    exception
+            );
         }
     }
 }
