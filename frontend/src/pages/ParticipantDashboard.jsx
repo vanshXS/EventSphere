@@ -20,7 +20,8 @@ import {
   getVisibleEvents,
   getVisibleStandaloneActivities,
   getMyRegistrations,
-  cancelRegistration
+  cancelRegistration,
+  registerForEvent
 } from "../features/registration/registrationApi";
 
 import {
@@ -142,6 +143,30 @@ export default function ParticipantDashboard() {
     ]);
 
     setSuccessMessage(getRegistrationMessage(registration));
+  };
+
+  const handleEventRegistrationSuccess = (registration) => {
+    setError("");
+
+    setMyRegistrations((previous) => [
+      registration,
+      ...previous.filter((item) => item.id !== registration.id)
+    ]);
+
+    setSuccessMessage("Event registration created. Your event QR ticket is ready.");
+  };
+
+  const handleRegisterForEvent = async (event) => {
+    try {
+      const registration = await registerForEvent(event.id);
+      handleEventRegistrationSuccess(registration);
+      setSelectedEventForDetails(null);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Could not register for this event."
+      );
+    }
   };
 
   const refreshRegistrations = async () => {
@@ -408,6 +433,7 @@ export default function ParticipantDashboard() {
         myRegistrations={myRegistrations}
         onClose={closeEventDetails}
         onRegisterActivity={setSelectedActivityForReg}
+        onRegisterEvent={handleRegisterForEvent}
         onViewActivityDetails={setSelectedActivityForDetails}
         onViewMyRegistrations={showMyRegistrations}
       />
