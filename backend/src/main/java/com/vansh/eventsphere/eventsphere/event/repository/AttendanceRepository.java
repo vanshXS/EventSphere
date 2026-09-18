@@ -16,7 +16,13 @@ public interface AttendanceRepository extends MongoRepository<Attendance, String
             CheckInType checkInType
     );
 
-    List<Attendance> findByEventId(String eventId);
+    List<Attendance> findByEventIdAndCheckInType(
+            String eventId,
+            CheckInType checkInType
+    );
 
-    List<Attendance> findByActivityId(String activityId);
+    List<Attendance> findByActivityIdAndCheckInType(
+            String activityId,
+            CheckInType checkInType
+    );
 }
