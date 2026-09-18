@@ -3,7 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getMyEvent, publishEvent, deleteEvent } from "../eventApi";
 import EventTable from "../components/EventTable";
-import { getStandaloneActivities, publishStandaloneActivity, deleteStandaloneActivity } from "../../activities/activityApi";
+import {
+  getStandaloneActivities,
+  publishStandaloneActivity,
+  deleteStandaloneActivity,
+  startStandaloneActivity,
+  completeStandaloneActivity
+} from "../../activities/activityApi";
 import { 
   Calendar, 
   Plus, 
@@ -41,6 +47,8 @@ export default function EventsPage() {
   const [publishingActivityIds, setPublishingActivityIds] = useState(new Set());
   const [deletingIds, setDeletingIds] = useState(new Set());
   const [deletingActivityIds, setDeletingActivityIds] = useState(new Set());
+  const [startingActivityIds, setStartingActivityIds] = useState(new Set());
+  const [completingActivityIds, setCompletingActivityIds] = useState(new Set());
 
   // Handle one-time flash message from navigation
   useEffect(() => {
@@ -153,6 +161,58 @@ export default function EventsPage() {
     } finally {
       setDeletingActivityIds((prev) => {
         const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
+  const handleStartActivity = async (activityId) => {
+    try {
+      setStartingActivityIds((previous) => new Set(previous).add(activityId));
+      setError("");
+      const updated = await startStandaloneActivity(activityId);
+      setStandaloneActivities((previous) =>
+        previous.map((activity) =>
+          activity.id === activityId ? updated : activity
+        )
+      );
+      setSuccessMessage("Activity started successfully.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Failed to start the activity. Please try again."
+      );
+      throw err;
+    } finally {
+      setStartingActivityIds((previous) => {
+        const next = new Set(previous);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
+  const handleCompleteActivity = async (activityId) => {
+    try {
+      setCompletingActivityIds((previous) => new Set(previous).add(activityId));
+      setError("");
+      const updated = await completeStandaloneActivity(activityId);
+      setStandaloneActivities((previous) =>
+        previous.map((activity) =>
+          activity.id === activityId ? updated : activity
+        )
+      );
+      setSuccessMessage("Activity completed successfully.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Failed to complete the activity. Please try again."
+      );
+      throw err;
+    } finally {
+      setCompletingActivityIds((previous) => {
+        const next = new Set(previous);
         next.delete(activityId);
         return next;
       });
@@ -471,6 +531,10 @@ export default function EventsPage() {
             publishingActivityIds={publishingActivityIds}
             deletingIds={deletingIds}
             deletingActivityIds={deletingActivityIds}
+            startingActivityIds={startingActivityIds}
+            completingActivityIds={completingActivityIds}
+            onStartActivity={handleStartActivity}
+            onCompleteActivity={handleCompleteActivity}
           />
         )}
       </main>
