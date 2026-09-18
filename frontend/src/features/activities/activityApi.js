@@ -99,6 +99,22 @@ export const deleteStandaloneActivity = async (activityId) => {
   return response.data;
 };
 
+export const startStandaloneActivity = async (activityId) => {
+  const response = await api.patch(
+    `/api/organizer/activities/${activityId}/start`
+  );
+
+  return normalizeActivity(response.data);
+};
+
+export const completeStandaloneActivity = async (activityId) => {
+  const response = await api.patch(
+    `/api/organizer/activities/${activityId}/complete`
+  );
+
+  return normalizeActivity(response.data);
+};
+
 export const updateActivity = async (
   eventId,
   activityId,
