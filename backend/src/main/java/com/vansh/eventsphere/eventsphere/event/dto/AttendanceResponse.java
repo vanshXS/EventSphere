@@ -1,5 +1,6 @@
 package com.vansh.eventsphere.eventsphere.event.dto;
 
+import com.vansh.eventsphere.eventsphere.event.model.CheckInType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +23,7 @@ public class AttendanceResponse {
     private String activityName;
     private String participantId;
     private String participantName;
+    private CheckInType checkInType;
     private String checkedInBy;
     private LocalDateTime checkedInAt;
     private boolean alreadyCheckedIn;
