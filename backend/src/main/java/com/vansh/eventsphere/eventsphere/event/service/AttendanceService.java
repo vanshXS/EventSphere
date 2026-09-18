@@ -72,7 +72,7 @@ public class AttendanceService {
                             .registrationId(ticket.getRegistrationId())
                             .eventId(ticket.getEventId())
                             .activityId(ticket.getActivityId())
-                            .participantId(ticket.getParticipantId())
+                            .participantId(ticket.getHolderParticipantId())
                             .checkInType(checkInType)
                             .checkedInBy(staffUserId)
                             .checkedInAt(LocalDateTime.now())
