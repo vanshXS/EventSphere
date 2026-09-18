@@ -5,11 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
+@CompoundIndex(
+        name = "registration_holder_ticket_idx",
+        def = "{'registrationId': 1, 'holderParticipantId': 1}",
+        unique = true
+)
 @Document(collection = "tickets")
 @Data
 @Builder
@@ -20,7 +26,7 @@ public class Ticket {
     @Id
     private String id;
 
-    @Indexed(unique = true)
+    @Indexed
     private String registrationId;
 
     @Indexed
@@ -29,8 +35,12 @@ public class Ticket {
     @Indexed
     private String activityId;
 
+    /**
+     * Participant represented by this ticket.
+     * For team registrations every member gets their own ticket.
+     */
     @Indexed
-    private String participantId;
+    private String holderParticipantId;
 
     private TicketScope scope;
     private String nonce;
