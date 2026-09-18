@@ -19,6 +19,7 @@ import {
   getActivityAttendance
 } from "../features/attendance/attendanceApi";
 import { getEventById } from "../features/events/eventApi";
+import { getOrganizerEventRegistrations } from "../features/registration/registrationApi";
 import { getActivitiesByEvent } from "../features/activities/activityApi";
 
 export default function EventOperationsPage() {
@@ -28,6 +29,7 @@ export default function EventOperationsPage() {
   const [staff, setStaff] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [activityAttendance, setActivityAttendance] = useState({});
+  const [eventRegistrations, setEventRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -43,17 +45,19 @@ export default function EventOperationsPage() {
     try {
       setLoading(true);
       setError("");
-      const [eventData, activityData, staffData, attendanceData] =
+      const [eventData, activityData, staffData, attendanceData, registrationData] =
         await Promise.all([
           getEventById(eventId),
           getActivitiesByEvent(eventId),
           getEventStaff(eventId),
-          getEventAttendance(eventId)
+          getEventAttendance(eventId),
+          getOrganizerEventRegistrations(eventId)
         ]);
       setEvent(eventData);
       setActivities(activityData);
       setStaff(staffData);
       setAttendance(attendanceData);
+      setEventRegistrations(registrationData);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -322,6 +326,63 @@ export default function EventOperationsPage() {
             </div>
           </div>
         </section>
+
+        {activities.length === 0 && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  Event registrations
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Direct registrations for this event. Events with activities use activity registrations instead.
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-slate-500">
+                {eventRegistrations.length} registered
+              </span>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[620px] text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-3">Participant</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Registered</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {eventRegistrations.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-3 py-8 text-center text-slate-400">
+                        No event registrations yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    eventRegistrations.map((registration) => (
+                      <tr key={registration.id}>
+                        <td className="px-3 py-3 font-semibold text-slate-800">
+                          {registration.participantId}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                            {registration.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-slate-500">
+                          {registration.registeredAt
+                            ? new Date(registration.registeredAt).toLocaleString()
+                            : "-"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5">
           <div className="flex items-center gap-2">
