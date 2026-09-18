@@ -83,6 +83,14 @@ export const getStandaloneActivities = async () => {
     : [];
 };
 
+export const getStandaloneActivity = async (activityId) => {
+  const response = await api.get(
+    `/api/organizer/activities/${activityId}`
+  );
+
+  return normalizeActivity(response.data);
+};
+
 export const publishStandaloneActivity = async (activityId) => {
   const response = await api.patch(
     `/api/organizer/activities/${activityId}/publish`
