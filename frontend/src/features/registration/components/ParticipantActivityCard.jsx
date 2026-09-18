@@ -49,6 +49,19 @@ export default function ParticipantActivityCard({
             <span className="text-[11px] font-medium text-slate-500">
               {activity.registrationType}
             </span>
+
+            {activity.status === "ONGOING" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Ongoing
+              </span>
+            )}
+            {activity.status === "COMPLETED" && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Completed
+              </span>
+            )}
           </div>
 
           <h4 className="text-base font-bold text-slate-900">
@@ -105,6 +118,21 @@ export default function ParticipantActivityCard({
             {capacityInfo.teamText && ` · ${capacityInfo.teamText}`}
           </span>
         </div>
+
+        {(activity.actualStartDateTime || activity.actualEndDateTime) && (
+          <div className="sm:col-span-2 flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 text-[11px]">
+            {activity.actualStartDateTime && (
+              <span className="text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                Started: {formatDateTime(activity.actualStartDateTime)}
+              </span>
+            )}
+            {activity.actualEndDateTime && (
+              <span className="text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                Completed: {formatDateTime(activity.actualEndDateTime)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {activity.requiresApproval === true && !hasRegistration && (

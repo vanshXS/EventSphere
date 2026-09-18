@@ -7,7 +7,9 @@ import {
   MapPin,
   Users,
   FileText,
-  Info
+  Info,
+  Play,
+  CheckCircle2
 } from "lucide-react";
 
 import {
@@ -107,6 +109,28 @@ export default function ActivityDetailsModal({
                 {activity.registrationType}
               </span>
 
+              {activity.status && (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                    activity.status === "ONGOING"
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : activity.status === "COMPLETED"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : activity.status === "PUBLISHED"
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-slate-200 bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {activity.status === "ONGOING" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  )}
+                  {activity.status === "COMPLETED" && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  )}
+                  {activity.status.charAt(0) + activity.status.slice(1).toLowerCase()}
+                </span>
+              )}
+
               {hasRegistration && (
                 <RegistrationStatusBadge
                   status={registrationStatus}
@@ -201,6 +225,27 @@ export default function ActivityDetailsModal({
                 </p>
               )}
             </div>
+
+            {(activity.actualStartDateTime || activity.actualEndDateTime) && (
+              <div className="space-y-1 sm:col-span-2 border-t border-slate-200/60 pt-3">
+                <h3 className="flex items-center gap-1 text-xs font-semibold uppercase text-indigo-700">
+                  <Play className="h-3.5 w-3.5 text-indigo-600" />
+                  Actual Execution / Operational Times
+                </h3>
+                <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-slate-700">
+                  {activity.actualStartDateTime && (
+                    <span className="flex items-center gap-1.5 bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-md">
+                      <span className="font-semibold text-amber-700">Started:</span> {formatDateTime(activity.actualStartDateTime)}
+                    </span>
+                  )}
+                  {activity.actualEndDateTime && (
+                    <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1 rounded-md">
+                      <span className="font-semibold text-emerald-700">Completed:</span> {formatDateTime(activity.actualEndDateTime)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {activity.requiresApproval === true && (

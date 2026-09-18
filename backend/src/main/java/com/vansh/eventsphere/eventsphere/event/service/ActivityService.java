@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -103,6 +104,8 @@ public class ActivityService {
                 activityRepository.findByEventId(eventId);
 
         return activities.stream()
+                .sorted(Comparator.comparing(Activity::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Activity::getStartDateTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(activityMapper::mapToResponse)
                 .toList();
     }
@@ -119,6 +122,8 @@ public class ActivityService {
         return activityRepository
                 .findByOrganizerIdAndEventIdIsNull(organizerId)
                 .stream()
+                .sorted(Comparator.comparing(Activity::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Activity::getStartDateTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(activityMapper::mapToResponse)
                 .toList();
     }
@@ -261,6 +266,12 @@ public class ActivityService {
                 organizerId
         );
 
+        if(activity.getStatus() == EventStatus.ONGOING) {
+            throw new BadRequestException(
+                    "Cannot delete activity that is ongoing"
+            );
+        }
+
         activityRepository.delete(activity);
     }
 
@@ -280,6 +291,93 @@ public class ActivityService {
         }
         activity.setStatus(EventStatus.PUBLISHED);
         activity.setUpdatedAt(LocalDateTime.now());
+        return activityMapper.mapToResponse(activityRepository.save(activity));
+    }
+
+    // =========================================================
+    // LIFECYCLE CONTROLS: START & COMPLETE ACTIVITY
+    // =========================================================
+
+    public ActivityResponse startActivity(
+            String activityId,
+            String organizerId
+    ) {
+        return transactionRunner.run(() -> {
+            guardActivity(activityId);
+            return startActivityInsideTransaction(activityId, organizerId);
+        });
+    }
+
+    public ActivityResponse startActivityInsideTransaction(
+            String activityId,
+            String organizerId
+    ) {
+        Activity activity = getOwnedActivity(activityId, organizerId);
+
+        if (activity.getStatus() == EventStatus.ONGOING || activity.getActualStartDateTime() != null) {
+            throw new BadRequestException("Activity has already started.");
+        }
+
+        if (activity.getStatus() == EventStatus.COMPLETED) {
+            throw new BadRequestException("Cannot start an already completed activity.");
+        }
+
+        if (activity.getStatus() != EventStatus.PUBLISHED) {
+            throw new BadRequestException("Only published activities can be started.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        activity.setActualStartDateTime(now);
+        activity.setStatus(EventStatus.ONGOING);
+        activity.setUpdatedAt(now);
+
+        return activityMapper.mapToResponse(activityRepository.save(activity));
+    }
+
+    public ActivityResponse completeActivity(
+            String activityId,
+            String organizerId
+    ) {
+        return transactionRunner.run(() -> {
+            guardActivity(activityId);
+            return completeActivityInsideTransaction(activityId, organizerId);
+        });
+    }
+
+    public ActivityResponse completeActivityInsideTransaction(
+            String activityId,
+            String organizerId
+    ) {
+        Activity activity = getOwnedActivity(activityId, organizerId);
+
+        if (activity.getStatus() == EventStatus.COMPLETED || activity.getActualEndDateTime() != null) {
+            throw new BadRequestException("Activity has already been completed.");
+        }
+
+        if (activity.getStatus() == EventStatus.PUBLISHED) {
+            throw new BadRequestException("Cannot complete a published activity that has not started.");
+        }
+
+        if (activity.getStatus() != EventStatus.ONGOING) {
+            throw new BadRequestException("Only ongoing activities can be completed.");
+        }
+
+        if (activity.getActualStartDateTime() == null) {
+            throw new BadRequestException("Activity cannot be completed before an actual start time exists.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(activity.getActualStartDateTime())) {
+            throw new BadRequestException("Completion time cannot be before actual start time.");
+        }
+        if (!now.isAfter(activity.getActualStartDateTime())) {
+            now = activity.getActualStartDateTime().plusNanos(1_000_000);
+        }
+
+        activity.setActualEndDateTime(now);
+        activity.setStatus(EventStatus.COMPLETED);
+        activity.setUpdatedAt(now);
+
         return activityMapper.mapToResponse(activityRepository.save(activity));
     }
 

@@ -31,6 +31,8 @@ public class ActivityResponse {
     private LocalDateTime startDateTime;
 
     private LocalDateTime endDateTime;
+    private LocalDateTime actualStartDateTime;
+    private LocalDateTime actualEndDateTime;
 
     private LocalDateTime registrationDeadline;
 

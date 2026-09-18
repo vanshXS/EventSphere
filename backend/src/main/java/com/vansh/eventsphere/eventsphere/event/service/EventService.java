@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -67,6 +68,8 @@ public class EventService {
 
         return eventRepository.findByOrganizerId(organizerId)
                 .stream()
+                .sorted(Comparator.comparing(Event::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Event::getStartDateTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(eventMapper::mapToResponse)
                 .toList();
     }
@@ -129,7 +132,7 @@ public class EventService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
 
-        eventValidator.validateEventAccess(event, organizerId);
+        eventValidator.validateDeleteEvent(event);
         eventRepository.delete(event);
     }
 

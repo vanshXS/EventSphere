@@ -41,6 +41,18 @@ public class StandaloneActivityController {
         return activityService.publishStandaloneActivity(activityId, authentication.getName());
     }
 
+    @PostMapping("/{activityId}/start")
+    @ResponseStatus(HttpStatus.OK)
+    public ActivityResponse start(@PathVariable String activityId, Authentication authentication) {
+        return activityService.startActivity(activityId, authentication.getName());
+    }
+
+    @PostMapping("/{activityId}/complete")
+    @ResponseStatus(HttpStatus.OK)
+    public ActivityResponse complete(@PathVariable String activityId, Authentication authentication) {
+        return activityService.completeActivity(activityId, authentication.getName());
+    }
+
     @GetMapping("/{activityId}/registrations")
     @ResponseStatus(HttpStatus.OK)
     public List<OrganizerRegistrationResponse> getRegistrations(@PathVariable String activityId, Authentication authentication) {

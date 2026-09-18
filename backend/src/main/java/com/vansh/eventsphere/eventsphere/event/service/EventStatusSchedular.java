@@ -36,23 +36,22 @@ public class EventStatusSchedular {
                 List.of(EventStatus.PUBLISHED, EventStatus.ONGOING)
         );
 
-        for(Activity activity : activities) {
+        for (Activity activity : activities) {
             LocalDateTime start = activity.getStartDateTime();
             LocalDateTime end = activity.getEndDateTime();
 
-            if(end != null && !end.isAfter(now)) {
-                if(activity.getStatus() != EventStatus.COMPLETED) {
-                    activity.setStatus(EventStatus.COMPLETED);
-                    activityRepository.save(activity);
+            if (activity.getStatus() == EventStatus.PUBLISHED) {
+                if (start != null && !start.isAfter(now)) {
+                    log.info("Activity ID {} is PUBLISHED but past scheduled start time {} (operational status: not started / late)",
+                            activity.getId(), start);
                 }
-            }else if(start != null && !start.isAfter(now)) {
-                if(activity.getStatus() == EventStatus.PUBLISHED){
-                    activity.setStatus(EventStatus.ONGOING);
-                    activityRepository.save(activity);
+            } else if (activity.getStatus() == EventStatus.ONGOING) {
+                if (end != null && !end.isAfter(now)) {
+                    log.info("Activity ID {} is ONGOING but past scheduled end time {} (operational status: overrun / exceeding scheduled end)",
+                            activity.getId(), end);
                 }
             }
         }
-
     }
     private void updateEventStatuses() {
         LocalDateTime now = LocalDateTime.now();

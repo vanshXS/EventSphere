@@ -88,9 +88,23 @@ export default function ParticipantDashboard() {
       .then(([eventsData, activitiesData, registrationsData, teamsData]) => {
         if (ignore) return;
 
-        setEvents(eventsData);
-        setStandaloneActivities(activitiesData);
-        setMyRegistrations(registrationsData);
+        const sortByNewest = (list) =>
+          (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+            const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
+            const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+            return timeB - timeA;
+          });
+
+        const sortRegistrationsByNewest = (list) =>
+          (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+            const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
+            const timeB = Date.parse(b.registeredAt || b.createdAt || 0);
+            return timeB - timeA;
+          });
+
+        setEvents(sortByNewest(eventsData));
+        setStandaloneActivities(sortByNewest(activitiesData));
+        setMyRegistrations(sortRegistrationsByNewest(registrationsData));
         setMyTeams(teamsData);
         setError("");
       })
@@ -153,7 +167,13 @@ export default function ParticipantDashboard() {
 
     try {
       const registrations = await getMyRegistrations();
-      setMyRegistrations(registrations);
+      const sortRegistrationsByNewest = (list) =>
+        (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+          const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
+          const timeB = Date.parse(b.registeredAt || b.createdAt || 0);
+          return timeB - timeA;
+        });
+      setMyRegistrations(sortRegistrationsByNewest(registrations));
       setSuccessMessage("Registration statuses updated.");
     } catch (err) {
       setError(

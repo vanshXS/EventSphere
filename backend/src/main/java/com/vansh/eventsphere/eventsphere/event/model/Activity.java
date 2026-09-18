@@ -33,6 +33,8 @@ public class Activity {
     private LocalDateTime registrationDeadline;
     private LocalDateTime startDateTime;
     private LocalDateTime endDateTime;
+    private LocalDateTime actualStartDateTime;
+    private LocalDateTime actualEndDateTime;
 
     private String location;
     private Integer capacity;

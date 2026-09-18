@@ -37,6 +37,15 @@ public class EventValidator {
         }
     }
 
+    public void validateDeleteEvent(Event event) {
+
+        if(event.getEventStatus() == EventStatus.PUBLISHED || event.getEventStatus() == EventStatus.ONGOING) {
+            throw new BadRequestException(
+                    event.getEventStatus() + " status Event cannot deleted"
+            );
+        }
+    }
+
     public void validateCanPublish(Event event) {
 
         if(event.getEventStatus() == EventStatus.PUBLISHED) {

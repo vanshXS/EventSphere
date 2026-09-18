@@ -61,7 +61,12 @@ function EventDetailsContent({
     getActivitiesOfVisibleEvent(event.id)
       .then((data) => {
         if (!ignore) {
-          setActivities(data);
+          const sorted = (Array.isArray(data) ? data : []).slice().sort((a, b) => {
+            const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
+            const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+            return timeB - timeA;
+          });
+          setActivities(sorted);
           setError("");
         }
       })

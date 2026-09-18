@@ -17,10 +17,20 @@ export default function ActivityList({
   loading = false,
   error = "",
   onActivityCreated,
+  onActivityDeleted,
+  onActivityStarted,
+  onActivityCompleted,
+  deletingActivityIds = new Set(),
+  startingActivityIds = new Set(),
+  completingActivityIds = new Set(),
   onRefresh
 }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
+
+  const sortedActivities = [...activities].sort(
+    (a, b) => new Date(b.createdAt || b.startDateTime || 0) - new Date(a.createdAt || a.startDateTime || 0)
+  );
 
   const handleCreated = (newActivity) => {
     if (onActivityCreated) {
@@ -117,13 +127,19 @@ export default function ActivityList({
       )}
 
       {/* State 4: Activities List */}
-      {!loading && activities.length > 0 && (
+      {!loading && sortedActivities.length > 0 && (
         <div className="grid grid-cols-1 gap-3.5">
-          {activities.map((activity) => (
+          {sortedActivities.map((activity) => (
             <ActivityCard
               key={activity.id || activity.name}
               activity={activity}
               onEdit={() => { setEditingActivity(activity); setShowAddModal(true); }}
+              onDelete={onActivityDeleted ? () => onActivityDeleted(activity.id) : undefined}
+              onStart={onActivityStarted ? () => onActivityStarted(activity.id) : undefined}
+              onComplete={onActivityCompleted ? () => onActivityCompleted(activity.id) : undefined}
+              isDeleting={deletingActivityIds.has(activity.id)}
+              isStarting={startingActivityIds.has(activity.id)}
+              isCompleting={completingActivityIds.has(activity.id)}
             />
           ))}
         </div>

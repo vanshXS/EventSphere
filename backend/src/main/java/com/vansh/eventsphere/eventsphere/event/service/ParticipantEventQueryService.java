@@ -42,7 +42,8 @@ public class ParticipantEventQueryService {
 
         List<ParticipantEventResponse> visible = events.stream()
                 .filter(event -> visibilityService.canViewEvent(event, participant))
-                .sorted(Comparator.comparing(Event::getStartDateTime))
+                .sorted(Comparator.comparing(Event::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Event::getStartDateTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(participantMapper::mapToResponse)
                 .toList();
 
@@ -70,7 +71,8 @@ public class ParticipantEventQueryService {
 
         return activityRepository.findByEventId(event.getId())
                 .stream()
-                .sorted(Comparator.comparing(Activity::getStartDateTime))
+                .sorted(Comparator.comparing(Activity::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Activity::getStartDateTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(activity -> participantMapper.mapToResponse(activity, event))
                 .toList();
     }
@@ -81,7 +83,8 @@ public class ParticipantEventQueryService {
                 .filter(activity -> userRepository.findById(activity.getOrganizerId())
                         .map(organizer -> visibilityService.canViewStandAloneActivity(activity, organizer, participant))
                         .orElse(false))
-                .sorted(Comparator.comparing(Activity::getStartDateTime))
+                .sorted(Comparator.comparing(Activity::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(Activity::getStartDateTime, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(activity -> participantMapper.mapToResponse(activity, null))
                 .toList();
     }

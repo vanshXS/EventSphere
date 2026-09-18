@@ -49,11 +49,16 @@ export const normalizeActivity = (activity) => {
     location: activity.location,
     startDateTime: activity.startDateTime,
     endDateTime: activity.endDateTime,
+    actualStartDateTime: activity.actualStartDateTime || null,
+    actualEndDateTime: activity.actualEndDateTime || null,
     registrationDeadline: activity.registrationDeadline,
     registrationType: activity.registrationType,
     capacity: activity.capacity,
     minTeamSize: activity.minTeamSize,
-    maxTeamSize: activity.maxTeamSize
+    maxTeamSize: activity.maxTeamSize,
+    status: activity.status || null,
+    createdAt: activity.createdAt || null,
+    updatedAt: activity.updatedAt || null
   };
 };
 
@@ -97,6 +102,32 @@ export const deleteStandaloneActivity = async (activityId) => {
   );
 
   return response.data;
+};
+
+export const deleteActivity = async (eventId, activityId) => {
+  if (eventId) {
+    const response = await api.delete(
+      `/api/organizer/events/${eventId}/activities/${activityId}`
+    );
+    return response.data;
+  }
+  return deleteStandaloneActivity(activityId);
+};
+
+export const startActivity = async (activityId, eventId = null) => {
+  const url = eventId
+    ? `/api/organizer/events/${eventId}/activities/${activityId}/start`
+    : `/api/organizer/activities/${activityId}/start`;
+  const response = await api.post(url);
+  return normalizeActivity(response.data);
+};
+
+export const completeActivity = async (activityId, eventId = null) => {
+  const url = eventId
+    ? `/api/organizer/events/${eventId}/activities/${activityId}/complete`
+    : `/api/organizer/activities/${activityId}/complete`;
+  const response = await api.post(url);
+  return normalizeActivity(response.data);
 };
 
 export const updateActivity = async (

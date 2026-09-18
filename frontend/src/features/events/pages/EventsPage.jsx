@@ -3,7 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getMyEvent, publishEvent, deleteEvent } from "../eventApi";
 import EventTable from "../components/EventTable";
-import { getStandaloneActivities, publishStandaloneActivity, deleteStandaloneActivity } from "../../activities/activityApi";
+import { 
+  getStandaloneActivities, 
+  publishStandaloneActivity, 
+  deleteStandaloneActivity,
+  startActivity,
+  completeActivity 
+} from "../../activities/activityApi";
 import { 
   Calendar, 
   Plus, 
@@ -41,6 +47,8 @@ export default function EventsPage() {
   const [publishingActivityIds, setPublishingActivityIds] = useState(new Set());
   const [deletingIds, setDeletingIds] = useState(new Set());
   const [deletingActivityIds, setDeletingActivityIds] = useState(new Set());
+  const [startingActivityIds, setStartingActivityIds] = useState(new Set());
+  const [completingActivityIds, setCompletingActivityIds] = useState(new Set());
 
   // Handle one-time flash message from navigation
   useEffect(() => {
@@ -55,8 +63,14 @@ export default function EventsPage() {
       setLoading(true);
       setError("");
       const [eventData, activityData] = await Promise.all([getMyEvent(), getStandaloneActivities()]);
-      setEvents(Array.isArray(eventData) ? eventData : []);
-      setStandaloneActivities(activityData);
+      const sortedEvents = (Array.isArray(eventData) ? eventData : []).sort(
+        (a, b) => new Date(b.createdAt || b.startDateTime || 0) - new Date(a.createdAt || a.startDateTime || 0)
+      );
+      const sortedActivities = (Array.isArray(activityData) ? activityData : []).sort(
+        (a, b) => new Date(b.createdAt || b.startDateTime || 0) - new Date(a.createdAt || a.startDateTime || 0)
+      );
+      setEvents(sortedEvents);
+      setStandaloneActivities(sortedActivities);
     } catch (err) {
       console.error("Failed to load events:", err);
       setError(
@@ -152,6 +166,46 @@ export default function EventsPage() {
       throw err;
     } finally {
       setDeletingActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
+  const handleStartActivity = async (activityId) => {
+    try {
+      setStartingActivityIds((prev) => new Set(prev).add(activityId));
+      const updated = await startActivity(activityId);
+      setStandaloneActivities((prev) =>
+        prev.map((a) => (a.id === activityId ? updated : a))
+      );
+      setSuccessMessage(`Activity "${updated.name}" is now ongoing.`);
+    } catch (err) {
+      console.error("Failed to start activity:", err);
+      setError(err.response?.data?.message || "Failed to start activity. Please try again.");
+    } finally {
+      setStartingActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
+  const handleCompleteActivity = async (activityId) => {
+    try {
+      setCompletingActivityIds((prev) => new Set(prev).add(activityId));
+      const updated = await completeActivity(activityId);
+      setStandaloneActivities((prev) =>
+        prev.map((a) => (a.id === activityId ? updated : a))
+      );
+      setSuccessMessage(`Activity "${updated.name}" has been marked as completed.`);
+    } catch (err) {
+      console.error("Failed to complete activity:", err);
+      setError(err.response?.data?.message || "Failed to complete activity. Please try again.");
+    } finally {
+      setCompletingActivityIds((prev) => {
         const next = new Set(prev);
         next.delete(activityId);
         return next;
@@ -467,10 +521,14 @@ export default function EventsPage() {
             onPublishActivity={handlePublishActivity}
             onDelete={handleDelete}
             onDeleteActivity={handleDeleteActivity}
+            onStartActivity={handleStartActivity}
+            onCompleteActivity={handleCompleteActivity}
             publishingIds={publishingIds}
             publishingActivityIds={publishingActivityIds}
             deletingIds={deletingIds}
             deletingActivityIds={deletingActivityIds}
+            startingActivityIds={startingActivityIds}
+            completingActivityIds={completingActivityIds}
           />
         )}
       </main>

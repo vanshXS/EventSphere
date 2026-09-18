@@ -124,4 +124,30 @@ public class ActivityController {
                 authentication.getName()
         );
     }
+
+    @PostMapping("/{eventId}/activities/{activityId}/start")
+    @ResponseStatus(HttpStatus.OK)
+    public ActivityResponse startActivity(
+            @PathVariable String eventId,
+            @PathVariable String activityId,
+            Authentication authentication
+    ) {
+        return activityService.startActivity(
+                activityId,
+                authentication.getName()
+        );
+    }
+
+    @PostMapping("/{eventId}/activities/{activityId}/complete")
+    @ResponseStatus(HttpStatus.OK)
+    public ActivityResponse completeActivity(
+            @PathVariable String eventId,
+            @PathVariable String activityId,
+            Authentication authentication
+    ) {
+        return activityService.completeActivity(
+                activityId,
+                authentication.getName()
+        );
+    }
 }

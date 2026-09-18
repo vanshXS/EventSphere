@@ -43,11 +43,11 @@ export default function ParticipantEventTable({
       itemKind: "ACTIVITY"
     }));
 
-    return [...eventItems, ...activityItems].sort(
-      (a, b) =>
-        (Date.parse(a.startDateTime) || 0) -
-        (Date.parse(b.startDateTime) || 0)
-    );
+    return [...eventItems, ...activityItems].sort((a, b) => {
+      const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
+      const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+      return timeB - timeA;
+    });
   }, [events, standaloneActivities]);
 
   const activeActivityIds = new Set(

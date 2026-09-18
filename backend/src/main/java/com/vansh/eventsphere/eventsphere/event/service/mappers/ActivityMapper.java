@@ -20,6 +20,8 @@ public class ActivityMapper {
                 .location(activity.getLocation())
                 .startDateTime(activity.getStartDateTime())
                 .endDateTime(activity.getEndDateTime())
+                .actualStartDateTime(activity.getActualStartDateTime())
+                .actualEndDateTime(activity.getActualEndDateTime())
                 .registrationDeadline(activity.getRegistrationDeadline())
                 .registrationType(activity.getRegistrationType())
                 .capacity(activity.getCapacity())

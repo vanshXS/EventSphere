@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { getEventById, updateEvent, publishEvent } from "../eventApi";
-import { getActivitiesByEvent } from "../../activities/activityApi";
+import { getEventById, updateEvent, publishEvent, deleteEvent } from "../eventApi";
+import { getActivitiesByEvent, deleteActivity, startActivity, completeActivity } from "../../activities/activityApi";
 import EventForm from "../components/EventForm";
 import EventStatusBadge from "../components/EventStatusBadge";
 import ActivityList from "../../activities/components/ActivityList";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { 
   formatDateRange,
   formatDateTime,
@@ -21,7 +22,8 @@ import {
   Lock,
   Globe,
   CheckCircle2,
-  Send
+  Send,
+  Trash2
 } from "lucide-react";
 import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 
@@ -46,6 +48,13 @@ export default function EditEventPage() {
   const [flashMessage, setFlashMessage] = useState(location.state?.flashMessage || "");
   const flashTone = location.state?.flashTone || "success";
 
+  // Action states for deletion and operational lifecycle
+  const [showDeleteEventConfirm, setShowDeleteEventConfirm] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [deletingActivityIds, setDeletingActivityIds] = useState(new Set());
+  const [startingActivityIds, setStartingActivityIds] = useState(new Set());
+  const [completingActivityIds, setCompletingActivityIds] = useState(new Set());
+
   const fetchEvent = useCallback(async () => {
     try {
       setLoading(true);
@@ -69,7 +78,12 @@ export default function EditEventPage() {
       setActivitiesLoading(true);
       setActivitiesError("");
       const data = await getActivitiesByEvent(eventId);
-      setActivities(Array.isArray(data) ? data : []);
+      const sorted = (Array.isArray(data) ? data : []).slice().sort((a, b) => {
+        const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
+        const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+        return timeB - timeA;
+      });
+      setActivities(sorted);
     } catch (err) {
       console.error("Failed to load activities:", err);
       setActivitiesError(
@@ -142,6 +156,76 @@ export default function EditEventPage() {
       setServerError(err.response?.data?.message || "Failed to publish event. Please try again.");
     } finally {
       setIsPublishing(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    try {
+      setIsDeletingEvent(true);
+      await deleteEvent(eventId);
+      navigate("/organizer", {
+        state: { flashMessage: `Event "${event?.title || "Event"}" was deleted successfully.` }
+      });
+    } catch (err) {
+      console.error("Failed to delete event:", err);
+      setServerError(err.response?.data?.message || "Failed to delete event. Please try again.");
+      setShowDeleteEventConfirm(false);
+    } finally {
+      setIsDeletingEvent(false);
+    }
+  };
+
+  const handleDeleteActivity = async (activityId) => {
+    setDeletingActivityIds((prev) => new Set([...prev, activityId]));
+    try {
+      await deleteActivity(eventId, activityId);
+      setActivities((prev) => prev.filter((a) => a.id !== activityId));
+      setActivitySuccessMessage("Activity deleted successfully.");
+    } catch (err) {
+      console.error("Failed to delete activity:", err);
+      setActivitiesError(err.response?.data?.message || "Failed to delete activity.");
+    } finally {
+      setDeletingActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
+  const handleStartActivity = async (activityId) => {
+    setStartingActivityIds((prev) => new Set([...prev, activityId]));
+    try {
+      const updated = await startActivity(eventId, activityId);
+      setActivities((prev) => prev.map((a) => a.id === activityId ? updated : a));
+      setActivitySuccessMessage(`Activity "${updated.name}" is now ongoing.`);
+    } catch (err) {
+      console.error("Failed to start activity:", err);
+      setActivitiesError(err.response?.data?.message || "Failed to mark activity as ongoing.");
+    } finally {
+      setStartingActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
+    }
+  };
+
+  const handleCompleteActivity = async (activityId) => {
+    setCompletingActivityIds((prev) => new Set([...prev, activityId]));
+    try {
+      const updated = await completeActivity(eventId, activityId);
+      setActivities((prev) => prev.map((a) => a.id === activityId ? updated : a));
+      setActivitySuccessMessage(`Activity "${updated.name}" has been completed.`);
+    } catch (err) {
+      console.error("Failed to complete activity:", err);
+      setActivitiesError(err.response?.data?.message || "Failed to mark activity as completed.");
+    } finally {
+      setCompletingActivityIds((prev) => {
+        const next = new Set(prev);
+        next.delete(activityId);
+        return next;
+      });
     }
   };
 
@@ -223,6 +307,16 @@ export default function EditEventPage() {
               </div>
               <div className="flex items-center gap-3">
                 <EventStatusBadge status={event.status || event.eventStatus} />
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteEventConfirm(true)}
+                  disabled={isDeletingEvent}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-lg border border-rose-200 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                  title="Delete event and all associated activities"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Delete Event</span>
+                </button>
                 {isDraft && (
                   <button
                     type="button"
@@ -327,6 +421,12 @@ export default function EditEventPage() {
               loading={activitiesLoading}
               error={activitiesError}
               onActivityCreated={handleActivityCreated}
+              onActivityDeleted={handleDeleteActivity}
+              onActivityStarted={handleStartActivity}
+              onActivityCompleted={handleCompleteActivity}
+              deletingActivityIds={deletingActivityIds}
+              startingActivityIds={startingActivityIds}
+              completingActivityIds={completingActivityIds}
               onRefresh={fetchActivities}
             />
           </div>
@@ -409,10 +509,27 @@ export default function EditEventPage() {
               loading={activitiesLoading}
               error={activitiesError}
               onActivityCreated={handleActivityCreated}
+              onActivityDeleted={handleDeleteActivity}
+              onActivityStarted={handleStartActivity}
+              onActivityCompleted={handleCompleteActivity}
+              deletingActivityIds={deletingActivityIds}
+              startingActivityIds={startingActivityIds}
+              completingActivityIds={completingActivityIds}
               onRefresh={fetchActivities}
             />
           </div>
         )}
+
+        {/* Delete Event Confirm Dialog */}
+        <ConfirmDialog
+          isOpen={showDeleteEventConfirm}
+          onClose={() => setShowDeleteEventConfirm(false)}
+          onConfirm={handleDeleteEvent}
+          title="Delete Event"
+          message={`Are you sure you want to delete "${event?.title}"? This will permanently delete the event and all of its associated activities. This action cannot be undone.`}
+          confirmText={isDeletingEvent ? "Deleting..." : "Delete Event"}
+          isDestructive={true}
+        />
       </main>
     </div>
   );
