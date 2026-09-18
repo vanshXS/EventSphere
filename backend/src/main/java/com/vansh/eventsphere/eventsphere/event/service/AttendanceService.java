@@ -98,7 +98,10 @@ public class AttendanceService {
             );
         }
 
-        return attendanceRepository.findByEventId(eventId)
+        return attendanceRepository.findByEventIdAndCheckInType(
+                        eventId,
+                        CheckInType.EVENT_ENTRY
+                )
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -127,7 +130,10 @@ public class AttendanceService {
             );
         }
 
-        return attendanceRepository.findByActivityId(activityId)
+        return attendanceRepository.findByActivityIdAndCheckInType(
+                        activityId,
+                        CheckInType.ACTIVITY
+                )
                 .stream()
                 .map(this::toResponse)
                 .toList();
