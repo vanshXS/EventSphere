@@ -73,6 +73,8 @@ export default function LoginPage() {
         navigate("/organizer");
       } else if (user?.role === "PARTICIPANT") {
         navigate("/participant");
+      } else if (user?.role === "VOLUNTEER") {
+        navigate("/volunteer");
       } else {
         navigate("/");
       }
