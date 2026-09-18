@@ -11,7 +11,9 @@ import {
   Eye,
   MoreVertical,
   Loader2,
-  ClipboardCheck
+  ClipboardCheck,
+  Play,
+  CheckCircle2
 } from "lucide-react";
 import ConfirmDialog from "./ConfirmDialog";
 import EventStatusBadge from "./EventStatusBadge";
@@ -84,13 +86,19 @@ export default function EventTable({
   publishingIds = new Set(),
   publishingActivityIds = new Set(),
   deletingIds = new Set(),
-  deletingActivityIds = new Set()
+  deletingActivityIds = new Set(),
+  startingActivityIds = new Set(),
+  completingActivityIds = new Set(),
+  onStartActivity,
+  onCompleteActivity
 }) {
   const [eventToDelete, setEventToDelete] = useState(null);
   const [eventToPublish, setEventToPublish] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [activityToPublish, setActivityToPublish] = useState(null);
   const [activityToDelete, setActivityToDelete] = useState(null);
+  const [activityToStart, setActivityToStart] = useState(null);
+  const [activityToComplete, setActivityToComplete] = useState(null);
 
   const handleConfirmPublish = async () => {
     if (!eventToPublish) return;
@@ -127,6 +135,26 @@ export default function EventTable({
     try {
       await onDeleteActivity(activityToDelete.id);
       setActivityToDelete(null);
+    } catch {
+      // The page-level error state explains the failure.
+    }
+  };
+
+  const handleConfirmActivityStart = async () => {
+    if (!activityToStart || !onStartActivity) return;
+    try {
+      await onStartActivity(activityToStart.id);
+      setActivityToStart(null);
+    } catch {
+      // The page-level error state explains the failure.
+    }
+  };
+
+  const handleConfirmActivityComplete = async () => {
+    if (!activityToComplete || !onCompleteActivity) return;
+    try {
+      await onCompleteActivity(activityToComplete.id);
+      setActivityToComplete(null);
     } catch {
       // The page-level error state explains the failure.
     }
@@ -202,6 +230,13 @@ export default function EventTable({
                     <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Manage</span>
                   </Link>
+                  <Link
+                    to={`/organizer/events/${event.id}/operations`}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
+                  >
+                    <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Operations</span>
+                  </Link>
 
                   {isDraft && (
                     <button
@@ -227,6 +262,13 @@ export default function EventTable({
                     >
                       <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
                       <span>Manage</span>
+                    </Link>
+                    <Link
+                      to={`/organizer/events/${event.id}/operations`}
+                      className="sm:hidden w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50 transition-colors"
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
+                      <span>Operations</span>
                     </Link>
                     {isDraft && (
                       <div className="sm:hidden">
@@ -259,7 +301,11 @@ export default function EventTable({
           const isDraft = !activity.status || activity.status === "DRAFT";
           const isPublishing = publishingActivityIds.has(activity.id);
           const isDeleting = deletingActivityIds.has(activity.id);
-          const isBusy = isPublishing || isDeleting;
+          const isStarting = startingActivityIds.has(activity.id);
+          const isCompleting = completingActivityIds.has(activity.id);
+          const isPublished = activity.status === "PUBLISHED";
+          const isOngoing = activity.status === "ONGOING";
+          const isBusy = isPublishing || isDeleting || isStarting || isCompleting;
 
           const typeBadgeStyle = getActivityTypeBadgeStyle(activity.type);
 
@@ -325,6 +371,45 @@ export default function EventTable({
                     <Eye className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>View</span>
                   </button>
+                  <Link
+                    to={`/organizer/activities/${activity.id}/operations`}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors"
+                  >
+                    <ClipboardCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Operations</span>
+                  </Link>
+
+                  {isPublished && onStartActivity && (
+                    <button
+                      type="button"
+                      onClick={() => setActivityToStart(activity)}
+                      disabled={isBusy}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isStarting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                      )}
+                      <span>{isStarting ? "Starting…" : "Start"}</span>
+                    </button>
+                  )}
+
+                  {isOngoing && onCompleteActivity && (
+                    <button
+                      type="button"
+                      onClick={() => setActivityToComplete(activity)}
+                      disabled={isBusy}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isCompleting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      )}
+                      <span>{isCompleting ? "Completing…" : "Complete"}</span>
+                    </button>
+                  )}
 
                   {isDraft && (
                     <button
@@ -351,6 +436,35 @@ export default function EventTable({
                         onClick={() => setSelectedActivity(activity)}
                       />
                     </div>
+                    <div className="sm:hidden">
+                      <MenuButton
+                        icon={ClipboardCheck}
+                        label="Operations"
+                        onClick={() => window.location.href = `/organizer/activities/${activity.id}/operations`}
+                      />
+                    </div>
+                    {isPublished && onStartActivity && (
+                      <div className="sm:hidden">
+                        <MenuButton
+                          icon={Play}
+                          label={isStarting ? "Starting…" : "Start"}
+                          onClick={() => setActivityToStart(activity)}
+                          disabled={isBusy}
+                          loading={isStarting}
+                        />
+                      </div>
+                    )}
+                    {isOngoing && onCompleteActivity && (
+                      <div className="sm:hidden">
+                        <MenuButton
+                          icon={CheckCircle2}
+                          label={isCompleting ? "Completing…" : "Complete"}
+                          onClick={() => setActivityToComplete(activity)}
+                          disabled={isBusy}
+                          loading={isCompleting}
+                        />
+                      </div>
+                    )}
                     {isDraft && (
                       <div className="sm:hidden">
                         <MenuButton
@@ -427,6 +541,28 @@ export default function EventTable({
         isLoading={eventToPublish ? publishingIds.has(eventToPublish.id) : false}
         onConfirm={handleConfirmPublish}
         onCancel={() => setEventToPublish(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(activityToStart)}
+        title="Start this activity now?"
+        message={`Starting "${activityToStart?.name || "this activity"}" will make it ONGOING immediately so activity check-in can begin.`}
+        confirmLabel="Start Activity"
+        cancelLabel="Cancel"
+        isLoading={activityToStart ? startingActivityIds.has(activityToStart.id) : false}
+        onConfirm={handleConfirmActivityStart}
+        onCancel={() => setActivityToStart(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(activityToComplete)}
+        title="Complete this activity?"
+        message={`Completing "${activityToComplete?.name || "this activity"}" will close activity check-in.`}
+        confirmLabel="Complete Activity"
+        cancelLabel="Cancel"
+        isLoading={activityToComplete ? completingActivityIds.has(activityToComplete.id) : false}
+        onConfirm={handleConfirmActivityComplete}
+        onCancel={() => setActivityToComplete(null)}
       />
 
       <ConfirmDialog
