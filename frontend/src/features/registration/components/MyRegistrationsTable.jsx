@@ -147,7 +147,7 @@ export default function MyRegistrationsTable({
     setCancelError("");
 
     try {
-      const result = await onCancelRegistration(regToCancel.id);
+      const result = await onCancelRegistration(regToCancel);
 
       if (result && result.success !== false && result !== false) {
         setRegToCancel(null);
