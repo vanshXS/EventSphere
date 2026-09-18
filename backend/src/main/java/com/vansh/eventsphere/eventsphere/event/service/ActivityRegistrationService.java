@@ -126,7 +126,7 @@ public class ActivityRegistrationService {
                 .build();
 
         ActivityRegistration saved = activityRegistrationRepository.save(registration);
-        return enrichRegistrationResponse(saved);
+        return enrichRegistrationResponse(saved, participantId);
     }
 
     public List<ActivityRegistrationResponse> getMyRegistrations(
@@ -138,7 +138,10 @@ public class ActivityRegistrationService {
                         participantId
                 )
                 .stream()
-                .map(this::enrichRegistrationResponse)
+                .map(registration -> enrichRegistrationResponse(
+                        registration,
+                        participantId
+                ))
                 .toList();
     }
 
@@ -201,7 +204,7 @@ public class ActivityRegistrationService {
 
         ticketService.revokeByRegistrationId(registrationId);
 
-        return enrichRegistrationResponse(updated);
+        return enrichRegistrationResponse(updated, participantId);
     }
 
     public OrganizerRegistrationResponse approveRegistration(
@@ -230,7 +233,8 @@ public class ActivityRegistrationService {
     }
 
     private ActivityRegistrationResponse enrichRegistrationResponse(
-            ActivityRegistration reg
+            ActivityRegistration reg,
+            String viewerParticipantId
     ) {
         ActivityRegistrationResponse res = mapper.mapToResponse(reg);
 
@@ -265,7 +269,7 @@ public class ActivityRegistrationService {
             res.setTicket(
                     ticketService.getOrIssueActivityTicket(
                             reg.getId(),
-                            reg.getParticipantId()
+                            viewerParticipantId
                     )
             );
         }
