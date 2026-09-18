@@ -10,7 +10,6 @@ import com.vansh.eventsphere.eventsphere.event.model.Event;
 import com.vansh.eventsphere.eventsphere.event.model.EventStaffAssignment;
 import com.vansh.eventsphere.eventsphere.event.model.EventStaffPermission;
 import com.vansh.eventsphere.eventsphere.event.model.EventStaffStatus;
-import com.vansh.eventsphere.eventsphere.event.model.TicketScope;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.EventRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.EventStaffAssignmentRepository;
@@ -287,7 +286,7 @@ public class EventStaffService {
             String userId,
             String eventId,
             String activityId,
-            TicketScope scope
+            CheckInType checkInType
     ) {
         return assignmentRepository.findByUserIdAndStatus(
                         userId,
@@ -299,20 +298,14 @@ public class EventStaffService {
                         return false;
                     }
 
-                    if (scope == TicketScope.EVENT) {
+                    if (checkInType == CheckInType.EVENT_ENTRY) {
                         return eventId != null
                                 && eventId.equals(assignment.getEventId())
                                 && assignment.getActivityId() == null;
                     }
 
-                    if (activityId != null
-                            && activityId.equals(assignment.getActivityId())) {
-                        return true;
-                    }
-
-                    return eventId != null
-                            && eventId.equals(assignment.getEventId())
-                            && assignment.getActivityId() == null;
+                    return activityId != null
+                            && activityId.equals(assignment.getActivityId());
                 });
     }
 
