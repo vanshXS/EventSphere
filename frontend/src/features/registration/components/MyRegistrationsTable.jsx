@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Calendar,
   MapPin,
   Loader2,
   Search,
-  XCircle
+  XCircle,
+  Ticket
 } from "lucide-react";
 
 import { useAuth } from "../../auth/AuthContext";
@@ -358,7 +360,25 @@ export default function MyRegistrationsTable({
                       </td>
 
                       <td className="px-4 py-4">
-                        {canCancelRegistration(registration) ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {registration.ticket && (
+                            <Link
+                              to={
+                                "/participant/ticket?registrationId=" +
+                                registration.id +
+                                "&scope=" +
+                                (registration.activityId
+                                  ? "ACTIVITY"
+                                  : "EVENT")
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 font-semibold text-indigo-700 hover:bg-indigo-100"
+                            >
+                              <Ticket className="h-3.5 w-3.5" />
+                              Ticket
+                            </Link>
+                          )}
+
+                          {canCancelRegistration(registration) ? (
                           <button
                             type="button"
                             disabled={Boolean(cancellingId)}
@@ -388,6 +408,7 @@ export default function MyRegistrationsTable({
                             No actions
                           </span>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ))}
