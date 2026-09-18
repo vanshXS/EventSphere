@@ -26,7 +26,7 @@ export default function AppRoutes() {
 
 
         <Route
-          path="/staff/invitations/:token"
+          path="/volunteer/invitations/:token"
           element={<VolunteerInvitationPage />}
         />
 
