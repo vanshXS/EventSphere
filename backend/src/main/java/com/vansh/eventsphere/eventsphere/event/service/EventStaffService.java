@@ -5,6 +5,7 @@ import com.vansh.eventsphere.eventsphere.event.dto.AcceptStaffInvitationRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.EventStaffAssignmentResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.InviteStaffRequest;
 import com.vansh.eventsphere.eventsphere.event.model.Activity;
+import com.vansh.eventsphere.eventsphere.event.model.CheckInType;
 import com.vansh.eventsphere.eventsphere.event.model.Event;
 import com.vansh.eventsphere.eventsphere.event.model.EventStaffAssignment;
 import com.vansh.eventsphere.eventsphere.event.model.EventStaffPermission;
