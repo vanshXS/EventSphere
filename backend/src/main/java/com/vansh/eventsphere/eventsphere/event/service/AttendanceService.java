@@ -53,8 +53,8 @@ public class AttendanceService {
             }
 
             Attendance existing = attendanceRepository
-                    .findByRegistrationIdAndCheckInType(
-                            ticket.getRegistrationId(),
+                    .findByTicketIdAndCheckInType(
+                            ticket.getId(),
                             checkInType
                     )
                     .orElse(null);
