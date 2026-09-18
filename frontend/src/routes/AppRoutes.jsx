@@ -86,7 +86,7 @@ export default function AppRoutes() {
         <Route
           path="/volunteer"
           element={
-            <ProtectedRoutes allowedRole={["VOLUNTEER"]}>
+            <ProtectedRoutes>
               <VolunteerScannerPage />
             </ProtectedRoutes>
           }
