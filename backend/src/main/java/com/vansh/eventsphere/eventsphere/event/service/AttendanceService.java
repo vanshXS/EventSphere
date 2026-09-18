@@ -45,7 +45,6 @@ public class AttendanceService {
                     staffUserId,
                     ticket.getEventId(),
                     ticket.getActivityId(),
-                    ticket.getScope(),
                     checkInType
             )) {
                 throw new BadRequestException(
