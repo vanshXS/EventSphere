@@ -11,8 +11,8 @@ import java.util.Optional;
 @Repository
 public interface AttendanceRepository extends MongoRepository<Attendance, String> {
 
-    Optional<Attendance> findByRegistrationIdAndCheckInType(
-            String registrationId,
+    Optional<Attendance> findByTicketIdAndCheckInType(
+            String ticketId,
             CheckInType checkInType
     );
 
