@@ -12,6 +12,7 @@ import ParticipantTicketPage from "../pages/ParticipantTicketPage";
 import VolunteerInvitationPage from "../pages/VolunteerInvitationPage";
 import VolunteerScannerPage from "../pages/VolunteerScannerPage";
 import EventOperationsPage from "../pages/EventOperationsPage";
+import StandaloneActivityOperationsPage from "../pages/StandaloneActivityOperationsPage";
 
 export default function AppRoutes() {
   return (
@@ -62,6 +63,15 @@ export default function AppRoutes() {
           element={
             <ProtectedRoutes allowedRole={["ORGANIZER"]}>
               <EventOperationsPage />
+            </ProtectedRoutes>
+          }
+        />
+
+        <Route
+          path="/organizer/activities/:activityId/operations"
+          element={
+            <ProtectedRoutes allowedRole={["ORGANIZER"]}>
+              <StandaloneActivityOperationsPage />
             </ProtectedRoutes>
           }
         />
