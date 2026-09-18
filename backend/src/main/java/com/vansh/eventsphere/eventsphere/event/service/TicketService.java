@@ -55,7 +55,6 @@ public class TicketService {
                 .orElseGet(() -> Ticket.builder()
                         .registrationId(registration.getId())
                         .eventId(registration.getEventId())
-                        .participantId(participantId)
                         .holderParticipantId(participantId)
                         .scope(TicketScope.EVENT)
                         .build());
@@ -89,7 +88,6 @@ public class TicketService {
                         .registrationId(registration.getId())
                         .eventId(registration.getEventId())
                         .activityId(registration.getActivityId())
-                        .participantId(registration.getParticipantId())
                         .holderParticipantId(participantId)
                         .scope(TicketScope.ACTIVITY)
                         .build());
