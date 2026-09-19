@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BrowserCodeReader, BrowserQRCodeReader } from "@zxing/browser";
+import { BrowserQRCodeReader } from "@zxing/browser";
 import {
   Camera,
   CheckCircle2,
@@ -137,22 +137,11 @@ export default function VolunteerScannerPage() {
       const reader = new BrowserQRCodeReader();
       readerRef.current = reader;
 
-      const devices = await BrowserCodeReader.listVideoInputDevices();
-
-      if (!devices.length) {
-        throw new Error("No camera was found on this device.");
-      }
-
-      const preferredDevice =
-        devices.find((device) =>
-          /back|rear|environment/i.test(device.label || "")
-        ) || devices[0];
-
       scanningRef.current = true;
       setScanning(true);
 
       const controls = await reader.decodeFromVideoDevice(
-        preferredDevice.deviceId,
+        undefined,
         videoRef.current,
         async (result) => {
           if (!result || resultLockRef.current || !scanningRef.current) {
