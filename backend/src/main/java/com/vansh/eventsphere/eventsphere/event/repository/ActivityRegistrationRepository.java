@@ -13,6 +13,9 @@ public interface ActivityRegistrationRepository extends MongoRepository<Activity
     boolean existsByActivityIdAndParticipantIdAndStatus(String activityId, String participantId, RegistrationStatus status);
     List<ActivityRegistration> findByParticipantId(String participantId);
     List<ActivityRegistration> findByActivityId(String activityId);
+
+    /** Registrations belonging to teams the participant currently belongs to. */
+    List<ActivityRegistration> findByTeamIdIn(List<String> teamIds);
     long countByActivityIdAndStatus(
             String activityId,
             RegistrationStatus status

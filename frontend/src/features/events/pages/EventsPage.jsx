@@ -285,18 +285,13 @@ export default function EventsPage() {
     (item) => item.status === "DRAFT"
   ).length;
 
-  const nextOrganizerItem = [...allOrganizerItems]
-    .filter(
-      (item) =>
-        item.startDateTime &&
-        new Date(item.startDateTime).getTime() > Date.now() &&
-        item.status !== "COMPLETED"
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.startDateTime).getTime() -
-        new Date(b.startDateTime).getTime()
-    )[0];
+  const organizerPublishedCount = allOrganizerItems.filter(
+    (item) => item.status === "PUBLISHED"
+  ).length;
+
+  const organizerOngoingCount = allOrganizerItems.filter(
+    (item) => item.status === "ONGOING"
+  ).length;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
@@ -404,46 +399,6 @@ export default function EventsPage() {
                   </span>
                 </Link>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Total
-            </p>
-            <p className="mt-1 text-lg font-bold text-slate-900">
-              {totalItems}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Published
-            </p>
-            <p className="mt-1 text-lg font-bold text-indigo-700">
-              {organizerPublishedCount}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Ongoing
-            </p>
-            <p className="mt-1 text-lg font-bold text-emerald-700">
-              {organizerOngoingCount}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Next
-            </p>
-            <p className="mt-1 truncate text-sm font-semibold text-slate-900">
-              {nextOrganizerItem?.name || "No upcoming item"}
-            </p>
-            {nextOrganizerItem?.startDateTime && (
-              <p className="mt-0.5 text-[11px] text-slate-500">
-                {new Date(nextOrganizerItem.startDateTime).toLocaleString()}
-              </p>
             )}
           </div>
         </div>

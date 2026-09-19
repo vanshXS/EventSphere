@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BrowserCodeReader, BrowserQRCodeReader } from "@zxing/browser";
 import {
   Camera,
   CheckCircle2,
@@ -29,9 +30,10 @@ export default function VolunteerScannerPage() {
   const [scanning, setScanning] = useState(false);
 
   const videoRef = useRef(null);
-  const streamRef = useRef(null);
+  const controlsRef = useRef(null);
+  const readerRef = useRef(null);
   const scanningRef = useRef(false);
-  const frameRef = useRef(null);
+  const resultLockRef = useRef(false);
 
   useEffect(() => {
     getMyVolunteerAssignments()
@@ -60,10 +62,14 @@ export default function VolunteerScannerPage() {
 
   const stopCamera = () => {
     scanningRef.current = false;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    frameRef.current = null;
+    resultLockRef.current = false;
+
+    controlsRef.current?.stop();
+    controlsRef.current = null;
+
+    readerRef.current?.reset?.();
+    readerRef.current = null;
+
     setScanning(false);
   };
 
@@ -92,66 +98,107 @@ export default function VolunteerScannerPage() {
   };
 
   const startCamera = async () => {
-    setMessage(null);
+    if (scanningRef.current) return;
 
-    if (!("BarcodeDetector" in window)) {
-      setMessage({
-        type: "error",
-        text:
-          "QR camera scanning is not available in this browser. Paste the QR payload below instead."
-      });
-      return;
-    }
+    setMessage(null);
 
     if (!selectedAssignment) {
       setMessage({
         type: "error",
-        text: "You do not have an active volunteer assignment."
+        text: "Select the event or activity you were assigned to first."
+      });
+      return;
+    }
+
+    if (
+      !window.isSecureContext &&
+      !["localhost", "127.0.0.1"].includes(window.location.hostname)
+    ) {
+      setMessage({
+        type: "error",
+        text:
+          "Camera access requires HTTPS (or localhost). Open EventSphere over HTTPS on the device you are testing with."
+      });
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMessage({
+        type: "error",
+        text:
+          "This browser does not expose camera access. Use a current browser and allow camera permission."
       });
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false
-      });
+      stopCamera();
 
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+      const reader = new BrowserQRCodeReader();
+      readerRef.current = reader;
+
+      const devices = await BrowserCodeReader.listVideoInputDevices();
+
+      if (!devices.length) {
+        throw new Error("No camera was found on this device.");
+      }
+
+      const preferredDevice =
+        devices.find((device) =>
+          /back|rear|environment/i.test(device.label || "")
+        ) || devices[0];
 
       scanningRef.current = true;
       setScanning(true);
 
-      const detector = new BarcodeDetector({ formats: ["qr_code"] });
-
-      const scan = async () => {
-        if (!scanningRef.current || !videoRef.current) return;
-
-        try {
-          const codes = await detector.detect(videoRef.current);
-
-          if (codes.length && codes[0].rawValue) {
-            scanningRef.current = false;
-            stopCamera();
-            await submitPayload(codes[0].rawValue);
+      const controls = await reader.decodeFromVideoDevice(
+        preferredDevice.deviceId,
+        videoRef.current,
+        async (result) => {
+          if (!result || resultLockRef.current || !scanningRef.current) {
             return;
           }
-        } catch {
-          // Continue scanning.
+
+          const value =
+            typeof result.getText === "function"
+              ? result.getText()
+              : result.text;
+
+          if (!value?.trim()) return;
+
+          resultLockRef.current = true;
+          stopCamera();
+
+          try {
+            await submitPayload(value);
+          } finally {
+            resultLockRef.current = false;
+          }
         }
+      );
 
-        frameRef.current = requestAnimationFrame(scan);
-      };
-
-      scan();
+      controlsRef.current = controls;
     } catch (err) {
+      stopCamera();
+
+      let messageText =
+        "Could not start the camera. Check browser permissions and try again.";
+
+      if (err?.name === "NotAllowedError") {
+        messageText =
+          "Camera permission was denied. Allow camera access for EventSphere and try again.";
+      } else if (err?.name === "NotFoundError") {
+        messageText = "No usable camera was found on this device.";
+      } else if (err?.name === "NotReadableError") {
+        messageText =
+          "The camera is already being used by another app or browser tab. Close it and try again.";
+      } else if (err?.message) {
+        messageText = err.message;
+      }
+
       setMessage({
         type: "error",
-        text:
-          err.message ||
-          "Camera access failed. Check browser permissions."
+        text: messageText
       });
     }
   };
@@ -278,6 +325,7 @@ export default function VolunteerScannerPage() {
                 ref={videoRef}
                 className="h-full w-full object-cover"
                 muted
+                autoPlay
                 playsInline
               />
             </div>

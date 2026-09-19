@@ -6,9 +6,11 @@ import com.vansh.eventsphere.eventsphere.event.model.EventRegistration;
 import com.vansh.eventsphere.eventsphere.event.model.RegistrationStatus;
 import com.vansh.eventsphere.eventsphere.event.model.Ticket;
 import com.vansh.eventsphere.eventsphere.event.model.TicketScope;
+import com.vansh.eventsphere.eventsphere.event.model.Team;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.EventRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.TicketRepository;
+import com.vansh.eventsphere.eventsphere.event.repository.TeamRepository;
 import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ import java.util.UUID;
 public class TicketService {
 
     private final TicketRepository ticketRepository;
+    private final TeamRepository teamRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
     private final ActivityRegistrationRepository activityRegistrationRepository;
 
@@ -209,9 +212,29 @@ public class TicketService {
             ActivityRegistration registration,
             String participantId
     ) {
-        return participantId.equals(registration.getParticipantId())
-                || (registration.getTeamMemberIds() != null
-                && registration.getTeamMemberIds().contains(participantId));
+        if (participantId.equals(registration.getParticipantId())) {
+            return true;
+        }
+
+        if (registration.getTeamMemberIds() != null
+                && registration.getTeamMemberIds().contains(participantId)) {
+            return true;
+        }
+
+        /*
+         * The registration stores a member snapshot for audit/history, but
+         * ticket access follows the current team membership as well. This
+         * lets a newly-added team member receive their own ticket without
+         * rewriting the original registration document.
+         */
+        if (registration.getTeamId() == null) {
+            return false;
+        }
+
+        return teamRepository.findById(registration.getTeamId())
+                .map(Team::getMembersId)
+                .map(members -> members != null && members.contains(participantId))
+                .orElse(false);
     }
 
     private void assertActive(RegistrationStatus status) {
