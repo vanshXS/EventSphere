@@ -225,6 +225,31 @@ export default function EventOperationsPage() {
           </div>
         )}
 
+        <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                Quick start
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-slate-900">
+                Get event check-in ready
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                Invite a volunteer, share the invitation link, then use the scanner. Activity-specific volunteers are configured below.
+              </p>
+              <p className="mt-3 text-xs font-medium text-slate-500">
+                1. Invite volunteer &nbsp;→&nbsp; 2. Volunteer accepts &nbsp;→&nbsp; 3. Open scanner &nbsp;→&nbsp; 4. Scan ticket
+              </p>
+            </div>
+            <Link
+              to="/volunteer/scanner"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Open Scanner
+            </Link>
+          </div>
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[1fr_1.25fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2">

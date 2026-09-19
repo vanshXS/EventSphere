@@ -361,6 +361,31 @@ export default function StandaloneActivityOperationsPage() {
           </div>
         )}
 
+        <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                Quick start
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-slate-900">
+                Run this activity in three steps
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Start the activity, give one volunteer check-in access, then open the scanner.
+              </p>
+              <p className="mt-3 text-xs font-medium text-slate-500">
+                1. Start activity &nbsp;→&nbsp; 2. Assign volunteer &nbsp;→&nbsp; 3. Scan tickets
+              </p>
+            </div>
+            <Link
+              to="/volunteer/scanner"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              Open Scanner
+            </Link>
+          </div>
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between gap-3">

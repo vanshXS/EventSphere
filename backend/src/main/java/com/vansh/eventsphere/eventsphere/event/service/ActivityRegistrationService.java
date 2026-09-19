@@ -25,7 +25,9 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -126,17 +128,59 @@ public class ActivityRegistrationService {
                 .build();
 
         ActivityRegistration saved = activityRegistrationRepository.save(registration);
+
+        /*
+         * Issue the first set of tickets for every current team member.
+         * Tickets are still created lazily later, which also covers a member
+         * added to the team after the original registration.
+         */
+        if (team != null
+                && (initialStatus == RegistrationStatus.APPROVED
+                || initialStatus == RegistrationStatus.REGISTERED)) {
+            for (String memberId : team.getMembersId()) {
+                ticketService.issueForActivityRegistration(saved, memberId);
+            }
+        }
+
         return enrichRegistrationResponse(saved, participantId);
     }
 
     public List<ActivityRegistrationResponse> getMyRegistrations(
             String participantId
     ) {
-        return activityRegistrationRepository
+        /*
+         * A team registration is owned by the team, not by the leader's user
+         * account. Team membership can legitimately change after registration,
+         * so we resolve the participant's current teams as well as the
+         * registration's stored member snapshot.
+         */
+        Map<String, ActivityRegistration> registrations = new LinkedHashMap<>();
+
+        activityRegistrationRepository
                 .findByParticipantIdOrTeamMemberIdsContaining(
                         participantId,
                         participantId
                 )
+                .forEach(registration ->
+                        registrations.put(registration.getId(), registration)
+                );
+
+        List<String> teamIds = teamRepository
+                .findByMembersIdContaining(participantId)
+                .stream()
+                .map(Team::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+
+        if (!teamIds.isEmpty()) {
+            activityRegistrationRepository
+                    .findByTeamIdIn(teamIds)
+                    .forEach(registration ->
+                            registrations.put(registration.getId(), registration)
+                    );
+        }
+
+        return registrations.values()
                 .stream()
                 .map(registration -> enrichRegistrationResponse(
                         registration,
@@ -258,11 +302,16 @@ public class ActivityRegistrationService {
             Team team = teamRepository.findById(reg.getTeamId()).orElse(null);
             if (team != null) {
                 res.setTeamName(team.getName());
+                res.setTeamMemberIds(team.getMembersId());
+                res.setTeamLeaderId(team.getLeaderId());
+            } else {
+                res.setTeamMemberIds(reg.getTeamMemberIds());
+                res.setTeamLeaderId(reg.getTeamLeaderId());
             }
+        } else {
+            res.setTeamMemberIds(reg.getTeamMemberIds());
+            res.setTeamLeaderId(reg.getTeamLeaderId());
         }
-
-        res.setTeamMemberIds(reg.getTeamMemberIds());
-        res.setTeamLeaderId(reg.getTeamLeaderId());
 
         if (reg.getStatus() == RegistrationStatus.APPROVED
                 || reg.getStatus() == RegistrationStatus.REGISTERED) {
