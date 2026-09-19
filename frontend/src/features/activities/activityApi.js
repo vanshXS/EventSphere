@@ -49,16 +49,11 @@ export const normalizeActivity = (activity) => {
     location: activity.location,
     startDateTime: activity.startDateTime,
     endDateTime: activity.endDateTime,
-    actualStartDateTime: activity.actualStartDateTime || null,
-    actualEndDateTime: activity.actualEndDateTime || null,
     registrationDeadline: activity.registrationDeadline,
     registrationType: activity.registrationType,
     capacity: activity.capacity,
     minTeamSize: activity.minTeamSize,
-    maxTeamSize: activity.maxTeamSize,
-    status: activity.status || null,
-    createdAt: activity.createdAt || null,
-    updatedAt: activity.updatedAt || null
+    maxTeamSize: activity.maxTeamSize
   };
 };
 
@@ -88,6 +83,14 @@ export const getStandaloneActivities = async () => {
     : [];
 };
 
+export const getStandaloneActivity = async (activityId) => {
+  const response = await api.get(
+    `/api/organizer/activities/${activityId}`
+  );
+
+  return normalizeActivity(response.data);
+};
+
 export const publishStandaloneActivity = async (activityId) => {
   const response = await api.patch(
     `/api/organizer/activities/${activityId}/publish`
@@ -104,29 +107,19 @@ export const deleteStandaloneActivity = async (activityId) => {
   return response.data;
 };
 
-export const deleteActivity = async (eventId, activityId) => {
-  if (eventId) {
-    const response = await api.delete(
-      `/api/organizer/events/${eventId}/activities/${activityId}`
-    );
-    return response.data;
-  }
-  return deleteStandaloneActivity(activityId);
-};
+export const startStandaloneActivity = async (activityId) => {
+  const response = await api.patch(
+    `/api/organizer/activities/${activityId}/start`
+  );
 
-export const startActivity = async (activityId, eventId = null) => {
-  const url = eventId
-    ? `/api/organizer/events/${eventId}/activities/${activityId}/start`
-    : `/api/organizer/activities/${activityId}/start`;
-  const response = await api.post(url);
   return normalizeActivity(response.data);
 };
 
-export const completeActivity = async (activityId, eventId = null) => {
-  const url = eventId
-    ? `/api/organizer/events/${eventId}/activities/${activityId}/complete`
-    : `/api/organizer/activities/${activityId}/complete`;
-  const response = await api.post(url);
+export const completeStandaloneActivity = async (activityId) => {
+  const response = await api.patch(
+    `/api/organizer/activities/${activityId}/complete`
+  );
+
   return normalizeActivity(response.data);
 };
 

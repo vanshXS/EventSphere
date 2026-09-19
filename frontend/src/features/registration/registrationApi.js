@@ -51,28 +51,65 @@ export const registerForActivity = async (
 };
 
 export const getMyRegistrations = async () => {
-  try {
-    const response = await api.get("/api/participant/registrations/me");
+  const [activityResponse, eventResponse] = await Promise.all([
+    api.get("/api/participant/registrations/me"),
+    api.get("/api/participant/event-registrations/my")
+  ]);
 
-    return Array.isArray(response.data) ? response.data : [];
-  } catch (error) {
-    if (
-      error.response?.status === 405 ||
-      error.response?.status === 404
-    ) {
-      return [];
-    }
+  const activityRegistrations = Array.isArray(activityResponse.data)
+    ? activityResponse.data.map((registration) => ({
+        ...registration,
+        registrationKind: "ACTIVITY"
+      }))
+    : [];
 
-    throw error;
-  }
+  const eventRegistrations = Array.isArray(eventResponse.data)
+    ? eventResponse.data.map((registration) => ({
+        ...registration,
+        registrationKind: "EVENT"
+      }))
+    : [];
+
+  return [...activityRegistrations, ...eventRegistrations].sort(
+    (a, b) =>
+      new Date(b.registeredAt || 0).getTime() -
+      new Date(a.registeredAt || 0).getTime()
+  );
 };
 
-export const cancelRegistration = async (registrationId) => {
+export const cancelRegistration = async (registrationOrId) => {
+  const registration =
+    typeof registrationOrId === "object"
+      ? registrationOrId
+      : { id: registrationOrId };
+
+  if (registration.registrationKind === "EVENT") {
+    await api.delete(
+      `/api/participant/event-registrations/${registration.id}`
+    );
+
+    return {
+      ...registration,
+      status: "CANCELLED"
+    };
+  }
+
   const response = await api.delete(
-    `/api/participant/registrations/${registrationId}`
+    `/api/participant/registrations/${registration.id}`
   );
 
-  return response.data;
+  return {
+    ...response.data,
+    registrationKind: "ACTIVITY"
+  };
+};
+
+export const getOrganizerEventRegistrations = async (eventId) => {
+  const response = await api.get(
+    `/api/organizer/events/${eventId}/registrations`
+  );
+
+  return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getOrganizerActivityRegistrations = async (

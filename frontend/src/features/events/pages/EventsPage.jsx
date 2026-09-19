@@ -3,12 +3,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getMyEvent, publishEvent, deleteEvent } from "../eventApi";
 import EventTable from "../components/EventTable";
-import { 
-  getStandaloneActivities, 
-  publishStandaloneActivity, 
+import {
+  getStandaloneActivities,
+  publishStandaloneActivity,
   deleteStandaloneActivity,
-  startActivity,
-  completeActivity 
+  startStandaloneActivity,
+  completeStandaloneActivity
 } from "../../activities/activityApi";
 import { 
   Calendar, 
@@ -175,18 +175,24 @@ export default function EventsPage() {
 
   const handleStartActivity = async (activityId) => {
     try {
-      setStartingActivityIds((prev) => new Set(prev).add(activityId));
-      const updated = await startActivity(activityId);
-      setStandaloneActivities((prev) =>
-        prev.map((a) => (a.id === activityId ? updated : a))
+      setStartingActivityIds((previous) => new Set(previous).add(activityId));
+      setError("");
+      const updated = await startStandaloneActivity(activityId);
+      setStandaloneActivities((previous) =>
+        previous.map((activity) =>
+          activity.id === activityId ? updated : activity
+        )
       );
-      setSuccessMessage(`Activity "${updated.name}" is now ongoing.`);
+      setSuccessMessage("Activity started successfully.");
     } catch (err) {
-      console.error("Failed to start activity:", err);
-      setError(err.response?.data?.message || "Failed to start activity. Please try again.");
+      setError(
+        err.response?.data?.message ||
+          "Failed to start the activity. Please try again."
+      );
+      throw err;
     } finally {
-      setStartingActivityIds((prev) => {
-        const next = new Set(prev);
+      setStartingActivityIds((previous) => {
+        const next = new Set(previous);
         next.delete(activityId);
         return next;
       });
@@ -195,18 +201,24 @@ export default function EventsPage() {
 
   const handleCompleteActivity = async (activityId) => {
     try {
-      setCompletingActivityIds((prev) => new Set(prev).add(activityId));
-      const updated = await completeActivity(activityId);
-      setStandaloneActivities((prev) =>
-        prev.map((a) => (a.id === activityId ? updated : a))
+      setCompletingActivityIds((previous) => new Set(previous).add(activityId));
+      setError("");
+      const updated = await completeStandaloneActivity(activityId);
+      setStandaloneActivities((previous) =>
+        previous.map((activity) =>
+          activity.id === activityId ? updated : activity
+        )
       );
-      setSuccessMessage(`Activity "${updated.name}" has been marked as completed.`);
+      setSuccessMessage("Activity completed successfully.");
     } catch (err) {
-      console.error("Failed to complete activity:", err);
-      setError(err.response?.data?.message || "Failed to complete activity. Please try again.");
+      setError(
+        err.response?.data?.message ||
+          "Failed to complete the activity. Please try again."
+      );
+      throw err;
     } finally {
-      setCompletingActivityIds((prev) => {
-        const next = new Set(prev);
+      setCompletingActivityIds((previous) => {
+        const next = new Set(previous);
         next.delete(activityId);
         return next;
       });
@@ -217,8 +229,7 @@ export default function EventsPage() {
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
       // 1. Status Filter
-      if (statusFilter === "DRAFT" && event.status !== "DRAFT") return false;
-      if (statusFilter === "PUBLISHED" && event.status !== "PUBLISHED") return false;
+      if (statusFilter !== "ALL" && event.status !== statusFilter) return false;
 
       // 2. Search Query (Title or Venue)
       if (searchQuery.trim()) {
@@ -235,7 +246,11 @@ export default function EventsPage() {
 
   // Filter standalone activities based on search query
   const filteredActivities = useMemo(() => {
-    const statusMatched = standaloneActivities.filter((activity) => statusFilter === "ALL" || (activity.status || "DRAFT") === statusFilter);
+    const statusMatched = standaloneActivities.filter(
+      (activity) =>
+        statusFilter === "ALL" ||
+        (activity.status || "DRAFT") === statusFilter
+    );
     if (!searchQuery.trim()) return statusMatched;
     const query = searchQuery.toLowerCase();
     return statusMatched.filter((a) => {
@@ -248,6 +263,46 @@ export default function EventsPage() {
 
   const totalItems = events.length + standaloneActivities.length;
   const totalFilteredItems = filteredEvents.length + filteredActivities.length;
+
+  const allOrganizerItems = [
+    ...events.map((event) => ({
+      kind: "EVENT",
+      name: event.title,
+      status: event.status || event.eventStatus,
+      startDateTime: event.startDateTime
+    })),
+    ...standaloneActivities.map((activity) => ({
+      kind: "ACTIVITY",
+      name: activity.name,
+      status: activity.status || "DRAFT",
+      startDateTime: activity.startDateTime
+    }))
+  ];
+
+  const organizerPublishedCount = allOrganizerItems.filter(
+    (item) => item.status === "PUBLISHED"
+  ).length;
+
+  const organizerOngoingCount = allOrganizerItems.filter(
+    (item) => item.status === "ONGOING"
+  ).length;
+
+  const organizerDraftCount = allOrganizerItems.filter(
+    (item) => item.status === "DRAFT"
+  ).length;
+
+  const nextOrganizerItem = [...allOrganizerItems]
+    .filter(
+      (item) =>
+        item.startDateTime &&
+        new Date(item.startDateTime).getTime() > Date.now() &&
+        item.status !== "COMPLETED"
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.startDateTime).getTime() -
+        new Date(b.startDateTime).getTime()
+    )[0];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
@@ -359,6 +414,46 @@ export default function EventsPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Total
+            </p>
+            <p className="mt-1 text-lg font-bold text-slate-900">
+              {totalItems}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Published
+            </p>
+            <p className="mt-1 text-lg font-bold text-indigo-700">
+              {organizerPublishedCount}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Ongoing
+            </p>
+            <p className="mt-1 text-lg font-bold text-emerald-700">
+              {organizerOngoingCount}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Next
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold text-slate-900">
+              {nextOrganizerItem?.name || "No upcoming item"}
+            </p>
+            {nextOrganizerItem?.startDateTime && (
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                {new Date(nextOrganizerItem.startDateTime).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Global Notifications */}
         {successMessage && (
           <div
@@ -393,40 +488,45 @@ export default function EventsPage() {
         {!loading && totalItems > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
             {/* Status Filter Buttons */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setStatusFilter("ALL")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                  statusFilter === "ALL"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                All ({totalItems})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("PUBLISHED")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                  statusFilter === "PUBLISHED"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Published ({events.filter((e) => e.status === "PUBLISHED").length + standaloneActivities.filter((a) => a.status === "PUBLISHED").length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatusFilter("DRAFT")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                  statusFilter === "DRAFT"
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Drafts ({events.filter((e) => e.status === "DRAFT").length + standaloneActivities.filter((a) => !a.status || a.status === "DRAFT").length})
-              </button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                ["ALL", "All", totalItems],
+                [
+                  "DRAFT",
+                  "Draft",
+                  organizerDraftCount
+                ],
+                [
+                  "PUBLISHED",
+                  "Published",
+                  organizerPublishedCount
+                ],
+                [
+                  "ONGOING",
+                  "Ongoing",
+                  organizerOngoingCount
+                ],
+                [
+                  "COMPLETED",
+                  "Completed",
+                  allOrganizerItems.filter(
+                    (item) => item.status === "COMPLETED"
+                  ).length
+                ]
+              ].map(([value, label, count]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStatusFilter(value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    statusFilter === value
+                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {label} ({count})
+                </button>
+              ))}
             </div>
 
             {/* Search Input */}
@@ -529,6 +629,8 @@ export default function EventsPage() {
             deletingActivityIds={deletingActivityIds}
             startingActivityIds={startingActivityIds}
             completingActivityIds={completingActivityIds}
+            onStartActivity={handleStartActivity}
+            onCompleteActivity={handleCompleteActivity}
           />
         )}
       </main>

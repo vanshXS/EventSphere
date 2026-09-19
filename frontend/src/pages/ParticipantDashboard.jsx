@@ -215,23 +215,28 @@ export default function ParticipantDashboard() {
     }
   };
 
-  const handleCancelRegistration = async (registrationId) => {
+  const handleCancelRegistration = async (registration) => {
     if (cancellationLock.current || refreshLock.current) {
       return { success: false, message: "Action in progress. Please wait." };
     }
 
     cancellationLock.current = true;
-    setCancellingId(registrationId);
+    setCancellingId(registration.id);
     setError("");
 
     try {
-      const updated = await cancelRegistration(registrationId);
+      const updated = await cancelRegistration(registration);
 
       setMyRegistrations((previous) =>
-        previous.map((registration) =>
-          registration.id === updated.id
-            ? updated
-            : registration
+        previous.map((item) =>
+          item.id === updated.id
+            ? {
+                ...item,
+                ...updated,
+                registrationKind:
+                  updated.registrationKind || item.registrationKind
+              }
+            : item
         )
       );
 
@@ -274,6 +279,48 @@ export default function ParticipantDashboard() {
   const activeRegistrationsCount = myRegistrations.filter(
     isActiveRegistration
   ).length;
+
+  const pendingRegistrationsCount = myRegistrations.filter(
+    (registration) => registration.status === "PENDING"
+  ).length;
+
+  const approvedRegistrationsCount = myRegistrations.filter(
+    (registration) =>
+      registration.status === "APPROVED" ||
+      registration.status === "REGISTERED"
+  ).length;
+
+  const eventMap = new Map(events.map((event) => [event.id, event]));
+
+  const nextRegistration = myRegistrations
+    .filter(isActiveRegistration)
+    .map((registration) => {
+      const event = registration.eventId
+        ? eventMap.get(registration.eventId)
+        : null;
+
+      return {
+        ...registration,
+        nextStart:
+          registration.startDateTime ||
+          event?.startDateTime ||
+          null,
+        displayName:
+          registration.activityName ||
+          event?.title ||
+          "Registered event"
+      };
+    })
+    .filter(
+      (registration) =>
+        registration.nextStart &&
+        new Date(registration.nextStart).getTime() > Date.now()
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.nextStart).getTime() -
+        new Date(b.nextStart).getTime()
+    )[0];
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans">
@@ -349,6 +396,49 @@ export default function ParticipantDashboard() {
           </div>
         ) : (
           <>
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Active entries
+                </p>
+                <p className="mt-1 text-lg font-bold text-slate-900">
+                  {activeRegistrationsCount}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Pending
+                </p>
+                <p className="mt-1 text-lg font-bold text-amber-700">
+                  {pendingRegistrationsCount}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Approved
+                </p>
+                <p className="mt-1 text-lg font-bold text-emerald-700">
+                  {approvedRegistrationsCount}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Next
+                </p>
+                <p className="mt-1 truncate text-sm font-semibold text-slate-900">
+                  {nextRegistration?.displayName || "No upcoming entry"}
+                </p>
+                {nextRegistration?.nextStart && (
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    {new Date(nextRegistration.nextStart).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+
             {activeTab === "EXPLORE" && (
               <section className="space-y-6">
                 <div>

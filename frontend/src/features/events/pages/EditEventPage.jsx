@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getEventById, updateEvent, publishEvent, deleteEvent } from "../eventApi";
-import { getActivitiesByEvent, deleteActivity, startActivity, completeActivity } from "../../activities/activityApi";
+import { getActivitiesByEvent} from "../../activities/activityApi";
 import EventForm from "../components/EventForm";
 import EventStatusBadge from "../components/EventStatusBadge";
 import ActivityList from "../../activities/components/ActivityList";

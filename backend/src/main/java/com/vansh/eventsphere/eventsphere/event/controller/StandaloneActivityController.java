@@ -41,16 +41,14 @@ public class StandaloneActivityController {
         return activityService.publishStandaloneActivity(activityId, authentication.getName());
     }
 
-    @PostMapping("/{activityId}/start")
-    @ResponseStatus(HttpStatus.OK)
+    @PatchMapping("/{activityId}/start")
     public ActivityResponse start(@PathVariable String activityId, Authentication authentication) {
-        return activityService.startActivity(activityId, authentication.getName());
+        return activityService.startStandaloneActivity(activityId, authentication.getName());
     }
 
-    @PostMapping("/{activityId}/complete")
-    @ResponseStatus(HttpStatus.OK)
+    @PatchMapping("/{activityId}/complete")
     public ActivityResponse complete(@PathVariable String activityId, Authentication authentication) {
-        return activityService.completeActivity(activityId, authentication.getName());
+        return activityService.completeStandaloneActivity(activityId, authentication.getName());
     }
 
     @GetMapping("/{activityId}/registrations")

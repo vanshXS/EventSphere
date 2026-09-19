@@ -37,7 +37,14 @@ export default function VolunteerScannerPage() {
     getMyVolunteerAssignments()
       .then((data) => {
         setAssignments(data);
-        setSelectedAssignment(data[0] || null);
+        const firstAssignment = data[0] || null;
+        setSelectedAssignment(firstAssignment);
+
+        if (firstAssignment?.activityId) {
+          setCheckInType("ACTIVITY");
+        } else {
+          setCheckInType("EVENT_ENTRY");
+        }
       })
       .catch((err) => {
         setMessage({
@@ -189,13 +196,15 @@ export default function VolunteerScannerPage() {
               </span>
               <select
                 value={selectedAssignment?.id || ""}
-                onChange={(event) =>
-                  setSelectedAssignment(
-                    assignments.find(
-                      (item) => item.id === event.target.value
-                    )
-                  )
-                }
+                onChange={(event) => {
+                  const assignment = assignments.find(
+                    (item) => item.id === event.target.value
+                  );
+
+                  setSelectedAssignment(assignment || null);
+                  setCheckInType(assignment?.activityId ? "ACTIVITY" : "EVENT_ENTRY");
+                  setMessage(null);
+                }}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
               >
                 {assignments.map((assignment) => (
@@ -220,11 +229,17 @@ export default function VolunteerScannerPage() {
                 onChange={(event) => setCheckInType(event.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
               >
-                {CHECK_IN_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
+                {CHECK_IN_TYPES
+                  .filter((type) =>
+                    selectedAssignment?.activityId
+                      ? type.value === "ACTIVITY"
+                      : true
+                  )
+                  .map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
               </select>
             </label>
           </div>

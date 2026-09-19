@@ -267,6 +267,72 @@ public class ActivityService {
     }
 
 
+
+    // =========================================================
+    // MANUAL LIFECYCLE CONTROLS FOR STANDALONE ACTIVITIES
+    // =========================================================
+
+    public ActivityResponse startStandaloneActivity(
+            String activityId,
+            String organizerId
+    ) {
+        return transactionRunner.run(() -> {
+            guardActivity(activityId);
+
+            Activity activity = getOwnedActivity(activityId, organizerId);
+
+            if (activity.getEventId() != null) {
+                throw new BadRequestException(
+                        "Activities within an Event follow the parent Event lifecycle."
+                );
+            }
+
+            if (activity.getStatus() != EventStatus.PUBLISHED) {
+                throw new BadRequestException(
+                        "Only published standalone activities can be started."
+                );
+            }
+
+            activity.setStatus(EventStatus.ONGOING);
+            activity.setUpdatedAt(LocalDateTime.now());
+
+            return activityMapper.mapToResponse(
+                    activityRepository.save(activity)
+            );
+        });
+    }
+
+    public ActivityResponse completeStandaloneActivity(
+            String activityId,
+            String organizerId
+    ) {
+        return transactionRunner.run(() -> {
+            guardActivity(activityId);
+
+            Activity activity = getOwnedActivity(activityId, organizerId);
+
+            if (activity.getEventId() != null) {
+                throw new BadRequestException(
+                        "Activities within an Event follow the parent Event lifecycle."
+                );
+            }
+
+            if (activity.getStatus() != EventStatus.ONGOING) {
+                throw new BadRequestException(
+                        "Only ongoing standalone activities can be completed."
+                );
+            }
+
+            activity.setStatus(EventStatus.COMPLETED);
+            activity.setUpdatedAt(LocalDateTime.now());
+
+            return activityMapper.mapToResponse(
+                    activityRepository.save(activity)
+            );
+        });
+    }
+
+
     // =========================================================
     // DELETE
     // =========================================================
