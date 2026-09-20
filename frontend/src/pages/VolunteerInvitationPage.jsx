@@ -42,7 +42,10 @@ export default function VolunteerInvitationPage() {
       setAccepting(true);
       setError("");
 
-      await acceptStaffInvitation(token, form);
+      await acceptStaffInvitation(token, {
+        name: form.name,
+        password: invitation?.accountExists ? null : form.password
+      });
       setDone(true);
 
       setTimeout(() => navigate("/login"), 1800);
@@ -103,6 +106,13 @@ export default function VolunteerInvitationPage() {
                 </span>
                 .
               </p>
+              {invitation?.accountExists && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-600">
+                  This email already has an EventSphere account. Accepting this
+                  invitation adds the new check-in assignment to that account.
+                  You do not need to create another password.
+                </p>
+              )}
               <p className="mt-1 text-xs text-slate-500">
                 This link expires{" "}
                 {invitation?.invitationExpiresAt
@@ -133,22 +143,24 @@ export default function VolunteerInvitationPage() {
                 />
               </label>
 
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-700">
-                  Create password
-                </span>
-                <input
-                  required
-                  type="password"
-                  minLength={8}
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="At least 8 characters"
-                />
-              </label>
+              {!invitation?.accountExists && (
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-slate-700">
+                    Create password
+                  </span>
+                  <input
+                    required
+                    type="password"
+                    minLength={8}
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="At least 8 characters"
+                  />
+                </label>
+              )}
 
               <button
                 type="submit"
@@ -160,7 +172,9 @@ export default function VolunteerInvitationPage() {
                 ) : (
                   <UserPlus className="h-4 w-4" />
                 )}
-                Accept Invitation
+                {invitation?.accountExists
+                  ? "Accept Volunteer Access"
+                  : "Create Volunteer Account"}
               </button>
             </form>
           </>

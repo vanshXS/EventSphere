@@ -134,7 +134,13 @@ export default function VolunteerScannerPage() {
     try {
       stopCamera();
 
-      const reader = new BrowserQRCodeReader();
+      const reader = new BrowserQRCodeReader(
+        undefined,
+        {
+          delayBetweenScanAttempts: 120,
+          delayBetweenScanSuccess: 150
+        }
+      );
       readerRef.current = reader;
 
       scanningRef.current = true;

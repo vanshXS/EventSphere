@@ -353,6 +353,9 @@ public class EventStaffService {
                 .invitedAt(saved.getInvitedAt())
                 .invitationExpiresAt(saved.getInvitationExpiresAt())
                 .acceptedAt(saved.getAcceptedAt())
+                .accountExists(userRepository.findByEmail(email)
+                        .map(User::isActive)
+                        .orElse(false))
                 .invitationLink(buildInvitationLink(rawToken))
                 .build();
     }
@@ -441,6 +444,10 @@ public class EventStaffService {
                 .invitedAt(assignment.getInvitedAt())
                 .invitationExpiresAt(assignment.getInvitationExpiresAt())
                 .acceptedAt(assignment.getAcceptedAt())
+                .accountExists(assignment.getUserId() != null
+                        || userRepository.findByEmail(assignment.getEmail())
+                        .map(User::isActive)
+                        .orElse(false))
                 .build();
     }
 
@@ -449,6 +456,9 @@ public class EventStaffService {
             String rawToken
     ) {
         EventStaffAssignmentResponse response = toResponseWithoutLink(assignment);
+        response.setAccountExists(userRepository.findByEmail(assignment.getEmail())
+                .map(User::isActive)
+                .orElse(false));
         response.setInvitationLink(buildInvitationLink(rawToken));
         return response;
     }
