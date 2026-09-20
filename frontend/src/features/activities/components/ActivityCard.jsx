@@ -30,18 +30,35 @@ export default function ActivityCard({ activity, onEdit }) {
     activity.maxTeamSize
   );
 
+  const isNotStarted =
+    activity.status === "PUBLISHED" &&
+    activity.endDateTime &&
+    new Date(activity.endDateTime).getTime() <= Date.now();
+
   return (
     <>
       <div className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs transition-colors hover:border-slate-300 sm:p-5">
         <div className="space-y-3">
           <div className="space-y-1">
-            <span
-              className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold ${getActivityTypeBadgeStyle(
-                activity.type
-              )}`}
-            >
-              {getActivityTypeLabel(activity.type)}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold ${getActivityTypeBadgeStyle(
+                  activity.type
+                )}`}
+              >
+                {getActivityTypeLabel(activity.type)}
+              </span>
+
+              <span
+                className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold ${
+                  isNotStarted
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {isNotStarted ? "Not started" : activity.status || "Draft"}
+              </span>
+            </div>
 
             <h3 className="text-base font-semibold leading-snug text-slate-900">
               {activity.name}

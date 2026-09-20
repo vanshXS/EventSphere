@@ -305,6 +305,11 @@ export default function EventTable({
           const isCompleting = completingActivityIds.has(activity.id);
           const isPublished = activity.status === "PUBLISHED";
           const isOngoing = activity.status === "ONGOING";
+          const hasEnded =
+            Boolean(activity.endDateTime) &&
+            new Date(activity.endDateTime).getTime() <= Date.now();
+          const isNotStarted = isPublished && hasEnded;
+          const canStart = isPublished && !hasEnded;
           const isBusy = isPublishing || isDeleting || isStarting || isCompleting;
 
           const typeBadgeStyle = getActivityTypeBadgeStyle(activity.type);
@@ -335,8 +340,14 @@ export default function EventTable({
                     >
                       {activity.name}
                     </button>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${isDraft ? "bg-slate-100 text-slate-700 border-slate-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
-                      {isDraft ? "Draft" : activity.status}
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
+                      isNotStarted
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : isDraft
+                        ? "bg-slate-100 text-slate-700 border-slate-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}>
+                      {isNotStarted ? "Not started" : isDraft ? "Draft" : activity.status}
                     </span>
                     <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border uppercase tracking-wider ${typeBadgeStyle}`}>
                       {getActivityTypeLabel(activity.type)}
@@ -379,7 +390,7 @@ export default function EventTable({
                     <span>Operations</span>
                   </Link>
 
-                  {isPublished && onStartActivity && (
+                  {canStart && onStartActivity && (
                     <button
                       type="button"
                       onClick={() => setActivityToStart(activity)}
@@ -443,7 +454,7 @@ export default function EventTable({
                         onClick={() => window.location.href = `/organizer/activities/${activity.id}/operations`}
                       />
                     </div>
-                    {isPublished && onStartActivity && (
+                    {canStart && onStartActivity && (
                       <div className="sm:hidden">
                         <MenuButton
                           icon={Play}

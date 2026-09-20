@@ -288,6 +288,15 @@ public class ActivityService {
                 );
             }
 
+            LocalDateTime now = LocalDateTime.now();
+
+            if (activity.getEndDateTime() != null
+                    && !activity.getEndDateTime().isAfter(now)) {
+                throw new BadRequestException(
+                        "This activity has already ended and was not started."
+                );
+            }
+
             activity.setStatus(EventStatus.ONGOING);
             activity.setUpdatedAt(LocalDateTime.now());
 

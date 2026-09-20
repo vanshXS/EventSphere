@@ -279,6 +279,11 @@ export default function StandaloneActivityOperationsPage() {
   );
 
   const activeStaff = staff.filter((item) => item.status === "ACTIVE");
+  const isPastEnd =
+    Boolean(activity?.endDateTime) &&
+    new Date(activity.endDateTime).getTime() <= Date.now();
+  const isNotStarted =
+    activity?.status === "PUBLISHED" && isPastEnd;
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8">
@@ -299,8 +304,13 @@ export default function StandaloneActivityOperationsPage() {
                   <Activity className="h-3.5 w-3.5" />
                   Standalone Activity
                 </span>
-                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600">
-                  {activity.status || "DRAFT"}
+                <span className={
+                  "rounded-md border px-2 py-1 text-[10px] font-bold " +
+                  (isNotStarted
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-slate-200 bg-slate-50 text-slate-600")
+                }>
+                  {isNotStarted ? "Not started" : activity.status || "DRAFT"}
                 </span>
               </div>
 
@@ -313,7 +323,7 @@ export default function StandaloneActivityOperationsPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {activity.status === "PUBLISHED" && (
+              {activity.status === "PUBLISHED" && !isPastEnd && (
                 <button
                   type="button"
                   onClick={handleStart}
