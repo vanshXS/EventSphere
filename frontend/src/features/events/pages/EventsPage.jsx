@@ -291,14 +291,6 @@ export default function EventsPage() {
     (item) => item.status === "DRAFT"
   ).length;
 
-  const organizerPublishedCount = allOrganizerItems.filter(
-    (item) => item.status === "PUBLISHED"
-  ).length;
-
-  const organizerOngoingCount = allOrganizerItems.filter(
-    (item) => item.status === "ONGOING"
-  ).length;
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header */}
