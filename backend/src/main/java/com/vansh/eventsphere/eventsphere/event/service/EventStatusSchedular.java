@@ -40,15 +40,21 @@ public class EventStatusSchedular {
             LocalDateTime start = activity.getStartDateTime();
             LocalDateTime end = activity.getEndDateTime();
 
-            if (activity.getStatus() == EventStatus.PUBLISHED) {
-                if (start != null && !start.isAfter(now)) {
-                    log.info("Activity ID {} is PUBLISHED but past scheduled start time {} (operational status: not started / late)",
-                            activity.getId(), start);
+            if (end != null && !end.isAfter(now)) {
+                /*
+                 * PUBLISHED + end passed means the activity was never started.
+                 * Keep it PUBLISHED so the UI can truthfully show "Not started".
+                 * Only an activity that actually entered ONGOING is completed
+                 * automatically.
+                 */
+                if (activity.getStatus() == EventStatus.ONGOING) {
+                    activity.setStatus(EventStatus.COMPLETED);
+                    activityRepository.save(activity);
                 }
-            } else if (activity.getStatus() == EventStatus.ONGOING) {
-                if (end != null && !end.isAfter(now)) {
-                    log.info("Activity ID {} is ONGOING but past scheduled end time {} (operational status: overrun / exceeding scheduled end)",
-                            activity.getId(), end);
+            } else if (start != null && !start.isAfter(now)) {
+                if (activity.getStatus() == EventStatus.PUBLISHED) {
+                    activity.setStatus(EventStatus.ONGOING);
+                    activityRepository.save(activity);
                 }
             }
         }

@@ -22,7 +22,12 @@ import {
   Search,
   ChevronDown,
   Layers,
-  Trophy
+  Trophy,
+  Activity,
+  Sparkles,
+  Radio,
+  FileEdit,
+  CheckCircle
 } from "lucide-react";
 import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 
@@ -40,7 +45,8 @@ export default function EventsPage() {
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL', 'DRAFT', 'PUBLISHED'
+  const [typeFilter, setTypeFilter] = useState("ALL"); // 'ALL', 'EVENTS', 'ACTIVITIES'
+  const [statusFilter, setStatusFilter] = useState("ALL"); // 'ALL', 'DRAFT', 'PUBLISHED', 'ONGOING', 'COMPLETED'
 
   // Track async operations per event
   const [publishingIds, setPublishingIds] = useState(new Set());
@@ -227,11 +233,13 @@ export default function EventsPage() {
 
   // Filter events based on search query and selected filter
   const filteredEvents = useMemo(() => {
+    if (typeFilter === "ACTIVITIES") return [];
+
     return events.filter((event) => {
       // 1. Status Filter
       if (statusFilter !== "ALL" && event.status !== statusFilter) return false;
 
-      // 2. Search Query (Title or Venue)
+      // 2. Search Query (Title, Venue, or Desc)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchTitle = event.title?.toLowerCase().includes(query);
@@ -242,10 +250,12 @@ export default function EventsPage() {
 
       return true;
     });
-  }, [events, statusFilter, searchQuery]);
+  }, [events, statusFilter, searchQuery, typeFilter]);
 
   // Filter standalone activities based on search query
   const filteredActivities = useMemo(() => {
+    if (typeFilter === "EVENTS") return [];
+
     const statusMatched = standaloneActivities.filter(
       (activity) =>
         statusFilter === "ALL" ||
@@ -259,7 +269,7 @@ export default function EventsPage() {
       const matchLocation = a.location?.toLowerCase().includes(query);
       return matchName || matchDesc || matchLocation;
     });
-  }, [standaloneActivities, searchQuery, statusFilter]);
+  }, [standaloneActivities, searchQuery, statusFilter, typeFilter]);
 
   const totalItems = events.length + standaloneActivities.length;
   const totalFilteredItems = filteredEvents.length + filteredActivities.length;
@@ -289,6 +299,10 @@ export default function EventsPage() {
 
   const organizerDraftCount = allOrganizerItems.filter(
     (item) => item.status === "DRAFT"
+  ).length;
+
+  const organizerCompletedCount = allOrganizerItems.filter(
+    (item) => item.status === "COMPLETED"
   ).length;
 
   return (
@@ -347,10 +361,10 @@ export default function EventsPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              My Events & Activities
+              Organizer Operations Center
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              Create and manage your college events and activities
+              Unified workspace for managing campus events, live check-ins, and volunteer scanning.
             </p>
           </div>
 
@@ -363,27 +377,15 @@ export default function EventsPage() {
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-2xs transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Create Event</span>
+              <span>Create New</span>
               <ChevronDown className={`w-4 h-4 transition-transform ${isCreateMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isCreateMenuOpen && (
               <div
                 id="create-event-menu"
-                className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-10"
+                className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-30 animate-in fade-in slide-in-from-top-1"
               >
-                <Link
-                  to="/organizer/events/new"
-                  state={{ creationMode: "competition" }}
-                  onClick={() => setIsCreateMenuOpen(false)}
-                  className="flex items-start gap-3 px-3 py-3 rounded-md hover:bg-slate-50 transition-colors"
-                >
-                  <Trophy className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    <span className="block text-sm font-medium text-slate-800">Competition / Activity</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">Create one participant-facing competition.</span>
-                  </span>
-                </Link>
                 <Link
                   to="/organizer/events/new"
                   state={{ creationMode: "multiple" }}
@@ -392,8 +394,20 @@ export default function EventsPage() {
                 >
                   <Layers className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" aria-hidden="true" />
                   <span>
-                    <span className="block text-sm font-medium text-slate-800">Event with activities</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">Create a fest or program with participant activities.</span>
+                    <span className="block text-sm font-semibold text-slate-800">Event with Activities</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">College fest or summit with multiple sub-competitions.</span>
+                  </span>
+                </Link>
+                <Link
+                  to="/organizer/events/new"
+                  state={{ creationMode: "competition" }}
+                  onClick={() => setIsCreateMenuOpen(false)}
+                  className="flex items-start gap-3 px-3 py-3 rounded-md hover:bg-slate-50 transition-colors"
+                >
+                  <Trophy className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    <span className="block text-sm font-semibold text-slate-800">Single Competition</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">Standalone hackathon, sport event, or contest.</span>
                   </span>
                 </Link>
               </div>
@@ -431,70 +445,139 @@ export default function EventsPage() {
           </div>
         )}
 
+        {/* Executive KPI Summary Cards */}
+        {!loading && totalItems > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-slate-500 block">Total Managed</span>
+                <span className="text-xl font-bold text-slate-900">{totalItems}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-slate-500 block">Published & Active</span>
+                <span className="text-xl font-bold text-slate-900">{organizerPublishedCount}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <Radio className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-slate-500 block">Ongoing Live</span>
+                <span className="text-xl font-bold text-slate-900">{organizerOngoingCount}</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                <FileEdit className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-slate-500 block">Draft Mode</span>
+                <span className="text-xl font-bold text-slate-900">{organizerDraftCount}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filter and Search Bar */}
         {!loading && totalItems > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
-            {/* Status Filter Buttons */}
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Scope Segment: All, Events, Competitions */}
+              <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setTypeFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                    typeFilter === "ALL"
+                      ? "bg-white text-indigo-700 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  All Items ({totalItems})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTypeFilter("EVENTS")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                    typeFilter === "EVENTS"
+                      ? "bg-white text-indigo-700 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Events ({events.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTypeFilter("ACTIVITIES")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                    typeFilter === "ACTIVITIES"
+                      ? "bg-white text-indigo-700 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Competitions ({standaloneActivities.length})</span>
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative flex-1 max-w-sm">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search by title, venue, or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Status Filter Chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+              <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
               {[
                 ["ALL", "All", totalItems],
-                [
-                  "DRAFT",
-                  "Draft",
-                  organizerDraftCount
-                ],
-                [
-                  "PUBLISHED",
-                  "Published",
-                  organizerPublishedCount
-                ],
-                [
-                  "ONGOING",
-                  "Ongoing",
-                  organizerOngoingCount
-                ],
-                [
-                  "COMPLETED",
-                  "Completed",
-                  allOrganizerItems.filter(
-                    (item) => item.status === "COMPLETED"
-                  ).length
-                ]
+                ["PUBLISHED", "Published", organizerPublishedCount],
+                ["ONGOING", "Ongoing", organizerOngoingCount],
+                ["DRAFT", "Draft", organizerDraftCount],
+                ["COMPLETED", "Completed", organizerCompletedCount]
               ].map(([value, label, count]) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => setStatusFilter(value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                     statusFilter === value
-                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      ? "bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200"
                       : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   {label} ({count})
                 </button>
               ))}
-            </div>
-
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-sm">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search by name, venue, or description..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  Clear
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -503,7 +586,7 @@ export default function EventsPage() {
         {loading && (
           <div className="p-12 text-center bg-white rounded-xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center space-y-3">
             <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-            <p className="text-sm text-slate-500 font-medium">Loading your events...</p>
+            <p className="text-sm text-slate-500 font-medium">Loading your operations workspace...</p>
           </div>
         )}
 
@@ -515,10 +598,10 @@ export default function EventsPage() {
             </div>
             <div className="max-w-md mx-auto space-y-1">
               <h2 className="text-base font-semibold text-slate-900">
-                No events yet
+                No events or competitions yet
               </h2>
               <p className="text-sm text-slate-500">
-                Create your first event to start managing activities and registrations.
+                Create your first event to start managing activities, volunteer check-in scanners, and attendee ticketing.
               </p>
             </div>
             <div className="pt-2">
@@ -528,7 +611,7 @@ export default function EventsPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Create Event above</span>
+                <span>Create New Event</span>
               </button>
             </div>
           </div>
@@ -542,7 +625,7 @@ export default function EventsPage() {
             </div>
             <h3 className="text-sm font-semibold text-slate-900">No matching items found</h3>
             <p className="text-xs text-slate-500">
-              Try adjusting your search query or switching to a different status filter.
+              Try adjusting your search query or switching your status/type filter.
             </p>
             <div className="pt-1">
               <button
@@ -550,6 +633,7 @@ export default function EventsPage() {
                 onClick={() => {
                   setSearchQuery("");
                   setStatusFilter("ALL");
+                  setTypeFilter("ALL");
                 }}
                 className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
               >
@@ -559,7 +643,7 @@ export default function EventsPage() {
           </div>
         )}
 
-        {/* State 4: Unified management table */}
+        {/* State 4: Clean unified management table */}
         {!loading && totalFilteredItems > 0 && (
           <EventTable
             events={filteredEvents}
@@ -576,8 +660,6 @@ export default function EventsPage() {
             deletingActivityIds={deletingActivityIds}
             startingActivityIds={startingActivityIds}
             completingActivityIds={completingActivityIds}
-            onStartActivity={handleStartActivity}
-            onCompleteActivity={handleCompleteActivity}
           />
         )}
       </main>

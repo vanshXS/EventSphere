@@ -29,5 +29,7 @@ public class EventStaffAssignmentResponse {
     private LocalDateTime invitedAt;
     private LocalDateTime invitationExpiresAt;
     private LocalDateTime acceptedAt;
+    /** True when the invited email already belongs to an active EventSphere account. */
+    private boolean accountExists;
     private String invitationLink;
 }

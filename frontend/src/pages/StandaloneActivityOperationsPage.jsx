@@ -1,716 +1,763 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
-  Activity,
   ArrowLeft,
-  Check,
-  CheckCircle2,
+  Calendar,
+  MapPin,
+  Users,
   ClipboardCheck,
-  Mail,
-  Play,
-  RefreshCw,
-  ShieldCheck,
-  Trash2,
+  UserCheck,
   UserPlus,
-  X,
-  XCircle
+  Copy,
+  Check,
+  RefreshCw,
+  Search,
+  Trash2,
+  AlertCircle,
+  CheckCircle2,
+  Play,
+  Trophy,
+  Loader2,
+  Info,
+  QrCode
 } from "lucide-react";
-
 import {
-  completeStandaloneActivity,
   getStandaloneActivity,
-  startStandaloneActivity
+  startStandaloneActivity,
+  completeStandaloneActivity
 } from "../features/activities/activityApi";
-
 import {
-  getActivityAttendance,
   getActivityStaff,
   inviteActivityStaff,
-  revokeStaff
+  revokeStaff,
+  getActivityAttendance
 } from "../features/attendance/attendanceApi";
-
+import { formatDateRange } from "../features/events/utils/eventHelpers";
 import {
-  approveRegistration,
-  getOrganizerActivityRegistrations,
-  rejectRegistration
-} from "../features/registration/registrationApi";
+  getActivityTypeLabel,
+  getActivityTypeBadgeStyle
+} from "../features/activities/utils/activityHelpers";
 
 export default function StandaloneActivityOperationsPage() {
   const { activityId } = useParams();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // Active Tab: 'attendance' | 'volunteers' | 'details'
+  const activeTab = searchParams.get("tab") || "attendance";
+
+  // Data States
   const [activity, setActivity] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [staff, setStaff] = useState([]);
   const [attendance, setAttendance] = useState([]);
+  const [staff, setStaff] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [savingRegistrationId, setSavingRegistrationId] = useState(null);
-  const [savingLifecycle, setSavingLifecycle] = useState(false);
-  const [staffSaving, setStaffSaving] = useState(false);
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
+  // Invite volunteer form state
+  const [volunteerName, setVolunteerName] = useState("");
+  const [volunteerEmail, setVolunteerEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
   const [copiedLink, setCopiedLink] = useState("");
 
-  const [rejectTarget, setRejectTarget] = useState(null);
-  const [rejectReason, setRejectReason] = useState("");
+  // Lifecycle operation state
+  const [lifecycleLoading, setLifecycleLoading] = useState(false);
 
+  // General UI state
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const load = useCallback(async () => {
+  const setTab = (tab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", tab);
+    setSearchParams(next);
+  };
+
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
       setError("");
-
-      const [activityData, registrationData, staffData] = await Promise.all([
+      const [actData, staffData, attendanceData] = await Promise.all([
         getStandaloneActivity(activityId),
-        getOrganizerActivityRegistrations(activityId),
-        getActivityStaff(activityId)
+        getActivityStaff(activityId),
+        getActivityAttendance(activityId)
       ]);
-
-      setActivity(activityData);
-      setRegistrations(registrationData);
-      setStaff(staffData);
+      setActivity(actData);
+      setStaff(Array.isArray(staffData) ? staffData : []);
+      setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not load standalone activity operations."
-      );
+      console.error("Failed to load activity operations data:", err);
+      setError(err.response?.data?.message || "Failed to load competition operations.");
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   }, [activityId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadData();
+  }, [loadData]);
 
-  const loadAttendance = async () => {
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setError("");
     try {
-      setError("");
-      const data = await getActivityAttendance(activityId);
-      setAttendance(data);
-      setSuccess("Activity attendance refreshed.");
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not load activity attendance."
-      );
+      await loadData();
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  const handleStart = async () => {
+  // Lifecycle Handlers
+  const handleStartActivity = async () => {
     try {
-      setSavingLifecycle(true);
+      setLifecycleLoading(true);
       setError("");
       const updated = await startStandaloneActivity(activityId);
       setActivity(updated);
-      setSuccess("Activity is now ongoing. Volunteer activity check-in can begin.");
+      setSuccess("Activity started successfully! Live check-in scanner is now unlocked.");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not start this activity."
-      );
+      setError(err.response?.data?.message || "Could not start activity.");
     } finally {
-      setSavingLifecycle(false);
+      setLifecycleLoading(false);
     }
   };
 
-  const handleComplete = async () => {
+  const handleCompleteActivity = async () => {
     try {
-      setSavingLifecycle(true);
+      setLifecycleLoading(true);
       setError("");
       const updated = await completeStandaloneActivity(activityId);
       setActivity(updated);
       setSuccess("Activity marked as completed.");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not complete this activity."
-      );
+      setError(err.response?.data?.message || "Could not complete activity.");
     } finally {
-      setSavingLifecycle(false);
+      setLifecycleLoading(false);
     }
   };
 
-  const handleApprove = async (registrationId) => {
-    try {
-      setSavingRegistrationId(registrationId);
-      setError("");
-      const updated = await approveRegistration(registrationId);
-      setRegistrations((previous) =>
-        previous.map((item) =>
-          item.id === registrationId ? updated : item
-        )
-      );
-      setSuccess("Registration approved. The participant can use the activity ticket.");
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not approve this registration."
-      );
-    } finally {
-      setSavingRegistrationId(null);
-    }
-  };
+  // Invite Volunteer
+  const handleInviteVolunteer = async (e) => {
+    e.preventDefault();
+    if (!volunteerEmail.trim()) return;
 
-  const openRejectDialog = (registration) => {
-    setRejectTarget(registration);
-    setRejectReason("");
+    setInviting(true);
     setError("");
-  };
-
-  const handleReject = async () => {
-    if (!rejectTarget) return;
+    setSuccess("");
 
     try {
-      setSavingRegistrationId(rejectTarget.id);
-      setError("");
-
-      const updated = await rejectRegistration(
-        rejectTarget.id,
-        rejectReason
-      );
-
-      setRegistrations((previous) =>
-        previous.map((item) =>
-          item.id === rejectTarget.id ? updated : item
-        )
-      );
-
-      setRejectTarget(null);
-      setRejectReason("");
-      setSuccess("Registration rejected.");
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not reject this registration."
-      );
-    } finally {
-      setSavingRegistrationId(null);
-    }
-  };
-
-  const handleInvite = async (event) => {
-    event.preventDefault();
-
-    try {
-      setStaffSaving(true);
-      setError("");
-
-      const created = await inviteActivityStaff(activityId, {
-        email: inviteEmail,
-        name: inviteName || null
+      const newStaff = await inviteActivityStaff(activityId, {
+        name: volunteerName.trim() || null,
+        email: volunteerEmail.trim()
       });
-
-      setStaff((previous) => [created, ...previous]);
-      setInviteEmail("");
-      setInviteName("");
-      setSuccess("Volunteer invitation created. Copy the invitation link below.");
+      setStaff((prev) => [newStaff, ...prev]);
+      setSuccess(`Invitation created for ${volunteerEmail}. Share the link below.`);
+      setVolunteerName("");
+      setVolunteerEmail("");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not create the volunteer invitation."
-      );
+      setError(err.response?.data?.message || "Failed to create volunteer invitation.");
     } finally {
-      setStaffSaving(false);
+      setInviting(false);
     }
   };
 
-  const handleRevoke = async (assignmentId) => {
+  // Revoke Volunteer
+  const handleRevoke = async (staffId) => {
+    if (!window.confirm("Are you sure you want to revoke this volunteer's check-in access?")) {
+      return;
+    }
     try {
       setError("");
-      await revokeStaff(assignmentId);
-      setStaff((previous) =>
-        previous.map((item) =>
-          item.id === assignmentId
-            ? { ...item, status: "REVOKED" }
-            : item
-        )
+      await revokeStaff(staffId);
+      setStaff((prev) =>
+        prev.map((s) => (s.id === staffId ? { ...s, status: "REVOKED" } : s))
       );
       setSuccess("Volunteer access revoked.");
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not revoke volunteer access."
-      );
+      setError(err.response?.data?.message || "Could not revoke volunteer access.");
     }
   };
 
-  const copyInvitation = async (link) => {
+  // Copy Link
+  const handleCopy = async (text) => {
     try {
-      await navigator.clipboard.writeText(link);
-      setCopiedLink(link);
-      setTimeout(() => setCopiedLink(""), 1500);
+      await navigator.clipboard.writeText(text);
+      setCopiedLink(text);
+      setTimeout(() => setCopiedLink(""), 2000);
     } catch {
-      setError("Could not copy the invitation link.");
+      setError("Failed to copy link to clipboard.");
     }
   };
 
-  if (loading) {
+  // Filtered Attendance List
+  const filteredAttendance = useMemo(() => {
+    if (!searchQuery.trim()) return attendance;
+    const q = searchQuery.toLowerCase();
+    return attendance.filter((rec) => {
+      const name = (rec.participantName || rec.participantId || "").toLowerCase();
+      const by = (rec.checkedInBy || "").toLowerCase();
+      const type = (rec.checkInType || "").toLowerCase();
+      return name.includes(q) || by.includes(q) || type.includes(q);
+    });
+  }, [attendance, searchQuery]);
+
+  // Filtered Staff
+  const filteredStaff = useMemo(() => {
+    if (!searchQuery.trim()) return staff;
+    const q = searchQuery.toLowerCase();
+    return staff.filter((s) => {
+      const name = (s.invitedName || "").toLowerCase();
+      const email = (s.email || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [staff, searchQuery]);
+
+  if (initialLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <RefreshCw className="h-7 w-7 animate-spin text-indigo-600" />
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
+        <p className="text-sm font-medium text-slate-500">Loading competition console...</p>
       </div>
     );
   }
 
   if (!activity) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 text-center">
-          <p className="text-sm text-slate-600">
-            This standalone activity could not be loaded.
+      <div className="min-h-screen bg-slate-50 p-6 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs">
+          <AlertCircle className="w-10 h-10 text-rose-500 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-slate-900">Competition Not Found</h2>
+          <p className="text-xs text-slate-500 mt-1 mb-6">
+            The competition or activity could not be found or you don't have access.
           </p>
           <Link
             to="/organizer"
-            className="mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-colors"
           >
-            Back to organizer
+            <ArrowLeft className="w-4 h-4" />
+            Back to Organizer Dashboard
           </Link>
         </div>
       </div>
     );
   }
 
-  const pendingRegistrations = registrations.filter(
-    (registration) => registration.status === "PENDING"
-  );
-
-  const activeStaff = staff.filter((item) => item.status === "ACTIVE");
+  const isPastEnd =
+    Boolean(activity.endDateTime) &&
+    new Date(activity.endDateTime).getTime() <= Date.now();
+  const isNotStarted = activity.status === "PUBLISHED" && isPastEnd;
+  const canStart = activity.status === "PUBLISHED" && !isPastEnd;
+  const isOngoing = activity.status === "ONGOING";
+  const typeBadgeStyle = getActivityTypeBadgeStyle(activity.type);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <Link
-          to="/organizer"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to organizer
-        </Link>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
-                  <Activity className="h-3.5 w-3.5" />
-                  Standalone Activity
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+      {/* Top Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              to="/organizer"
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+              title="Back to Organizer Dashboard"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div className="h-5 w-px bg-slate-200 shrink-0" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+                  Competition Hub
                 </span>
-                <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600">
-                  {activity.status || "DRAFT"}
+                <span className="text-slate-300">/</span>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border uppercase tracking-wider ${typeBadgeStyle}`}>
+                  {getActivityTypeLabel(activity.type)}
                 </span>
               </div>
-
-              <h1 className="mt-3 text-2xl font-bold text-slate-900">
+              <h1 className="text-base font-bold text-slate-900 truncate" title={activity.name}>
                 {activity.name}
               </h1>
-              <p className="mt-1 max-w-3xl text-sm text-slate-500">
-                Manage registrations, volunteer check-in access and activity attendance.
-              </p>
             </div>
+          </div>
 
-            <div className="flex flex-wrap gap-2">
-              {activity.status === "PUBLISHED" && (
-                <button
-                  type="button"
-                  onClick={handleStart}
-                  disabled={savingLifecycle}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                >
-                  <Play className="h-4 w-4 fill-current" />
-                  {savingLifecycle ? "Starting..." : "Start Activity"}
-                </button>
-              )}
-
-              {activity.status === "ONGOING" && (
-                <button
-                  type="button"
-                  onClick={handleComplete}
-                  disabled={savingLifecycle}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  {savingLifecycle ? "Completing..." : "Complete Activity"}
-                </button>
-              )}
-
+          <div className="flex items-center gap-2 shrink-0">
+            {canStart && (
               <button
                 type="button"
-                onClick={load}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={handleStartActivity}
+                disabled={lifecycleLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60"
               >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
+                {lifecycleLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                <span>Start Competition</span>
               </button>
-            </div>
-          </div>
-        </section>
+            )}
 
-        {success && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-            {success}
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            {error}
-          </div>
-        )}
-
-        <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
-                Quick start
-              </p>
-              <h2 className="mt-1 text-lg font-bold text-slate-900">
-                Run this activity in three steps
-              </h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Start the activity, give one volunteer check-in access, then open the scanner.
-              </p>
-              <p className="mt-3 text-xs font-medium text-slate-500">
-                1. Start activity &nbsp;→&nbsp; 2. Assign volunteer &nbsp;→&nbsp; 3. Scan tickets
-              </p>
-            </div>
-            <Link
-              to="/volunteer/scanner"
-              className="inline-flex shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-            >
-              Open Scanner
-            </Link>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  Registration requests
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  {pendingRegistrations.length} pending · {registrations.length} total
-                </p>
-              </div>
+            {isOngoing && (
               <button
                 type="button"
-                onClick={load}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-                title="Refresh registration requests"
+                onClick={handleCompleteActivity}
+                disabled={lifecycleLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60"
               >
-                <RefreshCw className="h-4 w-4" />
+                {lifecycleLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>Complete Competition</span>
               </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {registrations.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center text-xs text-slate-500">
-                  No participant registrations yet.
-                </div>
-              ) : (
-                registrations.map((registration) => {
-                  const isSaving = savingRegistrationId === registration.id;
-
-                  return (
-                    <div
-                      key={registration.id}
-                      className="rounded-xl border border-slate-200 p-4"
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {registration.participantName ||
-                              registration.participantEmail ||
-                              registration.participantId}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {registration.participantEmail || "Participant"}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
-                              {registration.registrationType}
-                            </span>
-                            <span
-                              className={
-                                "rounded-md px-2 py-1 text-[10px] font-semibold " +
-                                (registration.status === "PENDING"
-                                  ? "bg-amber-50 text-amber-700"
-                                  : registration.status === "APPROVED"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : registration.status === "REJECTED"
-                                  ? "bg-rose-50 text-rose-700"
-                                  : "bg-slate-100 text-slate-600")
-                              }
-                            >
-                              {registration.status}
-                            </span>
-                          </div>
-                        </div>
-
-                        {registration.status === "PENDING" && (
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() => handleApprove(registration.id)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                            >
-                              <Check className="h-4 w-4" />
-                              {isSaving ? "Saving..." : "Approve"}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() => openRejectDialog(registration)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
-                            >
-                              <X className="h-4 w-4" />
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {registration.reviewNote && (
-                        <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-                          Note: {registration.reviewNote}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-indigo-600" />
-              <h2 className="text-sm font-bold text-slate-900">
-                Activity volunteer
-              </h2>
-            </div>
-
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">
-              Assign a person to scan tickets for this activity. They can create a volunteer account from the invitation link if needed.
-            </p>
-
-            <form onSubmit={handleInvite} className="mt-5 space-y-3">
-              <input
-                type="text"
-                value={inviteName}
-                onChange={(event) => setInviteName(event.target.value)}
-                placeholder="Volunteer name (optional)"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-              />
-              <input
-                required
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                placeholder="volunteer@email.com"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-              />
-              <button
-                disabled={staffSaving}
-                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-              >
-                <Mail className="h-4 w-4" />
-                {staffSaving ? "Creating..." : "Create invitation"}
-              </button>
-            </form>
-
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Assigned volunteers
-                </h3>
-                <span className="text-[11px] text-slate-400">
-                  {activeStaff.length} active
-                </span>
-              </div>
-
-              {staff.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500">
-                  No volunteer assigned yet.
-                </p>
-              ) : (
-                staff.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-slate-200 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {item.invitedName || item.email}
-                        </p>
-                        <p className="text-xs text-slate-500">{item.email}</p>
-                        <span className="mt-1 inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                          {item.status}
-                        </span>
-                      </div>
-
-                      {item.status !== "REVOKED" && (
-                        <button
-                          type="button"
-                          onClick={() => handleRevoke(item.id)}
-                          className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"
-                          title="Revoke access"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-
-                    {item.invitationLink && item.status === "INVITED" && (
-                      <div className="mt-3 rounded-lg bg-slate-50 p-2.5">
-                        <p className="break-all text-[10px] text-slate-500">
-                          {item.invitationLink}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => copyInvitation(item.invitationLink)}
-                          className="mt-2 text-xs font-semibold text-indigo-600"
-                        >
-                          {copiedLink === item.invitationLink
-                            ? "Copied"
-                            : "Copy invitation link"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-indigo-600" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  Activity attendance
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Only participants checked into this specific activity appear here.
-                </p>
-              </div>
-            </div>
+            )}
 
             <button
               type="button"
-              onClick={loadAttendance}
-              className="inline-flex items-center gap-2 self-start rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-60"
+              title="Refresh"
             >
-              <ClipboardCheck className="h-4 w-4" />
-              Load attendance
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
           </div>
+        </div>
+      </header>
 
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-xs">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="px-3 py-3">Participant</th>
-                  <th className="px-3 py-3">Checked in</th>
-                  <th className="px-3 py-3">By</th>
-                  <th className="px-3 py-3">Type</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {attendance.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={4}
-                      className="px-3 py-8 text-center text-slate-400"
-                    >
-                      No attendance records loaded.
-                    </td>
-                  </tr>
-                ) : (
-                  attendance.map((record) => (
-                    <tr key={record.attendanceId}>
-                      <td className="px-3 py-3 font-semibold text-slate-800">
-                        {record.participantName || record.participantId}
-                      </td>
-                      <td className="px-3 py-3 text-slate-500">
-                        {record.checkedInAt
-                          ? new Date(record.checkedInAt).toLocaleString()
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-3 text-slate-500">
-                        {record.checkedInBy}
-                      </td>
-                      <td className="px-3 py-3">
-                        {record.checkInType}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Activity Quick Info Bar */}
+        <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-bold text-slate-900">{activity.name}</h2>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
+                  isNotStarted
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : activity.status === "ONGOING"
+                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                    : activity.status === "COMPLETED"
+                    ? "bg-slate-100 text-slate-700 border-slate-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}
+              >
+                {isNotStarted ? "Not started" : activity.status || "DRAFT"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                {formatDateRange(activity.startDateTime, activity.endDateTime)}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                {activity.location || "No venue set"}
+              </span>
+            </div>
           </div>
-        </section>
 
-        {rejectTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h2 className="text-lg font-bold text-slate-900">
-                Reject registration
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {rejectTarget.participantName ||
-                  rejectTarget.participantEmail ||
-                  "Participant"}
-              </p>
+          <div className="flex items-center gap-2 border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-5 shrink-0">
+            <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 text-center min-w-[90px]">
+              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Checked In
+              </span>
+              <span className="text-base font-bold text-slate-800">{attendance.length}</span>
+            </div>
+            <div className="px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 text-center min-w-[90px]">
+              <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Staff
+              </span>
+              <span className="text-base font-bold text-slate-800">
+                {staff.filter((s) => s.status === "ACTIVE").length}
+              </span>
+            </div>
+          </div>
+        </div>
 
-              <label className="mt-5 block">
-                <span className="mb-1 block text-xs font-semibold text-slate-700">
-                  Reason (optional)
+        {/* Global Notifications */}
+        {error && (
+          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError("")}
+              className="text-rose-500 hover:text-rose-700 text-xs cursor-pointer font-bold"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {success && (
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{success}</span>
+            </div>
+            <button
+              onClick={() => setSuccess("")}
+              className="text-emerald-500 hover:text-emerald-700 text-xs cursor-pointer font-bold"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="border-b border-slate-200">
+          <nav className="flex space-x-6">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("attendance");
+                setSearchQuery("");
+              }}
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === "attendance"
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <ClipboardCheck className="w-4 h-4" />
+              <span>Live Attendance</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">
+                {attendance.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTab("volunteers");
+                setSearchQuery("");
+              }}
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === "volunteers"
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Volunteers</span>
+              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">
+                {staff.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTab("details")}
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+                activeTab === "details"
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Info className="w-4 h-4" />
+              <span>Competition Details</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            TAB 1: LIVE ATTENDANCE
+            ══════════════════════════════════════════════════════════ */}
+        {activeTab === "attendance" && (
+          <div className="space-y-4">
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Check-in Log
                 </span>
-                <textarea
-                  value={rejectReason}
-                  onChange={(event) => setRejectReason(event.target.value)}
-                  rows={4}
-                  maxLength={500}
-                  placeholder="Explain why this registration was rejected."
-                  className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </label>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold">
+                  {filteredAttendance.length} attendee{filteredAttendance.length === 1 ? "" : "s"}
+                </span>
+              </div>
 
-              <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRejectTarget(null);
-                    setRejectReason("");
-                  }}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={savingRegistrationId === rejectTarget.id}
-                  onClick={handleReject}
-                  className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject Registration
-                </button>
+              <div className="relative max-w-xs w-full">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter attendees..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+              {filteredAttendance.length === 0 ? (
+                <div className="py-12 px-4 text-center space-y-2">
+                  <ClipboardCheck className="w-8 h-8 text-slate-300 mx-auto" />
+                  <h4 className="text-sm font-semibold text-slate-700">No Check-ins Yet</h4>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                    When assigned volunteers scan participant QR codes for this competition, attendee records will appear here live.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="px-5 py-3">Participant Name</th>
+                        <th className="px-5 py-3">Check-in Time</th>
+                        <th className="px-5 py-3">Volunteer</th>
+                        <th className="px-5 py-3">Check-in Type</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredAttendance.map((rec) => (
+                        <tr key={rec.attendanceId || `${rec.participantId}-${rec.checkedInAt}`} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-5 py-3 font-semibold text-slate-900">
+                            {rec.participantName || rec.participantId || "Anonymous Participant"}
+                          </td>
+                          <td className="px-5 py-3 text-slate-500">
+                            {rec.checkedInAt ? new Date(rec.checkedInAt).toLocaleString() : "Just now"}
+                          </td>
+                          <td className="px-5 py-3 text-slate-600">
+                            <span className="inline-flex items-center gap-1">
+                              <UserCheck className="w-3 h-3 text-emerald-500" />
+                              {rec.checkedInBy || "Scanner"}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
+                              {rec.checkInType || "STANDARD"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            TAB 2: VOLUNTEERS
+            ══════════════════════════════════════════════════════════ */}
+        {activeTab === "volunteers" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Left: Invite Form */}
+            <div className="lg:col-span-1">
+              <form
+                onSubmit={handleInviteVolunteer}
+                className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-4"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                    <UserPlus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Invite Volunteer</h3>
+                    <p className="text-[11px] text-slate-500">
+                      Grant check-in scanning privileges
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Volunteer Name <span className="text-slate-400 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={volunteerName}
+                      onChange={(e) => setVolunteerName(e.target.value)}
+                      placeholder="e.g. Sarah Smith"
+                      className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Email Address <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="email"
+                      value={volunteerEmail}
+                      onChange={(e) => setVolunteerEmail(e.target.value)}
+                      placeholder="volunteer@college.edu"
+                      className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={inviting}
+                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer shadow-2xs"
+                  >
+                    {inviting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <UserPlus className="w-3.5 h-3.5" />
+                    )}
+                    <span>{inviting ? "Generating Link…" : "Generate Invite Link"}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right: Volunteer Roster */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Assigned Volunteers
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {staff.filter((s) => s.status === "ACTIVE").length} active ·{" "}
+                      {staff.filter((s) => s.status === "INVITED").length} pending invite
+                    </p>
+                  </div>
+                </div>
+
+                {filteredStaff.length === 0 ? (
+                  <div className="py-12 px-4 text-center space-y-2">
+                    <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                    <h4 className="text-sm font-semibold text-slate-700">No Volunteers Yet</h4>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      Use the form on the left to invite volunteers who can scan tickets for this competition.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {filteredStaff.map((s) => {
+                      const isRevoked = s.status === "REVOKED";
+                      const isInvited = s.status === "INVITED";
+                      const inviteLink = s.invitationLink;
+
+                      return (
+                        <div key={s.id} className="p-4 sm:p-5 flex flex-col gap-3 hover:bg-slate-50/50 transition-colors">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-slate-900">
+                                  {s.invitedName || s.email}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                    s.status === "ACTIVE"
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : isRevoked
+                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                                  }`}
+                                >
+                                  {s.status}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500">{s.email}</p>
+                            </div>
+
+                            {!isRevoked && (
+                              <button
+                                type="button"
+                                onClick={() => handleRevoke(s.id)}
+                                className="text-xs text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer flex items-center gap-1 font-medium"
+                                title="Revoke volunteer access"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Revoke</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {isInvited && inviteLink && (
+                            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 flex items-center justify-between gap-2">
+                              <div className="truncate text-[11px] text-slate-500 font-mono flex-1">
+                                {inviteLink}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(inviteLink)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-slate-200 rounded text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                              >
+                                {copiedLink === inviteLink ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-600" />
+                                    <span className="text-emerald-600">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy Link</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
-      </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            TAB 3: DETAILS
+            ══════════════════════════════════════════════════════════ */}
+        {activeTab === "details" && (
+          <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs space-y-6">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Competition Details</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Rules, timings, and configuration.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+                <span className="font-semibold text-slate-500 block uppercase tracking-wider text-[10px]">
+                  Schedule
+                </span>
+                <p className="text-slate-800 font-medium">
+                  {formatDateRange(activity.startDateTime, activity.endDateTime)}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+                <span className="font-semibold text-slate-500 block uppercase tracking-wider text-[10px]">
+                  Venue / Location
+                </span>
+                <p className="text-slate-800 font-medium">{activity.location || "Not specified"}</p>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+                <span className="font-semibold text-slate-500 block uppercase tracking-wider text-[10px]">
+                  Registration Type
+                </span>
+                <p className="text-slate-800 font-medium">
+                  {activity.registrationType || "Individual"}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+                <span className="font-semibold text-slate-500 block uppercase tracking-wider text-[10px]">
+                  Status
+                </span>
+                <p className="text-slate-800 font-medium">{activity.status || "DRAFT"}</p>
+              </div>
+            </div>
+
+            {activity.rules && (
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold text-slate-700">Rules & Regulations</h4>
+                <div className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-100 whitespace-pre-wrap">
+                  {activity.rules}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

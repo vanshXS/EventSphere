@@ -221,12 +221,12 @@ public class TicketService {
             return true;
         }
 
-        /*
+        /**
          * The registration stores a member snapshot for audit/history, but
          * ticket access follows the current team membership as well. This
          * lets a newly-added team member receive their own ticket without
          * rewriting the original registration document.
-         */
+         **/
         if (registration.getTeamId() == null) {
             return false;
         }
