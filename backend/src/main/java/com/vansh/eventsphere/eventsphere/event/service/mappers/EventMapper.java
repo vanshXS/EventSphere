@@ -1,16 +1,22 @@
 package com.vansh.eventsphere.eventsphere.event.service.mappers;
 
+import org.springframework.stereotype.Component;
+
 import com.vansh.eventsphere.eventsphere.event.dto.EventResponse;
 import com.vansh.eventsphere.eventsphere.event.model.Event;
+
 import jakarta.validation.constraints.NotNull;
-import org.springframework.stereotype.Component;
 
 @Component
 public class EventMapper {
 
     public EventResponse mapToResponse(
-            @NotNull Event event
-            ) {
+            @NotNull Event event) {
+        return mapToResponse(event, 0);
+    }
+
+    public EventResponse mapToResponse(
+            @NotNull Event event, long activityCount) {
 
         return EventResponse.builder()
                 .id(event.getId())
@@ -24,6 +30,7 @@ public class EventMapper {
                 .rules(event.getRules())
                 .eventVisibility(event.getVisibility())
                 .status(event.getEventStatus())
+                .activityCount(activityCount)
                 .createdAt(event.getCreatedAt())
                 .updatedAt(event.getUpdatedAt())
                 .build();

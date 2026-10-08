@@ -7,6 +7,8 @@ import com.vansh.eventsphere.eventsphere.event.dto.UpdateActivityRequest;
 import com.vansh.eventsphere.eventsphere.event.model.*;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
+import com.vansh.eventsphere.eventsphere.event.repository.AttendanceRepository;
+import com.vansh.eventsphere.eventsphere.event.repository.EventRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.EventRepository;
 import com.vansh.eventsphere.eventsphere.event.service.mappers.ActivityMapper;
 import com.vansh.eventsphere.eventsphere.event.service.validators.ActivityValidator;
@@ -36,6 +38,10 @@ class ActivityLifecycleServiceTest {
     private EventRepository eventRepository;
     @Mock
     private ActivityRegistrationRepository activityRegistrationRepository;
+    @Mock
+    private EventRegistrationRepository eventRegistrationRepository;
+    @Mock
+    private AttendanceRepository attendanceRepository;
     @Mock
     private TransactionRunner transactionRunner;
 
@@ -69,7 +75,9 @@ class ActivityLifecycleServiceTest {
                 eventRepository,
                 activityMapper,
                 transactionRunner,
-                activityRegistrationRepository
+                activityRegistrationRepository,
+                eventRegistrationRepository,
+                attendanceRepository
         );
 
         eventStatusSchedular = new EventStatusSchedular(

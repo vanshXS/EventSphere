@@ -2,12 +2,23 @@ package com.vansh.eventsphere.eventsphere.event.service.mappers;
 
 import com.vansh.eventsphere.eventsphere.event.dto.ActivityResponse;
 import com.vansh.eventsphere.eventsphere.event.model.Activity;
+import com.vansh.eventsphere.eventsphere.event.model.EventStatus;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ActivityMapper {
 
     public ActivityResponse mapToResponse(Activity activity){
+        EventStatus status = activity.getStatus();
+        if (status == null && activity.getEventId() != null) {
+            if (activity.getActualEndDateTime() != null) {
+                status = EventStatus.COMPLETED;
+            } else if (activity.getActualStartDateTime() != null) {
+                status = EventStatus.ONGOING;
+            } else {
+                status = EventStatus.PUBLISHED;
+            }
+        }
 
         return ActivityResponse.builder()
                 .id(activity.getId())
@@ -27,7 +38,7 @@ public class ActivityMapper {
                 .capacity(activity.getCapacity())
                 .minTeamSize(activity.getMinTeamSize())
                 .maxTeamSize(activity.getMaxTeamSize())
-                .status(activity.getStatus())
+                .status(status)
                 .visibility(activity.getVisibility())
                 .createdAt(activity.getCreatedAt())
                 .updatedAt(activity.getUpdatedAt())

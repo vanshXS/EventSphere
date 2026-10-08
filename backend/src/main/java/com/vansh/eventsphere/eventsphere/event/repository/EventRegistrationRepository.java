@@ -6,10 +6,16 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EventRegistrationRepository
         extends MongoRepository<EventRegistration, String> {
+
+    Optional<EventRegistration> findByEventIdAndParticipantId(
+            String eventId,
+            String participantId
+    );
 
     boolean existsByEventIdAndParticipantIdAndStatusIn(
             String eventId,

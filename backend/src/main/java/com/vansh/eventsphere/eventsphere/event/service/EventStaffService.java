@@ -1,5 +1,16 @@
 package com.vansh.eventsphere.eventsphere.event.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.vansh.eventsphere.eventsphere.common.transaction.TransactionRunner;
 import com.vansh.eventsphere.eventsphere.event.dto.AcceptStaffInvitationRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.EventStaffAssignmentResponse;
@@ -18,17 +29,8 @@ import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import com.vansh.eventsphere.eventsphere.user.model.Role;
 import com.vansh.eventsphere.eventsphere.user.model.User;
 import com.vansh.eventsphere.eventsphere.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +50,7 @@ public class EventStaffService {
     private final PasswordEncoder passwordEncoder;
     private final TransactionRunner transactionRunner;
 
-    @Value("${app.frontend-url:http://localhost:3000}")
+    @Value("${FRONTEND_URL:${app.frontend-url:http://localhost:5173}}")
     private String frontendUrl;
 
     public EventStaffAssignmentResponse inviteToEvent(

@@ -22,8 +22,11 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -55,12 +58,21 @@ public class TicketService {
                         registration.getId(),
                         participantId
                 )
+                .or(() -> ticketRepository.findByEventIdAndHolderParticipantIdAndScope(
+                        registration.getEventId(),
+                        participantId,
+                        TicketScope.EVENT
+                ))
                 .orElseGet(() -> Ticket.builder()
                         .registrationId(registration.getId())
                         .eventId(registration.getEventId())
                         .holderParticipantId(participantId)
                         .scope(TicketScope.EVENT)
                         .build());
+
+        if (registration.getId() != null && !registration.getId().equals(ticket.getRegistrationId())) {
+            ticket.setRegistrationId(registration.getId());
+        }
 
         if (!ticket.isActive()) {
             rotate(ticket);
@@ -129,6 +141,21 @@ public class TicketService {
                                         "Activity registration not found."
                                 )
                         );
+
+        if ((registration.getStatus() == RegistrationStatus.APPROVED
+                || registration.getStatus() == RegistrationStatus.REGISTERED)
+                && registration.getEventId() != null
+                && !registration.getEventId().isBlank()) {
+            EventRegistration eventReg = getOrEnsureEventRegistration(
+                    registration.getEventId(),
+                    participantId
+            );
+            ensureEventEntryTicket(
+                    registration.getEventId(),
+                    participantId,
+                    eventReg.getId()
+            );
+        }
 
         return issueForActivityRegistration(registration, participantId);
     }
@@ -208,6 +235,224 @@ public class TicketService {
         }
     }
 
+    public TicketResponse ensureEventEntryTicket(
+            String eventId,
+            String participantId,
+            String registrationId
+    ) {
+        Ticket ticket = ticketRepository
+                .findByEventIdAndHolderParticipantIdAndScope(
+                        eventId,
+                        participantId,
+                        TicketScope.EVENT
+                )
+                .orElseGet(() -> Ticket.builder()
+                        .registrationId(registrationId)
+                        .eventId(eventId)
+                        .holderParticipantId(participantId)
+                        .scope(TicketScope.EVENT)
+                        .build());
+
+        if (registrationId != null && !registrationId.equals(ticket.getRegistrationId())) {
+            ticket.setRegistrationId(registrationId);
+        }
+
+        if (!ticket.isActive()) {
+            rotate(ticket);
+            return toResponse(ticketRepository.save(ticket));
+        }
+
+        return toResponse(ticket);
+    }
+
+    public EventRegistration getOrEnsureEventRegistration(String eventId, String participantId) {
+        return eventRegistrationRepository
+                .findByEventIdAndParticipantId(eventId, participantId)
+                .map(existing -> {
+                    if (existing.getStatus() == RegistrationStatus.CANCELLED) {
+                        existing.setStatus(RegistrationStatus.APPROVED);
+                        existing.setCancelledAt(null);
+                        return eventRegistrationRepository.save(existing);
+                    }
+                    return existing;
+                })
+                .orElseGet(() -> eventRegistrationRepository.save(
+                        EventRegistration.builder()
+                                .eventId(eventId)
+                                .participantId(participantId)
+                                .status(RegistrationStatus.APPROVED)
+                                .autoGranted(true)
+                                .registeredAt(LocalDateTime.now())
+                                .build()
+                ));
+    }
+
+    public List<String> getParticipantIdsForRegistration(ActivityRegistration registration) {
+        Set<String> participantIds = new LinkedHashSet<>();
+        if (registration.getParticipantId() != null && !registration.getParticipantId().isBlank()) {
+            participantIds.add(registration.getParticipantId());
+        }
+        if (registration.getTeamMemberIds() != null) {
+            for (String memberId : registration.getTeamMemberIds()) {
+                if (memberId != null && !memberId.isBlank()) {
+                    participantIds.add(memberId);
+                }
+            }
+        }
+        if (registration.getTeamId() != null && !registration.getTeamId().isBlank()) {
+            teamRepository.findById(registration.getTeamId())
+                    .map(Team::getMembersId)
+                    .ifPresent(members -> {
+                        if (members != null) {
+                            for (String m : members) {
+                                if (m != null && !m.isBlank()) {
+                                    participantIds.add(m);
+                                }
+                            }
+                        }
+                    });
+        }
+        return new ArrayList<>(participantIds);
+    }
+
+    public void ensureTicketsForActivityRegistration(ActivityRegistration registration) {
+        if (registration.getStatus() != RegistrationStatus.APPROVED
+                && registration.getStatus() != RegistrationStatus.REGISTERED) {
+            return;
+        }
+
+        List<String> participantIds = getParticipantIdsForRegistration(registration);
+
+        for (String participantId : participantIds) {
+            issueForActivityRegistration(registration, participantId);
+
+            if (registration.getEventId() != null && !registration.getEventId().isBlank()) {
+                EventRegistration eventReg = getOrEnsureEventRegistration(
+                        registration.getEventId(),
+                        participantId
+                );
+                ensureEventEntryTicket(
+                        registration.getEventId(),
+                        participantId,
+                        eventReg.getId()
+                );
+            }
+        }
+    }
+
+    public boolean hasRemainingActiveRegistrationsInEvent(
+            String eventId,
+            String participantId,
+            String excludedActivityRegistrationId
+    ) {
+        boolean hasDirectEventReg = eventRegistrationRepository
+                .findByEventIdAndParticipantId(eventId, participantId)
+                .filter(reg -> !reg.isAutoGranted()
+                        && (reg.getStatus() == RegistrationStatus.APPROVED
+                        || reg.getStatus() == RegistrationStatus.REGISTERED))
+                .isPresent();
+
+        if (hasDirectEventReg) {
+            return true;
+        }
+
+        List<RegistrationStatus> activeStatuses = List.of(
+                RegistrationStatus.APPROVED,
+                RegistrationStatus.REGISTERED,
+                RegistrationStatus.PENDING
+        );
+
+        List<ActivityRegistration> userRegistrations = activityRegistrationRepository
+                .findByParticipantIdOrTeamMemberIdsContaining(participantId, participantId);
+
+        boolean hasOtherActivity = userRegistrations.stream()
+                .filter(reg -> eventId.equals(reg.getEventId()))
+                .filter(reg -> excludedActivityRegistrationId == null || !excludedActivityRegistrationId.equals(reg.getId()))
+                .anyMatch(reg -> activeStatuses.contains(reg.getStatus()));
+
+        if (hasOtherActivity) {
+            return true;
+        }
+
+        List<String> teamIds = teamRepository.findByMembersIdContaining(participantId)
+                .stream()
+                .map(Team::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+
+        if (!teamIds.isEmpty()) {
+            return activityRegistrationRepository.findByTeamIdIn(teamIds).stream()
+                    .filter(reg -> eventId.equals(reg.getEventId()))
+                    .filter(reg -> excludedActivityRegistrationId == null || !excludedActivityRegistrationId.equals(reg.getId()))
+                    .anyMatch(reg -> activeStatuses.contains(reg.getStatus()));
+        }
+
+        return false;
+    }
+
+    public void revokeActivityRegistration(ActivityRegistration registration) {
+        List<Ticket> tickets = ticketRepository.findByRegistrationId(registration.getId());
+        LocalDateTime now = LocalDateTime.now();
+
+        tickets.forEach(ticket -> {
+            if (ticket.getScope() == TicketScope.ACTIVITY) {
+                ticket.setActive(false);
+                ticket.setRevokedAt(now);
+            }
+        });
+
+        if (!tickets.isEmpty()) {
+            ticketRepository.saveAll(tickets);
+        }
+
+        String eventId = registration.getEventId();
+        if (eventId != null && !eventId.isBlank()) {
+            List<String> participants = getParticipantIdsForRegistration(registration);
+            for (String pId : participants) {
+                boolean hasOther = hasRemainingActiveRegistrationsInEvent(eventId, pId, registration.getId());
+                if (!hasOther) {
+                    ticketRepository.findByEventIdAndHolderParticipantIdAndScope(
+                            eventId,
+                            pId,
+                            TicketScope.EVENT
+                    ).ifPresent(eventTicket -> {
+                        eventTicket.setActive(false);
+                        eventTicket.setRevokedAt(now);
+                        ticketRepository.save(eventTicket);
+                    });
+
+                    eventRegistrationRepository.findByEventIdAndParticipantId(eventId, pId)
+                            .ifPresent(eventReg -> {
+                                if (eventReg.isAutoGranted()) {
+                                    eventReg.setStatus(RegistrationStatus.CANCELLED);
+                                    eventReg.setCancelledAt(now);
+                                    eventRegistrationRepository.save(eventReg);
+                                }
+                            });
+                }
+            }
+        }
+    }
+
+    public void revokeEventRegistration(EventRegistration registration) {
+        String eventId = registration.getEventId();
+        String participantId = registration.getParticipantId();
+
+        boolean hasOther = hasRemainingActiveRegistrationsInEvent(eventId, participantId, null);
+        if (!hasOther) {
+            revokeByRegistrationId(registration.getId());
+            ticketRepository.findByEventIdAndHolderParticipantIdAndScope(
+                    eventId,
+                    participantId,
+                    TicketScope.EVENT
+            ).ifPresent(ticket -> {
+                ticket.setActive(false);
+                ticket.setRevokedAt(LocalDateTime.now());
+                ticketRepository.save(ticket);
+            });
+        }
+    }
+
     private boolean isActivityParticipant(
             ActivityRegistration registration,
             String participantId
@@ -253,7 +498,7 @@ public class TicketService {
         ticket.setIssuedAt(LocalDateTime.now());
     }
 
-    private TicketResponse toResponse(Ticket ticket) {
+    public TicketResponse toResponse(Ticket ticket) {
         String payload = ticket.getId() + "."
                 + ticket.getNonce() + "."
                 + sign(ticket.getId() + "." + ticket.getNonce());

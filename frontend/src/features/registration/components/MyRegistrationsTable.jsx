@@ -6,7 +6,10 @@ import {
   Loader2,
   Search,
   XCircle,
-  Ticket
+  Ticket,
+  X,
+  ExternalLink,
+  AlertCircle
 } from "lucide-react";
 
 import { useAuth } from "../../auth/AuthContext";
@@ -28,6 +31,11 @@ import {
 
 import RegistrationStatusBadge from "./RegistrationStatusBadge";
 import ConfirmDialog from "../../events/components/ConfirmDialog";
+import QrTicketCard from "./QrTicketCard";
+import {
+  getActivityTicket,
+  getEventTicket
+} from "../../attendance/attendanceApi";
 
 const filters = [
   ["ALL", "All"],
@@ -63,6 +71,40 @@ export default function MyRegistrationsTable({
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [regToCancel, setRegToCancel] = useState(null);
   const [cancelError, setCancelError] = useState("");
+
+  const [ticketModalReg, setTicketModalReg] = useState(null);
+  const [modalTicket, setModalTicket] = useState(null);
+  const [ticketLoading, setTicketLoading] = useState(false);
+  const [ticketError, setTicketError] = useState("");
+
+  const handleOpenTicketModal = async (registration) => {
+    setTicketModalReg(registration);
+    setTicketError("");
+
+    if (registration.ticket?.qrPayload) {
+      setModalTicket(registration.ticket);
+      return;
+    }
+
+    try {
+      setTicketLoading(true);
+      const loader = registration.activityId ? getActivityTicket : getEventTicket;
+      const loadedTicket = await loader(registration.id);
+      setModalTicket(loadedTicket);
+    } catch (err) {
+      setTicketError(
+        err.response?.data?.message || "Could not load the QR ticket for this registration."
+      );
+    } finally {
+      setTicketLoading(false);
+    }
+  };
+
+  const handleCloseTicketModal = () => {
+    setTicketModalReg(null);
+    setModalTicket(null);
+    setTicketError("");
+  };
 
   const canCancelRegistration = (registration) => {
     if (!isActiveRegistration(registration)) return false;
@@ -361,21 +403,16 @@ export default function MyRegistrationsTable({
 
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          {registration.ticket && (
-                            <Link
-                              to={
-                                "/participant/ticket?registrationId=" +
-                                registration.id +
-                                "&scope=" +
-                                (registration.activityId
-                                  ? "ACTIVITY"
-                                  : "EVENT")
-                              }
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 font-semibold text-indigo-700 hover:bg-indigo-100"
+                          {(registration.ticket || isActiveRegistration(registration)) && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTicketModal(registration)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer shadow-xs"
+                              title="View Check-in QR Ticket"
                             >
                               <Ticket className="h-3.5 w-3.5" />
-                              Ticket
-                            </Link>
+                              View Ticket
+                            </button>
                           )}
 
                           {canCancelRegistration(registration) ? (
@@ -452,6 +489,74 @@ export default function MyRegistrationsTable({
           setCancelError("");
         }}
       />
+
+      {/* Inline Ticket Modal */}
+      {ticketModalReg && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) handleCloseTicketModal();
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {ticketModalReg.activityName || ticketModalReg.eventName || "Entry Ticket"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Check-in pass for {ticketModalReg.registrationKind === "EVENT" ? "Event entry" : "Activity"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseTicketModal}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {ticketLoading ? (
+              <div className="py-12 flex flex-col items-center justify-center text-slate-500 gap-2">
+                <Loader2 className="h-7 w-7 animate-spin text-indigo-600" />
+                <span className="text-xs font-medium">Generating your ticket...</span>
+              </div>
+            ) : ticketError ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+                <div>
+                  <p className="font-semibold">Unable to display ticket</p>
+                  <p className="mt-0.5">{ticketError}</p>
+                </div>
+              </div>
+            ) : modalTicket ? (
+              <div className="space-y-4">
+                <QrTicketCard ticket={modalTicket} title={ticketModalReg.activityName || ticketModalReg.eventName} />
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                  <Link
+                    to={`/participant/ticket?registrationId=${ticketModalReg.id}&scope=${ticketModalReg.activityId ? "ACTIVITY" : "EVENT"}`}
+                    className="inline-flex items-center gap-1.5 font-medium text-slate-600 hover:text-indigo-600 transition-colors"
+                  >
+                    <span>Full page view</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleCloseTicketModal}
+                    className="px-3.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 font-medium hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </>
   );
 }

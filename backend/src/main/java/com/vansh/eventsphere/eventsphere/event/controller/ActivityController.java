@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.event.controller;
 
 import com.vansh.eventsphere.eventsphere.event.dto.ActivityResponse;
+import com.vansh.eventsphere.eventsphere.event.dto.ActivitySummaryResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.CreateActivityRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.OrganizerRegistrationResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.UpdateActivityRequest;
@@ -48,6 +49,18 @@ public class ActivityController {
         );
     }
 
+    @GetMapping({ "/{eventId}/activity-summaries", "/{eventId}/activities/summary" })
+    @ResponseStatus(HttpStatus.OK)
+    public List<ActivitySummaryResponse> getActivitySummaries(
+            @PathVariable String eventId,
+            Authentication authentication
+    ) {
+        return activityService.getActivitySummariesByEvent(
+                eventId,
+                authentication.getName()
+        );
+    }
+
     @GetMapping("/{eventId}/activities/{activityId}")
     @ResponseStatus(HttpStatus.OK)
     public ActivityResponse getActivity(
@@ -55,6 +68,9 @@ public class ActivityController {
             @PathVariable String activityId,
             Authentication authentication
     ) {
+        if ("summary".equalsIgnoreCase(activityId)) {
+            throw new com.vansh.eventsphere.eventsphere.common.exception.BadRequestException("Invalid activity ID");
+        }
         return activityService.getActivity(
                 activityId,
                 authentication.getName()

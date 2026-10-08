@@ -37,4 +37,5 @@ public class ActivityRegistrationResponse {
     private LocalDateTime reviewedAt;
     private String reviewNote;
     private TicketResponse ticket;
+    private TicketResponse eventTicket;
 }

@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.event.controller;
 
 import com.vansh.eventsphere.eventsphere.event.dto.ActivityResponse;
+import com.vansh.eventsphere.eventsphere.event.dto.ActivitySummaryResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.CreateActivityRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.OrganizerRegistrationResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.UpdateActivityRequest;
@@ -55,6 +56,12 @@ public class StandaloneActivityController {
     @ResponseStatus(HttpStatus.OK)
     public List<OrganizerRegistrationResponse> getRegistrations(@PathVariable String activityId, Authentication authentication) {
         return activityRegistrationService.getRegistrationsForActivity(activityId, authentication.getName());
+    }
+
+    @GetMapping("/{activityId}/summary")
+    @ResponseStatus(HttpStatus.OK)
+    public ActivitySummaryResponse getSummary(@PathVariable String activityId, Authentication authentication) {
+        return activityService.getStandaloneActivitySummary(activityId, authentication.getName());
     }
 
     @PutMapping("/{activityId}")

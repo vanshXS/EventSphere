@@ -1,8 +1,32 @@
 import api from "../../lib/api";
 
+export const normalizeInvitationLink = (link) => {
+  if (!link) return link;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return link
+      .replace(/^https?:\/\/localhost:3000/i, window.location.origin)
+      .replace(/^https?:\/\/127\.0\.0\.1:3000/i, window.location.origin);
+  }
+  return link
+    .replace(/^https?:\/\/localhost:3000/i, "http://localhost:5173")
+    .replace(/^https?:\/\/127\.0\.0\.1:3000/i, "http://localhost:5173");
+};
+
+const normalizeStaffItem = (item) => {
+  if (!item) return item;
+  if (item.invitationLink) {
+    return {
+      ...item,
+      invitationLink: normalizeInvitationLink(item.invitationLink)
+    };
+  }
+  return item;
+};
+
 export const getEventStaff = async (eventId) => {
   const response = await api.get("/api/organizer/events/" + eventId + "/staff");
-  return Array.isArray(response.data) ? response.data : [];
+  const data = Array.isArray(response.data) ? response.data : [];
+  return data.map(normalizeStaffItem);
 };
 
 export const inviteEventStaff = async (eventId, payload) => {
@@ -10,14 +34,15 @@ export const inviteEventStaff = async (eventId, payload) => {
     "/api/organizer/events/" + eventId + "/staff",
     payload
   );
-  return response.data;
+  return normalizeStaffItem(response.data);
 };
 
 export const getActivityStaff = async (activityId) => {
   const response = await api.get(
     "/api/organizer/activities/" + activityId + "/staff"
   );
-  return Array.isArray(response.data) ? response.data : [];
+  const data = Array.isArray(response.data) ? response.data : [];
+  return data.map(normalizeStaffItem);
 };
 
 export const inviteActivityStaff = async (activityId, payload) => {
@@ -25,7 +50,7 @@ export const inviteActivityStaff = async (activityId, payload) => {
     "/api/organizer/activities/" + activityId + "/staff",
     payload
   );
-  return response.data;
+  return normalizeStaffItem(response.data);
 };
 
 export const revokeStaff = async (assignmentId) => {
@@ -56,12 +81,13 @@ export const checkIn = async (qrPayload, checkInType) => {
 
 export const getMyVolunteerAssignments = async () => {
   const response = await api.get("/api/volunteer/assignments");
-  return Array.isArray(response.data) ? response.data : [];
+  const data = Array.isArray(response.data) ? response.data : [];
+  return data.map(normalizeStaffItem);
 };
 
 export const getStaffInvitation = async (token) => {
   const response = await api.get("/api/staff/invitations/" + token);
-  return response.data;
+  return normalizeStaffItem(response.data);
 };
 
 export const acceptStaffInvitation = async (token, payload) => {
@@ -69,7 +95,7 @@ export const acceptStaffInvitation = async (token, payload) => {
     "/api/staff/invitations/" + token + "/accept",
     payload
   );
-  return response.data;
+  return normalizeStaffItem(response.data);
 };
 
 export const getEventTicket = async (registrationId) => {

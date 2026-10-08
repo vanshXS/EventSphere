@@ -152,7 +152,7 @@ public class EventRegistrationService {
             );
         }
 
-        ticketService.revokeByRegistrationId(registrationId);
+        ticketService.revokeEventRegistration(updated);
         return toResponse(updated);
     }
 

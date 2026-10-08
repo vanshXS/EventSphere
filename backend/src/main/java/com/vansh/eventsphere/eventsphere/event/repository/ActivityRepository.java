@@ -7,15 +7,20 @@ import java.util.List;
 import java.util.Optional;
 import com.vansh.eventsphere.eventsphere.event.model.EventStatus;
 
-
 @Repository
 public interface ActivityRepository extends MongoRepository<Activity, String> {
 
     List<Activity> findByEventId(String eventId);
 
     List<Activity> findByOrganizerIdAndEventIdIsNull(String organizerId);
+
     List<Activity> findByEventIdIsNull();
+
     List<Activity> findByOrganizerId(String organizerId);
+
     List<Activity> findByEventIdIsNullAndStatusIn(List<EventStatus> statuses);
+
     List<Activity> findByStatusIn(List<EventStatus> statuses);
+
+    long countByEventId(String eventId);
 }

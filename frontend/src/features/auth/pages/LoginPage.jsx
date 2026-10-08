@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { login } from "../authApi";
 import { useAuth } from "../AuthContext";
@@ -18,7 +18,19 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
-  const { loginUser } = useAuth();
+  const { user, loginUser } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "ORGANIZER") {
+        navigate("/organizer", { replace: true });
+      } else if (user.role === "PARTICIPANT") {
+        navigate("/participant", { replace: true });
+      } else if (user.role === "VOLUNTEER") {
+        navigate("/volunteer", { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -147,23 +159,32 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-600 space-y-2">
-        <div>
+      <div className="mt-6 border-t border-slate-100 pt-5 text-xs text-slate-600 space-y-3">
+        <div className="text-center font-medium text-slate-500">
           Don't have an account?
         </div>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 font-medium">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <Link
             to="/register/organizer"
-            className="text-indigo-600 hover:text-indigo-800 transition-colors hover:underline focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1"
+            className="group block rounded-lg border border-slate-200 hover:border-indigo-200 bg-slate-50 hover:bg-indigo-50/50 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            Register as Organizer
+            <span className="block text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
+              Register as Organizer
+            </span>
+            <span className="block mt-0.5 text-[11px] text-slate-500 leading-snug">
+              For clubs &amp; committees managing campus events.
+            </span>
           </Link>
-          <span className="hidden sm:inline text-slate-300">•</span>
           <Link
             to="/register/participant"
-            className="text-indigo-600 hover:text-indigo-800 transition-colors hover:underline focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded px-1"
+            className="group block rounded-lg border border-slate-200 hover:border-emerald-200 bg-slate-50 hover:bg-emerald-50/50 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            Register as Participant
+            <span className="block text-sm font-semibold text-emerald-600 group-hover:text-emerald-700">
+              Join as Participant
+            </span>
+            <span className="block mt-0.5 text-[11px] text-slate-500 leading-snug">
+              For students exploring &amp; joining events.
+            </span>
           </Link>
         </div>
       </div>

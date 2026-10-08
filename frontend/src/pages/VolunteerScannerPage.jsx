@@ -440,7 +440,65 @@ export default function VolunteerScannerPage() {
             Select your assignment, start the camera, and keep scanning.
           </p>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
+          {/* Assignment Summary Cards */}
+          {assignments.length > 0 && (
+            <div className="mt-4 mb-5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5">
+                Your Assignments ({assignments.length})
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {assignments.map((assignment) => (
+                  <button
+                    key={assignment.id}
+                    type="button"
+                    onClick={() => changeAssignment(assignment.id)}
+                    className={`text-left rounded-xl border p-3 transition-all cursor-pointer ${
+                      selectedAssignment?.id === assignment.id
+                        ? "border-indigo-300 bg-indigo-50 ring-1 ring-indigo-200"
+                        : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
+                    }`}
+                  >
+                    <p className={`text-sm font-semibold truncate ${
+                      selectedAssignment?.id === assignment.id
+                        ? "text-indigo-900"
+                        : "text-slate-800"
+                    }`}>
+                      {assignment.eventName || "Event"}
+                    </p>
+                    {assignment.activityName ? (
+                      <p className="mt-0.5 text-xs text-slate-500 truncate">
+                        Activity: {assignment.activityName}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-slate-400 italic">
+                        Event gate entry
+                      </p>
+                    )}
+                    <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      assignment.activityId
+                        ? "bg-violet-100 text-violet-700"
+                        : "bg-emerald-100 text-emerald-700"
+                    }`}>
+                      <QrCode className="w-2.5 h-2.5" />
+                      {assignment.activityId ? "Activity check-in" : "Gate scanner"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {assignments.length === 0 && (
+            <div className="mt-4 mb-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+              <ShieldCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-slate-600">No assignments yet</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Your organizer hasn't assigned you to any events or activities. Ask them to invite you via the Operations Console.
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-slate-700">
                 Assignment

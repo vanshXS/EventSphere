@@ -38,6 +38,16 @@ export const formatActivityPayload = (formData) => {
 export const normalizeActivity = (activity) => {
   if (!activity) return null;
 
+  const status =
+    activity.status ||
+    (activity.actualEndDateTime
+      ? "COMPLETED"
+      : activity.actualStartDateTime
+      ? "ONGOING"
+      : activity.eventId
+      ? "PUBLISHED"
+      : "DRAFT");
+
   return {
     ...activity,
     id: activity.id || activity._id,
@@ -49,6 +59,9 @@ export const normalizeActivity = (activity) => {
     location: activity.location,
     startDateTime: activity.startDateTime,
     endDateTime: activity.endDateTime,
+    actualStartDateTime: activity.actualStartDateTime,
+    actualEndDateTime: activity.actualEndDateTime,
+    status,
     registrationDeadline: activity.registrationDeadline,
     registrationType: activity.registrationType,
     capacity: activity.capacity,
@@ -156,3 +169,70 @@ export const getActivitiesByEvent = async (eventId) => {
     throw error;
   }
 };
+
+export const getActivitySummariesByEvent = async (eventId) => {
+  try {
+    const response = await api.get(
+      `/api/organizer/events/${eventId}/activities/summary`
+    );
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+  } catch (err) {
+    try {
+      const fallbackRes = await api.get(
+        `/api/organizer/events/${eventId}/activity-summaries`
+      );
+      if (Array.isArray(fallbackRes.data)) {
+        return fallbackRes.data;
+      }
+    } catch {
+      // If neither summary endpoint is available (e.g. backend server running older build),
+      // gracefully fall back to getActivitiesByEvent so activities and start/complete controls always load!
+      try {
+        const rawActivities = await getActivitiesByEvent(eventId);
+        return (rawActivities || []).map((act) => ({
+          ...act,
+          totalRegistrations: 0,
+          approvedRegistrations: 0,
+          pendingApprovalCount: 0,
+          rejectedRegistrations: 0,
+          attendanceCount: 0,
+          turnoutRate: 0
+        }));
+      } catch (fallbackErr) {
+        console.error("Fallback to getActivitiesByEvent failed:", fallbackErr);
+        return [];
+      }
+    }
+  }
+
+  try {
+    const rawActivities = await getActivitiesByEvent(eventId);
+    return (rawActivities || []).map((act) => ({
+      ...act,
+      totalRegistrations: 0,
+      approvedRegistrations: 0,
+      pendingApprovalCount: 0,
+      rejectedRegistrations: 0,
+      attendanceCount: 0,
+      turnoutRate: 0
+    }));
+  } catch {
+    return [];
+  }
+};
+
+export const startActivity = async (eventId, activityId) => {
+  const response = await api.post(
+    `/api/organizer/events/${eventId}/activities/${activityId}/start`
+  );
+  return normalizeActivity(response.data);
+};
+
+export const completeActivity = async (eventId, activityId) => {
+  const response = await api.post(
+    `/api/organizer/events/${eventId}/activities/${activityId}/complete`
+  );
+  return normalizeActivity(response.data);
+};

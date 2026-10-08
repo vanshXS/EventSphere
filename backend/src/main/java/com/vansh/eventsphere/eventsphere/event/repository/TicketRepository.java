@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.event.repository;
 
 import com.vansh.eventsphere.eventsphere.event.model.Ticket;
+import com.vansh.eventsphere.eventsphere.event.model.TicketScope;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
@@ -17,5 +18,12 @@ public interface TicketRepository extends MongoRepository<Ticket, String> {
 
     List<Ticket> findByRegistrationId(String registrationId);
 
-    Optional<Ticket> findByIdAndActiveTrue(String id);
+
+    Optional<Ticket> findByEventIdAndHolderParticipantIdAndScope(
+            String eventId,
+            String holderParticipantId,
+            TicketScope scope
+    );
+
+
 }

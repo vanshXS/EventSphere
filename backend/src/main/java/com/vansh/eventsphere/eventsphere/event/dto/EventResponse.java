@@ -1,19 +1,21 @@
 package com.vansh.eventsphere.eventsphere.event.dto;
 
+import java.time.LocalDateTime;
+
 import com.vansh.eventsphere.eventsphere.event.model.ActivityType;
 import com.vansh.eventsphere.eventsphere.event.model.EventStatus;
 import com.vansh.eventsphere.eventsphere.event.model.EventVisibility;
 import com.vansh.eventsphere.eventsphere.event.model.RegistrationType;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Data
 @Builder
-@NoArgsConstructor @AllArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
 public class EventResponse {
 
     private String id;
@@ -32,6 +34,7 @@ public class EventResponse {
     private RegistrationType registrationType;
     private EventVisibility eventVisibility;
     private EventStatus status;
+    private long activityCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -16,15 +16,14 @@ import {
   CheckCircle2,
   Copy,
   Check,
-  Clock,
-  ExternalLink,
-  ChevronRight
+  Activity,
 } from "lucide-react";
 import ConfirmDialog from "./ConfirmDialog";
 import EventStatusBadge from "./EventStatusBadge";
 import { formatDateRange } from "../utils/eventHelpers";
 import { getActivityTypeLabel, getActivityTypeBadgeStyle } from "../../activities/utils/activityHelpers";
 import ActivityDetailsModal from "../../activities/components/ActivityDetailsModal";
+import EventActivitiesModal from "./EventActivitiesModal";
 
 /* ─── Floating Action Menu (⋮) ─── */
 function ActionMenu({ children, label = "Actions" }) {
@@ -100,6 +99,7 @@ export default function EventTable({
   const [eventToDelete, setEventToDelete] = useState(null);
   const [eventToPublish, setEventToPublish] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [selectedEventForActivities, setSelectedEventForActivities] = useState(null);
   const [activityToPublish, setActivityToPublish] = useState(null);
   const [activityToDelete, setActivityToDelete] = useState(null);
   const [activityToStart, setActivityToStart] = useState(null);
@@ -214,6 +214,15 @@ export default function EventTable({
                         {event.title}
                       </Link>
                       <EventStatusBadge status={event.status} />
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEventForActivities(event)}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition-colors cursor-pointer"
+                        title="Click to view activities, attendance & start button"
+                      >
+                        <Activity className="w-3 h-3 text-purple-600" />
+                        <span>{event.activityCount || 0} {event.activityCount === 1 ? "Activity" : "Activities"}</span>
+                      </button>
                       <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wider">
                         Fest / Event
                       </span>
@@ -249,6 +258,17 @@ export default function EventTable({
                     <span>Operations Hub</span>
                   </Link>
 
+                  {/* Activities Module Button */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEventForActivities(event)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer"
+                    title="Open Activities Module"
+                  >
+                    <Activity className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Activities</span>
+                  </button>
+
                   {/* Context Action: If Draft, Quick Publish */}
                   {isDraft ? (
                     <button
@@ -276,6 +296,12 @@ export default function EventTable({
 
                   {/* Overflow Action Menu (⋮) */}
                   <ActionMenu label={`Options for ${event.title}`}>
+                    <MenuButton
+                      icon={Activity}
+                      label={`Activities (${event.activityCount || 0})`}
+                      onClick={() => setSelectedEventForActivities(event)}
+                    />
+
                     <Link
                       to={`/organizer/events/${event.id}/edit`}
                       className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -590,6 +616,12 @@ export default function EventTable({
         isLoading={activityToDelete ? deletingActivityIds.has(activityToDelete.id) : false}
         onConfirm={handleConfirmActivityDelete}
         onCancel={() => setActivityToDelete(null)}
+      />
+
+      <EventActivitiesModal
+        isOpen={Boolean(selectedEventForActivities)}
+        event={selectedEventForActivities}
+        onClose={() => setSelectedEventForActivities(null)}
       />
     </>
   );

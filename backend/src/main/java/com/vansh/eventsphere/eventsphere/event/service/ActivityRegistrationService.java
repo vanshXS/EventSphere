@@ -4,6 +4,7 @@ import com.vansh.eventsphere.eventsphere.common.transaction.TransactionRunner;
 import com.vansh.eventsphere.eventsphere.event.dto.ActivityRegistrationRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.ActivityRegistrationResponse;
 import com.vansh.eventsphere.eventsphere.event.dto.OrganizerRegistrationResponse;
+import com.vansh.eventsphere.eventsphere.event.dto.TicketResponse;
 import com.vansh.eventsphere.eventsphere.event.model.*;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
@@ -130,16 +131,12 @@ public class ActivityRegistrationService {
         ActivityRegistration saved = activityRegistrationRepository.save(registration);
 
         /*
-         * Issue the first set of tickets for every current team member.
-         * Tickets are still created lazily later, which also covers a member
-         * added to the team after the original registration.
+         * Issue tickets for participants.
+         * For activities under an event, this also ensures an Event Entry Ticket.
          */
-        if (team != null
-                && (initialStatus == RegistrationStatus.APPROVED
-                || initialStatus == RegistrationStatus.REGISTERED)) {
-            for (String memberId : team.getMembersId()) {
-                ticketService.issueForActivityRegistration(saved, memberId);
-            }
+        if (initialStatus == RegistrationStatus.APPROVED
+                || initialStatus == RegistrationStatus.REGISTERED) {
+            ticketService.ensureTicketsForActivityRegistration(saved);
         }
 
         return enrichRegistrationResponse(saved, participantId);
@@ -246,7 +243,7 @@ public class ActivityRegistrationService {
             );
         }
 
-        ticketService.revokeByRegistrationId(registrationId);
+        ticketService.revokeActivityRegistration(updated);
 
         return enrichRegistrationResponse(updated, participantId);
     }
@@ -321,6 +318,19 @@ public class ActivityRegistrationService {
                             viewerParticipantId
                     )
             );
+
+            if (reg.getEventId() != null && !reg.getEventId().isBlank()) {
+                EventRegistration eventReg = ticketService.getOrEnsureEventRegistration(
+                        reg.getEventId(),
+                        viewerParticipantId
+                );
+                TicketResponse eventTicket = ticketService.ensureEventEntryTicket(
+                        reg.getEventId(),
+                        viewerParticipantId,
+                        eventReg.getId()
+                );
+                res.setEventTicket(eventTicket);
+            }
         }
 
         return res;
@@ -493,6 +503,12 @@ public class ActivityRegistrationService {
             throw new BadRequestException(
                     "This registration changed while you were reviewing it. Refresh and try again."
             );
+        }
+
+        if (decision == RegistrationStatus.APPROVED) {
+            ticketService.ensureTicketsForActivityRegistration(updated);
+        } else if (decision == RegistrationStatus.REJECTED) {
+            ticketService.revokeActivityRegistration(updated);
         }
 
         return mapToOrganizerResponse(updated);

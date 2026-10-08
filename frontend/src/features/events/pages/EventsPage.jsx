@@ -384,31 +384,38 @@ export default function EventsPage() {
             {isCreateMenuOpen && (
               <div
                 id="create-event-menu"
-                className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5 z-30 animate-in fade-in slide-in-from-top-1"
+                className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-30 animate-in fade-in slide-in-from-top-1"
               >
+                <div className="px-3 py-1.5 mb-1 border-b border-slate-100">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Choose event format</span>
+                </div>
                 <Link
                   to="/organizer/events/new"
                   state={{ creationMode: "multiple" }}
                   onClick={() => setIsCreateMenuOpen(false)}
-                  className="flex items-start gap-3 px-3 py-3 rounded-md hover:bg-slate-50 transition-colors"
+                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-indigo-50/70 transition-colors group"
                 >
-                  <Layers className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    <span className="block text-sm font-semibold text-slate-800">Event with Activities</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">College fest or summit with multiple sub-competitions.</span>
-                  </span>
+                  <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors shrink-0 mt-0.5">
+                    <Layers className="w-4 h-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-slate-800 group-hover:text-indigo-900">Event with Activities</span>
+                    <span className="block text-xs text-slate-500 mt-0.5 leading-relaxed">Multi-tier fest, summit, or cultural day with workshops & sub-competitions.</span>
+                  </div>
                 </Link>
                 <Link
                   to="/organizer/events/new"
                   state={{ creationMode: "competition" }}
                   onClick={() => setIsCreateMenuOpen(false)}
-                  className="flex items-start gap-3 px-3 py-3 rounded-md hover:bg-slate-50 transition-colors"
+                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-emerald-50/70 transition-colors group"
                 >
-                  <Trophy className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>
-                    <span className="block text-sm font-semibold text-slate-800">Single Competition</span>
-                    <span className="block text-xs text-slate-500 mt-0.5">Standalone hackathon, sport event, or contest.</span>
-                  </span>
+                  <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors shrink-0 mt-0.5">
+                    <Trophy className="w-4 h-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-slate-800 group-hover:text-emerald-900">Single Competition</span>
+                    <span className="block text-xs text-slate-500 mt-0.5 leading-relaxed">Standalone hackathon, sport match, or quiz with direct participation.</span>
+                  </div>
                 </Link>
               </div>
             )}

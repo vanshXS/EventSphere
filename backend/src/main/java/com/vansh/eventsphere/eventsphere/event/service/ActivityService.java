@@ -16,6 +16,10 @@ import com.vansh.eventsphere.eventsphere.event.repository.EventRegistrationRepos
 import com.vansh.eventsphere.eventsphere.event.service.validators.ActivityValidator;
 import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
+import com.vansh.eventsphere.eventsphere.event.dto.ActivitySummaryResponse;
+import com.vansh.eventsphere.eventsphere.event.model.ActivityRegistration;
+import com.vansh.eventsphere.eventsphere.event.model.CheckInType;
+import com.vansh.eventsphere.eventsphere.event.repository.AttendanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +38,7 @@ public class ActivityService {
     private final TransactionRunner transactionRunner;
     private final ActivityRegistrationRepository activityRegistrationRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final AttendanceRepository attendanceRepository;
 
     private static final List<RegistrationStatus> CAPACITY_STATUSES = List.of(
             RegistrationStatus.PENDING,
@@ -404,16 +409,31 @@ public class ActivityService {
     ) {
         Activity activity = getOwnedActivity(activityId, organizerId);
 
-        if (activity.getStatus() == EventStatus.ONGOING || activity.getActualStartDateTime() != null) {
+        EventStatus status = activity.getStatus();
+        if (status == null && activity.getEventId() != null) {
+            status = EventStatus.PUBLISHED;
+            activity.setStatus(EventStatus.PUBLISHED);
+        }
+
+        if (status == EventStatus.ONGOING || activity.getActualStartDateTime() != null) {
             throw new BadRequestException("Activity has already started.");
         }
 
-        if (activity.getStatus() == EventStatus.COMPLETED) {
+        if (status == EventStatus.COMPLETED || activity.getActualEndDateTime() != null) {
             throw new BadRequestException("Cannot start an already completed activity.");
         }
 
-        if (activity.getStatus() != EventStatus.PUBLISHED) {
-            throw new BadRequestException("Only published activities can be started.");
+        if (status != EventStatus.PUBLISHED) {
+            if (activity.getEventId() != null) {
+                Event parentEvent = getOwnedEvent(activity.getEventId(), organizerId);
+                if (parentEvent.getEventStatus() == EventStatus.PUBLISHED || parentEvent.getEventStatus() == EventStatus.ONGOING) {
+                    activity.setStatus(EventStatus.PUBLISHED);
+                } else {
+                    throw new BadRequestException("Only published activities can be started.");
+                }
+            } else {
+                throw new BadRequestException("Only published activities can be started.");
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -440,15 +460,21 @@ public class ActivityService {
     ) {
         Activity activity = getOwnedActivity(activityId, organizerId);
 
-        if (activity.getStatus() == EventStatus.COMPLETED || activity.getActualEndDateTime() != null) {
+        EventStatus status = activity.getStatus();
+        if (status == null && activity.getEventId() != null) {
+            status = activity.getActualStartDateTime() != null ? EventStatus.ONGOING : EventStatus.PUBLISHED;
+            activity.setStatus(status);
+        }
+
+        if (status == EventStatus.COMPLETED || activity.getActualEndDateTime() != null) {
             throw new BadRequestException("Activity has already been completed.");
         }
 
-        if (activity.getStatus() == EventStatus.PUBLISHED) {
+        if (status == EventStatus.PUBLISHED && activity.getActualStartDateTime() == null) {
             throw new BadRequestException("Cannot complete a published activity that has not started.");
         }
 
-        if (activity.getStatus() != EventStatus.ONGOING) {
+        if (status != EventStatus.ONGOING && activity.getActualStartDateTime() == null) {
             throw new BadRequestException("Only ongoing activities can be completed.");
         }
 
@@ -516,7 +542,15 @@ public class ActivityService {
                         )
                 );
 
-        if (!organizerId.equals(activity.getOrganizerId())) {
+        String ownerId = activity.getOrganizerId();
+        if (ownerId == null && activity.getEventId() != null) {
+            Event event = eventRepository.findById(activity.getEventId()).orElse(null);
+            if (event != null) {
+                ownerId = event.getOrganizerId();
+            }
+        }
+
+        if (ownerId != null && !organizerId.equals(ownerId)) {
             throw new BadRequestException(
                     "You are not allowed to modify this activity."
             );
@@ -739,5 +773,81 @@ public class ActivityService {
                             + " entries already reserved."
             );
         }
+    }
+
+    public List<ActivitySummaryResponse> getActivitySummariesByEvent(
+            String eventId,
+            String organizerId
+    ) {
+        getOwnedEvent(eventId, organizerId);
+        List<Activity> activities = activityRepository.findByEventId(eventId);
+        return activities.stream()
+                .map(this::mapToSummaryResponse)
+                .toList();
+    }
+
+    public ActivitySummaryResponse getStandaloneActivitySummary(
+            String activityId,
+            String organizerId
+    ) {
+        Activity activity = activityRepository.findById(activityId)
+                .orElseThrow(() -> new ResourceNotFoundException("Activity not found"));
+
+        if (!organizerId.equals(activity.getOrganizerId())) {
+            throw new BadRequestException("You are not allowed to view this activity summary.");
+        }
+
+        return mapToSummaryResponse(activity);
+    }
+
+    private ActivitySummaryResponse mapToSummaryResponse(Activity activity) {
+        List<ActivityRegistration> registrations = activityRegistrationRepository.findByActivityId(activity.getId());
+        long approved = registrations.stream()
+                .filter(r -> r.getStatus() == RegistrationStatus.APPROVED || r.getStatus() == RegistrationStatus.REGISTERED)
+                .count();
+        long pending = registrations.stream()
+                .filter(r -> r.getStatus() == RegistrationStatus.PENDING)
+                .count();
+        long rejected = registrations.stream()
+                .filter(r -> r.getStatus() == RegistrationStatus.REJECTED)
+                .count();
+        long attendance = attendanceRepository.findByActivityIdAndCheckInType(activity.getId(), CheckInType.ACTIVITY).size();
+        double turnout = approved > 0 ? Math.round(((double) attendance / approved) * 1000.0) / 10.0 : 0.0;
+
+        EventStatus status = activity.getStatus();
+        if (status == null && activity.getEventId() != null) {
+            if (activity.getActualEndDateTime() != null) {
+                status = EventStatus.COMPLETED;
+            } else if (activity.getActualStartDateTime() != null) {
+                status = EventStatus.ONGOING;
+            } else {
+                status = EventStatus.PUBLISHED;
+            }
+        }
+
+        return ActivitySummaryResponse.builder()
+                .id(activity.getId())
+                .eventId(activity.getEventId())
+                .name(activity.getName())
+                .description(activity.getDescription())
+                .type(activity.getType())
+                .startDateTime(activity.getStartDateTime())
+                .endDateTime(activity.getEndDateTime())
+                .actualStartDateTime(activity.getActualStartDateTime())
+                .actualEndDateTime(activity.getActualEndDateTime())
+                .registrationDeadline(activity.getRegistrationDeadline())
+                .location(activity.getLocation())
+                .capacity(activity.getCapacity())
+                .registrationType(activity.getRegistrationType())
+                .minTeamSize(activity.getMinTeamSize())
+                .maxTeamSize(activity.getMaxTeamSize())
+                .status(status)
+                .totalRegistrations(registrations.size())
+                .approvedRegistrations(approved)
+                .pendingApprovalCount(pending)
+                .rejectedRegistrations(rejected)
+                .attendanceCount(attendance)
+                .turnoutRate(turnout)
+                .build();
     }
 }

@@ -29,4 +29,10 @@ public class EventRegistration {
     private RegistrationStatus status;
     private LocalDateTime registeredAt;
     private LocalDateTime cancelledAt;
+
+    /**
+     * Whether this event registration was auto-granted because the participant
+     * registered for one or more activities under this event.
+     */
+    private boolean autoGranted;
 }

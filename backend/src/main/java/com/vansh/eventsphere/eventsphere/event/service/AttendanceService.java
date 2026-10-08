@@ -143,9 +143,9 @@ public class AttendanceService {
             CheckInType checkInType
     ) {
         if (checkInType == CheckInType.EVENT_ENTRY) {
-            if (ticket.getEventId() == null) {
+            if (ticket.getScope() != TicketScope.EVENT || ticket.getEventId() == null) {
                 throw new BadRequestException(
-                        "This ticket cannot be used for event entry."
+                        "This ticket cannot be used for event entry. Please present your Event Entry ticket."
                 );
             }
             return;
@@ -154,7 +154,7 @@ public class AttendanceService {
         if (ticket.getScope() != TicketScope.ACTIVITY
                 || ticket.getActivityId() == null) {
             throw new BadRequestException(
-                    "This ticket cannot be used for activity check-in."
+                    "This ticket cannot be used for activity check-in. Please present your Activity ticket."
             );
         }
     }

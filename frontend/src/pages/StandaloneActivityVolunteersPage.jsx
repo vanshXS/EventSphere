@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Copy, Mail, RefreshCw, Trash2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { getStandaloneActivity } from "../features/activities/activityApi";
@@ -20,6 +20,7 @@ export default function StandaloneActivityVolunteersPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [copied, setCopied] = useState("");
+  const savedLinksRef = useRef({});
 
   const load = useCallback(async () => {
     try {
@@ -30,7 +31,10 @@ export default function StandaloneActivityVolunteersPage() {
         getActivityStaff(activityId)
       ]);
       setActivity(activityData);
-      setStaff(staffData);
+      setStaff(staffData.map((s) => ({
+        ...s,
+        invitationLink: s.invitationLink || savedLinksRef.current[s.id] || null
+      })));
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -54,6 +58,9 @@ export default function StandaloneActivityVolunteersPage() {
         name: name.trim() || null,
         email: email.trim()
       });
+      if (created.invitationLink) {
+        savedLinksRef.current[created.id] = created.invitationLink;
+      }
       setStaff((previous) => [created, ...previous]);
       setName("");
       setEmail("");
@@ -216,15 +223,23 @@ export default function StandaloneActivityVolunteersPage() {
 
                     {item.status === "INVITED" && item.invitationLink && (
                       <div className="mt-3 rounded-xl bg-slate-50 p-3">
-                        <p className="break-all text-[11px] text-slate-500">{item.invitationLink}</p>
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Registration Link</p>
+                        <p className="break-all text-[11px] text-slate-600 font-mono bg-white rounded-lg px-2.5 py-1.5 border border-slate-200">{item.invitationLink}</p>
                         <button
                           type="button"
                           onClick={() => copy(item.invitationLink)}
-                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600"
+                          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
                         >
                           <Copy className="h-3.5 w-3.5" />
-                          {copied === item.invitationLink ? "Copied" : "Copy link"}
+                          {copied === item.invitationLink ? "Copied!" : "Copy link"}
                         </button>
+                      </div>
+                    )}
+                    {item.status === "INVITED" && !item.invitationLink && (
+                      <div className="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
+                        <p className="text-[11px] text-amber-700">
+                          Registration link was shown when created. Invite again to get a new link.
+                        </p>
                       </div>
                     )}
                   </div>

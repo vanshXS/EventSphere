@@ -19,7 +19,8 @@ import {
   Trophy,
   Loader2,
   Info,
-  QrCode
+  QrCode,
+  ChevronRight
 } from "lucide-react";
 import {
   getStandaloneActivity,
@@ -319,6 +320,21 @@ export default function StandaloneActivityOperationsPage() {
           </div>
         </div>
       </header>
+
+      {/* Breadcrumb Trail */}
+      <div className="bg-white border-b border-slate-100">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 text-xs text-slate-400 overflow-x-auto">
+          <Link to="/organizer" className="hover:text-slate-700 transition-colors shrink-0 font-medium">
+            Organizer Dashboard
+          </Link>
+          <ChevronRight className="w-3 h-3 shrink-0" />
+          <span className="text-slate-600 font-semibold truncate max-w-[200px]" title={activity?.name}>
+            {activity?.name || "Activity"}
+          </span>
+          <ChevronRight className="w-3 h-3 shrink-0" />
+          <span className="text-indigo-600 font-semibold shrink-0">Operations</span>
+        </div>
+      </div>
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
