@@ -1,0 +1,11 @@
+{
+  "name": "eventsphere-workspace",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "axios": "^1.19.0",
+    "react-router-dom": "^7.18.2"
+  }
+}

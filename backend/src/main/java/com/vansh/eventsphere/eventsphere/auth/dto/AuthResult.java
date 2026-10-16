@@ -1,0 +1,13 @@
+package com.vansh.eventsphere.eventsphere.auth.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class AuthResult {
+
+    private AuthResponse authResponse;
+    private String accessToken;
+    private String refreshToken;
+}
