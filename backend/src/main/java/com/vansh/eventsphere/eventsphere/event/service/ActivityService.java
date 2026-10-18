@@ -182,6 +182,10 @@ public class ActivityService {
                                                 organizerId)
                                 : null;
 
+                if(activity.getActualEndDateTime() != null) {
+                        throw new BadRequestException("Ended event cannot be modified. Create a new one....");
+                }
+
                 activityValidator.validate(
                                 request,
                                 parentEvent);

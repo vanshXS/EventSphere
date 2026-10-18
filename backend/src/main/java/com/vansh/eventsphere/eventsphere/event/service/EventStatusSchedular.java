@@ -32,7 +32,7 @@ public class EventStatusSchedular {
     private void updateActivityStatues() {
         // Query candidate activities; activity lifecycle transitions (start/complete)
         // are manually controlled by the organizer, so the scheduler does not auto-mutate them.
-        activityRepository.findByStatusIn(List.of(EventStatus.PUBLISHED, EventStatus.ONGOING));
+
     }
     private void updateEventStatuses() {
         LocalDateTime now = LocalDateTime.now();
