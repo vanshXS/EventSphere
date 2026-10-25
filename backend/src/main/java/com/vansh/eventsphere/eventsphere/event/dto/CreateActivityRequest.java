@@ -49,6 +49,8 @@ public class CreateActivityRequest {
     @NotNull(message = "Activity end date and time are required")
     private LocalDateTime endDateTime;
 
+    private Integer checkInOpensMinutesBeforeStart;
+
     @NotNull(message = "Registration deadline is required")
     private LocalDateTime registrationDeadline;
 

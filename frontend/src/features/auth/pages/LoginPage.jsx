@@ -5,7 +5,8 @@ import { useAuth } from "../AuthContext";
 import { parseAuthError } from "../utils/errorMapper";
 import AuthLayout from "../../../components/common/AuthLayout";
 import FormField from "../../../components/common/FormField";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { useToast } from "../../../components/common/ToastContext";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -14,7 +15,10 @@ export default function LoginPage() {
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
-  const [generalError, setGeneralError] = useState("");
+  const addToast = useToast();
+  const setGeneralError = (message) => {
+    if (message) addToast(message, "error");
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
@@ -28,6 +32,8 @@ export default function LoginPage() {
         navigate("/participant", { replace: true });
       } else if (user.role === "VOLUNTEER") {
         navigate("/volunteer", { replace: true });
+      } else if (user.role === "JUDGE") {
+        navigate("/judge", { replace: true });
       }
     }
   }, [user, navigate]);
@@ -45,9 +51,6 @@ export default function LoginPage() {
         ...prev,
         [name]: ""
       }));
-    }
-    if (generalError) {
-      setGeneralError("");
     }
   };
 
@@ -69,8 +72,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setGeneralError("");
-
     if (!validateClientSide()) {
       return;
     }
@@ -87,6 +88,8 @@ export default function LoginPage() {
         navigate("/participant");
       } else if (user?.role === "VOLUNTEER") {
         navigate("/volunteer");
+      } else if (user?.role === "JUDGE") {
+        navigate("/judge");
       } else {
         navigate("/");
       }
@@ -104,16 +107,6 @@ export default function LoginPage() {
       title="Welcome back"
       subtitle="Sign in to your EventSphere account"
     >
-      {generalError && (
-        <div
-          role="alert"
-          className="mb-5 p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5"
-        >
-          <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" aria-hidden="true" />
-          <div className="flex-1 font-medium">{generalError}</div>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} noValidate>
         <FormField
           id="login-email"

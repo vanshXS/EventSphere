@@ -20,15 +20,16 @@ import {
   Trash2, 
   MapPin, 
   Users, 
-  AlertCircle,
   Loader2
 } from "lucide-react";
 import { EVENT_VISIBILITIES } from "../utils/eventHelpers";
 import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
+import { useToast } from "../../../components/common/ToastContext";
 
 export default function CreateEventPage() {
   const { user, logoutUser } = useAuth();
+  const addToast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,6 +40,7 @@ export default function CreateEventPage() {
     venue: "",
     startDateTime: "",
     endDateTime: "",
+    checkInOpensMinutesBeforeStart: 60,
     visibility: "OPEN_TO_ALL"
   });
 
@@ -48,7 +50,9 @@ export default function CreateEventPage() {
   const [editingActivityIndex, setEditingActivityIndex] = useState(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState("");
+  const setServerError = (message) => {
+    if (message) addToast(message, "error");
+  };
   const [activityListError, setActivityListError] = useState("");
   const creationMode = location.state?.creationMode === "competition" ? "competition" : "multiple";
 
@@ -152,7 +156,6 @@ export default function CreateEventPage() {
     if (!isEventValid || stagedActivities.length === 0) return;
 
     setIsSubmitting(true);
-    setServerError("");
 
     let createdEvent;
 
@@ -209,7 +212,6 @@ export default function CreateEventPage() {
 
   const handleCreateCompetition = async (activityData) => {
     setIsSubmitting(true);
-    setServerError("");
 
     try {
       const activity = await createStandaloneActivity(activityData);
@@ -263,27 +265,16 @@ export default function CreateEventPage() {
                 : "Create an event and add the participant-facing activities it contains."}
             </p>
           </div>
+
         </div>
 
         {creationMode === "competition" ? (
           <CompetitionForm
             onSubmit={handleCreateCompetition}
             isSubmitting={isSubmitting}
-            serverError={serverError}
           />
         ) : (
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
-          {/* Server Error Alert */}
-          {serverError && (
-            <div
-              role="alert"
-              className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5"
-            >
-              <AlertCircle className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" aria-hidden="true" />
-              <div className="flex-1 font-medium">{serverError}</div>
-            </div>
-          )}
-
           {/* Section 1: Event Information */}
           <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
             <h2 className="text-base font-semibold text-slate-900 pb-2 border-b border-slate-100">
@@ -440,6 +431,26 @@ export default function CreateEventPage() {
                   <p className="text-xs text-rose-600 font-medium">{fieldErrors.endDateTime}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="event-check-in-window" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Event entry opens before start
+              </label>
+              <select
+                id="event-check-in-window"
+                name="checkInOpensMinutesBeforeStart"
+                value={eventData.checkInOpensMinutesBeforeStart}
+                onChange={handleEventChange}
+                disabled={isSubmitting}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-indigo-600 focus:ring-indigo-600/20"
+              >
+                <option value={0}>At start time</option>
+                <option value={15}>15 minutes before</option>
+                <option value={30}>30 minutes before</option>
+                <option value={60}>60 minutes before</option>
+                <option value={120}>120 minutes before</option>
+              </select>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.judge.model;
 
 import com.vansh.eventsphere.eventsphere.judge.model.enums.CompetitionMode;
+import com.vansh.eventsphere.eventsphere.judge.model.enums.RankingPolicy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,7 @@ public class Competition {
     private boolean judgingEnabled;
 
     private CompetitionMode competitionMode;
+    private RankingPolicy rankingPolicy;
 
     private Instant createdAt;
     private Instant updatedAt;

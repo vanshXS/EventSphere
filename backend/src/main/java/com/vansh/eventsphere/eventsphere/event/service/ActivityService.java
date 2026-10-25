@@ -278,8 +278,9 @@ public class ActivityService {
                                                 "This activity has already ended and was not started.");
                         }
 
+                        activity.setActualStartDateTime(now);
                         activity.setStatus(EventStatus.ONGOING);
-                        activity.setUpdatedAt(LocalDateTime.now());
+                        activity.setUpdatedAt(now);
 
                         return activityMapper.mapToResponse(
                                         activityRepository.save(activity));
@@ -304,8 +305,10 @@ public class ActivityService {
                                                 "Only ongoing standalone activities can be completed.");
                         }
 
+                        LocalDateTime now = LocalDateTime.now();
+                        activity.setActualEndDateTime(now);
                         activity.setStatus(EventStatus.COMPLETED);
-                        activity.setUpdatedAt(LocalDateTime.now());
+                        activity.setUpdatedAt(now);
 
                         return activityMapper.mapToResponse(
                                         activityRepository.save(activity));
@@ -567,6 +570,10 @@ public class ActivityService {
                                 .location(request.getLocation())
                                 .startDateTime(request.getStartDateTime())
                                 .endDateTime(request.getEndDateTime())
+                                .checkInOpensMinutesBeforeStart(
+                                                request.getCheckInOpensMinutesBeforeStart() == null
+                                                                ? Activity.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                                                                : request.getCheckInOpensMinutesBeforeStart())
                                 .registrationDeadline(
                                                 request.getRegistrationDeadline())
                                 .registrationType(
@@ -617,6 +624,11 @@ public class ActivityService {
 
                 activity.setEndDateTime(
                                 request.getEndDateTime());
+
+                activity.setCheckInOpensMinutesBeforeStart(
+                                request.getCheckInOpensMinutesBeforeStart() == null
+                                                ? Activity.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                                                : request.getCheckInOpensMinutesBeforeStart());
 
                 activity.setRegistrationDeadline(
                                 request.getRegistrationDeadline());
@@ -682,6 +694,11 @@ public class ActivityService {
                 if (request.getEndDateTime() != null) {
                         activity.setEndDateTime(
                                         request.getEndDateTime());
+                }
+
+                if (request.getCheckInOpensMinutesBeforeStart() != null) {
+                        activity.setCheckInOpensMinutesBeforeStart(
+                                        request.getCheckInOpensMinutesBeforeStart());
                 }
 
                 if (request.getRegistrationDeadline() != null) {

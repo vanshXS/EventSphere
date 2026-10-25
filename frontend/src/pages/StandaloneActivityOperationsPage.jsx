@@ -38,14 +38,19 @@ import {
   getActivityTypeLabel,
   getActivityTypeBadgeStyle
 } from "../features/activities/utils/activityHelpers";
+import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
+import { useToast } from "../components/common/ToastContext";
 
 export default function StandaloneActivityOperationsPage() {
+  const addToast = useToast();
   const { activityId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Active Tab: 'attendance' | 'volunteers' | 'details'
+  // Active Tab: 'attendance' | 'registrations' | 'volunteers' | 'details'
   const activeTab = searchParams.get("tab") || "attendance";
+  // Active Sub Tab for Staff: 'volunteers' | 'judges'
+  const staffSubTab = searchParams.get("vsub") === "judges" ? "judges" : "volunteers";
 
   // Data States
   const [activity, setActivity] = useState(null);
@@ -67,8 +72,12 @@ export default function StandaloneActivityOperationsPage() {
   // General UI state
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
+  const setSuccess = useCallback((message) => {
+    if (message) addToast(message, "success");
+  }, [addToast]);
 
   const setTab = (tab) => {
     const next = new URLSearchParams(searchParams);
@@ -76,9 +85,14 @@ export default function StandaloneActivityOperationsPage() {
     setSearchParams(next);
   };
 
+  const setStaffScope = (vsub) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("vsub", vsub);
+    setSearchParams(next);
+  };
+
   const loadData = useCallback(async () => {
     try {
-      setError("");
       const [actData, staffData, attendanceData] = await Promise.all([
         getStandaloneActivity(activityId),
         getActivityStaff(activityId),
@@ -93,7 +107,7 @@ export default function StandaloneActivityOperationsPage() {
     } finally {
       setInitialLoading(false);
     }
-  }, [activityId]);
+  }, [activityId, setError]);
 
   useEffect(() => {
     loadData();
@@ -101,7 +115,6 @@ export default function StandaloneActivityOperationsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setError("");
     try {
       await loadData();
     } finally {
@@ -113,7 +126,6 @@ export default function StandaloneActivityOperationsPage() {
   const handleStartActivity = async () => {
     try {
       setLifecycleLoading(true);
-      setError("");
       const updated = await startStandaloneActivity(activityId);
       setActivity(updated);
       setSuccess("Activity started successfully! Live check-in scanner is now unlocked.");
@@ -127,7 +139,6 @@ export default function StandaloneActivityOperationsPage() {
   const handleCompleteActivity = async () => {
     try {
       setLifecycleLoading(true);
-      setError("");
       const updated = await completeStandaloneActivity(activityId);
       setActivity(updated);
       setSuccess("Activity marked as completed.");
@@ -144,8 +155,6 @@ export default function StandaloneActivityOperationsPage() {
     if (!volunteerEmail.trim()) return;
 
     setInviting(true);
-    setError("");
-    setSuccess("");
 
     try {
       const newStaff = await inviteActivityStaff(activityId, {
@@ -169,7 +178,6 @@ export default function StandaloneActivityOperationsPage() {
       return;
     }
     try {
-      setError("");
       await revokeStaff(staffId);
       setStaff((prev) =>
         prev.map((s) => (s.id === staffId ? { ...s, status: "REVOKED" } : s))
@@ -307,6 +315,14 @@ export default function StandaloneActivityOperationsPage() {
               </button>
             )}
 
+            <Link
+              to={`/organizer/activities/${activityId}/judging`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Configure judging</span>
+            </Link>
+
             <button
               type="button"
               onClick={handleRefresh}
@@ -344,15 +360,14 @@ export default function StandaloneActivityOperationsPage() {
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-bold text-slate-900">{activity.name}</h2>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-                  isNotStarted
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${isNotStarted
                     ? "bg-amber-50 text-amber-700 border-amber-200"
                     : activity.status === "ONGOING"
-                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                    : activity.status === "COMPLETED"
-                    ? "bg-slate-100 text-slate-700 border-slate-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                }`}
+                      ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                      : activity.status === "COMPLETED"
+                        ? "bg-slate-100 text-slate-700 border-slate-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  }`}
               >
                 {isNotStarted ? "Not started" : activity.status || "DRAFT"}
               </span>
@@ -388,37 +403,6 @@ export default function StandaloneActivityOperationsPage() {
           </div>
         </div>
 
-        {/* Global Notifications */}
-        {error && (
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError("")}
-              className="text-rose-500 hover:text-rose-700 text-xs cursor-pointer font-bold"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {success && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{success}</span>
-            </div>
-            <button
-              onClick={() => setSuccess("")}
-              className="text-emerald-500 hover:text-emerald-700 text-xs cursor-pointer font-bold"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {/* Tabs */}
         <div className="border-b border-slate-200">
           <nav className="flex space-x-6">
@@ -428,11 +412,10 @@ export default function StandaloneActivityOperationsPage() {
                 setTab("attendance");
                 setSearchQuery("");
               }}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                activeTab === "attendance"
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === "attendance"
                   ? "border-indigo-600 text-indigo-600"
                   : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
+                }`}
             >
               <ClipboardCheck className="w-4 h-4" />
               <span>Live Attendance</span>
@@ -444,17 +427,31 @@ export default function StandaloneActivityOperationsPage() {
             <button
               type="button"
               onClick={() => {
+                setTab("registrations");
+                setSearchQuery("");
+              }}
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === "registrations"
+                  ? "border-indigo-600 text-indigo-600"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Registrations & Approvals</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
                 setTab("volunteers");
                 setSearchQuery("");
               }}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                activeTab === "volunteers"
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === "volunteers"
                   ? "border-indigo-600 text-indigo-600"
                   : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
+                }`}
             >
               <Users className="w-4 h-4" />
-              <span>Volunteers</span>
+              <span>Staff Assignment</span>
               <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">
                 {staff.length}
               </span>
@@ -463,17 +460,27 @@ export default function StandaloneActivityOperationsPage() {
             <button
               type="button"
               onClick={() => setTab("details")}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                activeTab === "details"
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${activeTab === "details"
                   ? "border-indigo-600 text-indigo-600"
                   : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
+                }`}
             >
               <Info className="w-4 h-4" />
               <span>Competition Details</span>
             </button>
           </nav>
         </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            TAB: REGISTRATIONS & APPROVALS
+            ══════════════════════════════════════════════════════════ */}
+        {activeTab === "registrations" && activity && (
+          <ActivityRegistrationsModal
+            isOpen={true}
+            activity={activity}
+            isInline={true}
+          />
+        )}
 
         {/* ══════════════════════════════════════════════════════════
             TAB 1: LIVE ATTENDANCE
@@ -553,169 +560,231 @@ export default function StandaloneActivityOperationsPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            TAB 2: VOLUNTEERS
+            TAB 2: STAFF ASSIGNMENT (Volunteers & Competition Judges)
             ══════════════════════════════════════════════════════════ */}
         {activeTab === "volunteers" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Left: Invite Form */}
-            <div className="lg:col-span-1">
-              <form
-                onSubmit={handleInviteVolunteer}
-                className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-4"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                    <UserPlus className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Invite Volunteer</h3>
-                    <p className="text-[11px] text-slate-500">
-                      Grant check-in scanning privileges
-                    </p>
-                  </div>
-                </div>
+          <div className="space-y-4">
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setStaffScope("volunteers")}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${staffSubTab === "volunteers"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Activity Volunteers</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${staffSubTab === "volunteers" ? "bg-indigo-700 text-white" : "bg-white text-slate-700"
+                    }`}>
+                    {staff.length}
+                  </span>
+                </button>
 
-                <div className="space-y-3 pt-1">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Volunteer Name <span className="text-slate-400 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={volunteerName}
-                      onChange={(e) => setVolunteerName(e.target.value)}
-                      placeholder="e.g. Sarah Smith"
-                      className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Email Address <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="email"
-                      value={volunteerEmail}
-                      onChange={(e) => setVolunteerEmail(e.target.value)}
-                      placeholder="volunteer@college.edu"
-                      className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={inviting}
-                    className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer shadow-2xs"
-                  >
-                    {inviting ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <UserPlus className="w-3.5 h-3.5" />
-                    )}
-                    <span>{inviting ? "Generating Link…" : "Generate Invite Link"}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* Right: Volunteer Roster */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Assigned Volunteers
-                    </h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      {staff.filter((s) => s.status === "ACTIVE").length} active ·{" "}
-                      {staff.filter((s) => s.status === "INVITED").length} pending invite
-                    </p>
-                  </div>
-                </div>
-
-                {filteredStaff.length === 0 ? (
-                  <div className="py-12 px-4 text-center space-y-2">
-                    <Users className="w-8 h-8 text-slate-300 mx-auto" />
-                    <h4 className="text-sm font-semibold text-slate-700">No Volunteers Yet</h4>
-                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                      Use the form on the left to invite volunteers who can scan tickets for this competition.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-100">
-                    {filteredStaff.map((s) => {
-                      const isRevoked = s.status === "REVOKED";
-                      const isInvited = s.status === "INVITED";
-                      const inviteLink = s.invitationLink;
-
-                      return (
-                        <div key={s.id} className="p-4 sm:p-5 flex flex-col gap-3 hover:bg-slate-50/50 transition-colors">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-semibold text-slate-900">
-                                  {s.invitedName || s.email}
-                                </span>
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                                    s.status === "ACTIVE"
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                      : isRevoked
-                                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                      : "bg-amber-50 text-amber-700 border border-amber-200"
-                                  }`}
-                                >
-                                  {s.status}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-500">{s.email}</p>
-                            </div>
-
-                            {!isRevoked && (
-                              <button
-                                type="button"
-                                onClick={() => handleRevoke(s.id)}
-                                className="text-xs text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer flex items-center gap-1 font-medium"
-                                title="Revoke volunteer access"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">Revoke</span>
-                              </button>
-                            )}
-                          </div>
-
-                          {isInvited && inviteLink && (
-                            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 flex items-center justify-between gap-2">
-                              <div className="truncate text-[11px] text-slate-500 font-mono flex-1">
-                                {inviteLink}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(inviteLink)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-slate-200 rounded text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                              >
-                                {copiedLink === inviteLink ? (
-                                  <>
-                                    <Check className="w-3 h-3 text-emerald-600" />
-                                    <span className="text-emerald-600">Copied!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3" />
-                                    <span>Copy Link</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setStaffScope("judges")}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${staffSubTab === "judges"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Competition Judges</span>
+                </button>
               </div>
+
+              {staffSubTab === "volunteers" && (
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search volunteers..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                  />
+                </div>
+              )}
             </div>
+
+            {staffSubTab === "judges" ? (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5">
+                <h3 className="text-sm font-bold text-slate-900">Configure competition judging</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Set up rounds and scoring criteria, manage judge assignments, and publish results.
+                </p>
+                <Link
+                  to={`/organizer/activities/${activityId}/judging`}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  Open judging setup
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* Left: Invite Form */}
+                <div className="lg:col-span-1">
+                  <form
+                    onSubmit={handleInviteVolunteer}
+                    className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                        <UserPlus className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Invite Volunteer</h3>
+                        <p className="text-[11px] text-slate-500">
+                          Grant check-in scanning privileges
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                          Volunteer Name <span className="text-slate-400 font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={volunteerName}
+                          onChange={(e) => setVolunteerName(e.target.value)}
+                          placeholder="e.g. Sarah Smith"
+                          className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                          Email Address <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          required
+                          type="email"
+                          value={volunteerEmail}
+                          onChange={(e) => setVolunteerEmail(e.target.value)}
+                          placeholder="volunteer@college.edu"
+                          className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={inviting}
+                        className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer shadow-2xs"
+                      >
+                        {inviting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <UserPlus className="w-3.5 h-3.5" />
+                        )}
+                        <span>{inviting ? "Generating Link…" : "Generate Invite Link"}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Right: Volunteer Roster */}
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          Assigned Volunteers
+                        </h3>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {staff.filter((s) => s.status === "ACTIVE").length} active ·{" "}
+                          {staff.filter((s) => s.status === "INVITED").length} pending invite
+                        </p>
+                      </div>
+                    </div>
+
+                    {filteredStaff.length === 0 ? (
+                      <div className="py-12 px-4 text-center space-y-2">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                        <h4 className="text-sm font-semibold text-slate-700">No Volunteers Yet</h4>
+                        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                          Use the form on the left to invite volunteers who can scan tickets for this competition.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {filteredStaff.map((s) => {
+                          const isRevoked = s.status === "REVOKED";
+                          const isInvited = s.status === "INVITED";
+                          const inviteLink = s.invitationLink;
+
+                          return (
+                            <div key={s.id} className="p-4 sm:p-5 flex flex-col gap-3 hover:bg-slate-50/50 transition-colors">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-slate-900">
+                                      {s.invitedName || s.email}
+                                    </span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${s.status === "ACTIVE"
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                          : isRevoked
+                                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                            : "bg-amber-50 text-amber-700 border border-amber-200"
+                                        }`}
+                                    >
+                                      {s.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-500">{s.email}</p>
+                                </div>
+
+                                {!isRevoked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRevoke(s.id)}
+                                    className="text-xs text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer flex items-center gap-1 font-medium"
+                                    title="Revoke volunteer access"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Revoke</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              {isInvited && inviteLink && (
+                                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 flex items-center justify-between gap-2">
+                                  <div className="truncate text-[11px] text-slate-500 font-mono flex-1">
+                                    {inviteLink}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopy(inviteLink)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-slate-200 rounded text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                                  >
+                                    {copiedLink === inviteLink ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-emerald-600" />
+                                        <span className="text-emerald-600">Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copy Link</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

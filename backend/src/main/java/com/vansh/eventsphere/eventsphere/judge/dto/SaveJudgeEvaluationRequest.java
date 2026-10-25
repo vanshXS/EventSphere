@@ -13,16 +13,11 @@ import java.util.List;
 @NoArgsConstructor @AllArgsConstructor
 public class SaveJudgeEvaluationRequest {
 
-    /**
-     * Draft evaluations may contain partial scores.
-     * Complete evaluations are enforeced by the service
-     * before final submission.
-     */
-
     @Valid
     @Size(max = 20, message = "Too many criterion score.")
     private List<CriterionScoreRequest> score;
 
     @Size(max = 2000, message = "Feedback cannot exceed 2000 characters.")
     private String feedback;
+
 }

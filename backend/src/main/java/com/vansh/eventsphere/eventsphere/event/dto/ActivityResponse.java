@@ -31,6 +31,8 @@ public class ActivityResponse {
     private LocalDateTime startDateTime;
 
     private LocalDateTime endDateTime;
+
+    private Integer checkInOpensMinutesBeforeStart;
     private LocalDateTime actualStartDateTime;
     private LocalDateTime actualEndDateTime;
 

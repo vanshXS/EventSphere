@@ -111,6 +111,45 @@ class ActivityLifecycleServiceTest {
                                 .build();
         }
 
+        @Test
+        @DisplayName("Starting a standalone activity records its actual start time")
+        void startStandaloneActivityRecordsActualStartTime() {
+                Activity activity = Activity.builder()
+                                .id(activityId)
+                                .organizerId(organizerId)
+                                .status(EventStatus.PUBLISHED)
+                                .endDateTime(LocalDateTime.now().plusHours(1))
+                                .build();
+                when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+
+                ActivityResponse response = activityService.startStandaloneActivity(activityId, organizerId);
+
+                assertEquals(EventStatus.ONGOING, response.getStatus());
+                assertNotNull(response.getActualStartDateTime());
+                assertNull(response.getActualEndDateTime());
+                verify(activityRepository).save(activity);
+        }
+
+        @Test
+        @DisplayName("Completing a standalone activity records its actual end time")
+        void completeStandaloneActivityRecordsActualEndTime() {
+                Activity activity = Activity.builder()
+                                .id(activityId)
+                                .organizerId(organizerId)
+                                .status(EventStatus.ONGOING)
+                                .actualStartDateTime(LocalDateTime.now().minusMinutes(1))
+                                .build();
+                when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+
+                ActivityResponse response = activityService.completeStandaloneActivity(activityId, organizerId);
+
+                assertEquals(EventStatus.COMPLETED, response.getStatus());
+                assertNotNull(response.getActualStartDateTime());
+                assertNotNull(response.getActualEndDateTime());
+                assertTrue(response.getActualEndDateTime().isAfter(response.getActualStartDateTime()));
+                verify(activityRepository).save(activity);
+        }
+
         // ---------------------------------------------------------------------------------
         // 1. Published activity before scheduled time
         // ---------------------------------------------------------------------------------

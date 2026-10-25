@@ -49,6 +49,11 @@ public interface ActivityRegistrationRepository extends MongoRepository<Activity
             String memberId
     );
 
+    List<ActivityRegistration> findByActivityIdAndStatusIn(
+            String activityId,
+            List<RegistrationStatus> statuses
+    );
+
     /** Any of these people already hold an individual entry for this activity. */
     boolean existsByActivityIdAndStatusInAndParticipantIdIn(
             String activityId,

@@ -15,6 +15,14 @@ public class EventValidator {
 
     public void validateEventDate(CreateEventRequest request) {
 
+        Integer checkInMinutes = request.getCheckInOpensMinutesBeforeStart();
+        if (checkInMinutes != null
+                && !java.util.Set.of(0, 15, 30, 60, 120).contains(checkInMinutes)) {
+            throw new BadRequestException(
+                    "Event check-in window must be 0, 15, 30, 60, or 120 minutes."
+            );
+        }
+
         if(!request.getEndDateTime().isAfter(request.getStartDateTime())) {
             throw new IllegalArgumentException(
                     "End date and time must be after start date and time"

@@ -53,6 +53,10 @@ public class EventService {
                                 .venue(request.getVenue())
                                 .startDateTime(request.getStartDateTime())
                                 .endDateTime(request.getEndDateTime())
+                                .checkInOpensMinutesBeforeStart(
+                                                request.getCheckInOpensMinutesBeforeStart() == null
+                                                                ? Event.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                                                                : request.getCheckInOpensMinutesBeforeStart())
                                 .visibility(request.getVisibility())
                                 .createdAt(createdAt)
                                 .updatedAt(createdAt)
@@ -114,6 +118,10 @@ public class EventService {
                 existedEvent.setVenue(request.getVenue());
                 existedEvent.setStartDateTime(request.getStartDateTime());
                 existedEvent.setEndDateTime(request.getEndDateTime());
+                existedEvent.setCheckInOpensMinutesBeforeStart(
+                                request.getCheckInOpensMinutesBeforeStart() == null
+                                                ? Event.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                                                : request.getCheckInOpensMinutesBeforeStart());
                 existedEvent.setVisibility(request.getVisibility());
                 existedEvent.setUpdatedAt(LocalDateTime.now());
 

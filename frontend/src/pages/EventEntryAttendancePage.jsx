@@ -4,18 +4,21 @@ import { ArrowLeft, ClipboardCheck, RefreshCw } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { getEventById } from "../features/events/eventApi";
 import { getEventAttendance } from "../features/attendance/attendanceApi";
+import { useToast } from "../components/common/ToastContext";
 
 export default function EventEntryAttendancePage() {
   const { eventId } = useParams();
+  const addToast = useToast();
   const [event, setEvent] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
       const [eventData, attendanceData] = await Promise.all([
         getEventById(eventId),
         getEventAttendance(eventId)
@@ -29,7 +32,7 @@ export default function EventEntryAttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   useEffect(() => {
     load();
@@ -77,12 +80,6 @@ export default function EventEntryAttendancePage() {
             </button>
           </div>
         </section>
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            {error}
-          </div>
-        )}
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">

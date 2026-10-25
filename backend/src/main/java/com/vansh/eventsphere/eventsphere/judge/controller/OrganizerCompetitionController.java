@@ -53,4 +53,14 @@ public class OrganizerCompetitionController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PutMapping
+    public ResponseEntity<CompetitionResponse> updateCompetition(
+            @PathVariable String activityId,
+            @Valid @RequestBody CreateCompetitionRequest request,
+            Authentication authentication) {
+        CompetitionResponse response = competitionService.updateForActivity(
+                activityId, request, authentication.getName());
+        return ResponseEntity.ok(response);
+    }
 }

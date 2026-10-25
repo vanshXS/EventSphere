@@ -1,18 +1,16 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserQRCodeReader } from "@zxing/browser";
 import {
   Camera,
-  CheckCircle2,
-  LogOut,
   QrCode,
   ShieldCheck,
   Square,
-  XCircle,
   ArrowLeft
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import AppHeader from "../components/common/AppHeader";
+import { useToast } from "../components/common/ToastContext";
 import { useAuth } from "../features/auth/AuthContext";
 import {
   checkIn,
@@ -28,12 +26,20 @@ const types = [
 
 export default function VolunteerScannerPage() {
   const { user, logoutUser } = useAuth();
+  const addToast = useToast();
 
   const [assignments, setAssignments] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [checkInType, setCheckInType] = useState("EVENT_ENTRY");
   const [payload, setPayload] = useState("");
-  const [message, setMessage] = useState(null);
+  const setMessage = useCallback((message) => {
+    if (message?.text) {
+      addToast(
+        message.text,
+        message.type === "success" ? "success" : message.type === "error" ? "error" : "info"
+      );
+    }
+  }, [addToast]);
   const [recentScans, setRecentScans] = useState([]);
   const [scanning, setScanning] = useState(false);
 
@@ -106,7 +112,7 @@ export default function VolunteerScannerPage() {
       cancelled = true;
       stopCamera();
     };
-  }, []);
+  }, [setMessage]);
 
   const addRecentScan = (type, text) => {
     setRecentScans((previous) => [
@@ -162,7 +168,6 @@ export default function VolunteerScannerPage() {
   const startCamera = async () => {
   if (scanningRef.current) return;
 
-  setMessage(null);
 
   if (!selectedAssignment) {
     setMessage({
@@ -302,7 +307,7 @@ export default function VolunteerScannerPage() {
           values.forEach((value) => {
             void submitPayload(value);
           });
-        } catch (error) {
+        } catch {
           /*
            * Ignore a bad frame.
            * Keep camera alive.
@@ -398,7 +403,6 @@ export default function VolunteerScannerPage() {
     const assignment = assignments.find((item) => item.id === id) || null;
     setSelectedAssignment(assignment);
     setCheckInType(assignment?.activityId ? "ACTIVITY" : "EVENT_ENTRY");
-    setMessage(null);
     setRecentScans([]);
     lastSeenRef.current.clear();
   };
@@ -524,7 +528,6 @@ export default function VolunteerScannerPage() {
                 onChange={(e) => {
                   stopCamera();
                   setCheckInType(e.target.value);
-                  setMessage(null);
                   setRecentScans([]);
                 }}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
@@ -538,28 +541,6 @@ export default function VolunteerScannerPage() {
             </label>
           </div>
         </section>
-
-        {message && (
-          <div
-            className={
-              "rounded-2xl border p-4 text-sm " +
-              (message.type === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : message.type === "warning"
-                ? "border-amber-200 bg-amber-50 text-amber-800"
-                : "border-rose-200 bg-rose-50 text-rose-800")
-            }
-          >
-            <div className="flex items-center gap-2">
-              {message.type === "success" ? (
-                <CheckCircle2 className="h-5 w-5" />
-              ) : (
-                <XCircle className="h-5 w-5" />
-              )}
-              <span>{message.text}</span>
-            </div>
-          </div>
-        )}
 
         <div className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
           <section className="rounded-2xl border border-slate-200 bg-white p-5">

@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor @AllArgsConstructor
 public class Activity {
 
+    public static final int DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START = 30;
+
     @Id
     private String id;
 
@@ -33,6 +35,9 @@ public class Activity {
     private LocalDateTime registrationDeadline;
     private LocalDateTime startDateTime;
     private LocalDateTime endDateTime;
+    @Builder.Default
+    private Integer checkInOpensMinutesBeforeStart =
+            DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START;
     private LocalDateTime actualStartDateTime;
     private LocalDateTime actualEndDateTime;
 

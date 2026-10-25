@@ -26,6 +26,7 @@ const emptyForm = {
   location: "",
   startDateTime: "",
   endDateTime: "",
+  checkInOpensMinutesBeforeStart: "30",
   registrationDeadline: "",
   registrationType: "INDIVIDUAL",
   requiresApproval: false,
@@ -101,6 +102,9 @@ export default function ActivityFormModal({
         endDateTime: editingActivity.endDateTime
           ? toInputDateTime(editingActivity.endDateTime)
           : "",
+        checkInOpensMinutesBeforeStart: String(
+          editingActivity.checkInOpensMinutesBeforeStart ?? 30
+        ),
         registrationDeadline: editingActivity.registrationDeadline
           ? toInputDateTime(editingActivity.registrationDeadline)
           : "",
@@ -567,6 +571,25 @@ export default function ActivityFormModal({
                 </Field>
               ))}
             </div>
+            <Field
+              id="activity-check-in-window"
+              label="Activity check-in opens before start"
+            >
+              <select
+                id="activity-check-in-window"
+                name="checkInOpensMinutesBeforeStart"
+                value={formData.checkInOpensMinutesBeforeStart}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                className={inputClassName(false)}
+              >
+                <option value="0">At start time</option>
+                <option value="15">15 minutes before</option>
+                <option value="30">30 minutes before</option>
+                <option value="60">60 minutes before</option>
+                <option value="120">120 minutes before</option>
+              </select>
+            </Field>
           </section>
 
           <section className="space-y-4 border-t border-slate-100 pt-4">

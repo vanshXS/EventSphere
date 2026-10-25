@@ -27,6 +27,10 @@ public class EventMapper {
                 .venue(event.getVenue())
                 .startDateTime(event.getStartDateTime())
                 .endDateTime(event.getEndDateTime())
+                .checkInOpensMinutesBeforeStart(
+                        event.getCheckInOpensMinutesBeforeStart() == null
+                                ? Event.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                                : event.getCheckInOpensMinutesBeforeStart())
                 .rules(event.getRules())
                 .eventVisibility(event.getVisibility())
                 .status(event.getEventStatus())

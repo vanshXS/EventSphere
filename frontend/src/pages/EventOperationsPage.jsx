@@ -27,7 +27,8 @@ import {
   CheckCircle,
   Activity,
   TrendingUp,
-  Clock
+  Clock,
+  Trophy
 } from "lucide-react";
 import { getEventById } from "../features/events/eventApi";
 import {
@@ -48,8 +49,11 @@ import {
 import { formatDateRange, formatDateTime } from "../features/events/utils/eventHelpers";
 import EventStatusBadge from "../features/events/components/EventStatusBadge";
 import { getActivityTypeLabel, getActivityTypeBadgeStyle } from "../features/activities/utils/activityHelpers";
+import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
+import { useToast } from "../components/common/ToastContext";
 
 export default function EventOperationsPage() {
+  const addToast = useToast();
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,8 +62,13 @@ export default function EventOperationsPage() {
   const activeTab = searchParams.get("tab") || "activities";
   // Active Sub Tab for Attendance: 'entry' | 'activity'
   const attendanceSubTab = searchParams.get("sub") === "activity" ? "activity" : "entry";
-  // Active Sub Tab for Volunteers: 'entry' | 'activity'
-  const volunteerSubTab = searchParams.get("vsub") === "activity" ? "activity" : "entry";
+  // Active Sub Tab for Volunteers: 'entry' | 'activity' | 'judges'
+  const volunteerSubTab =
+    searchParams.get("vsub") === "judges"
+      ? "judges"
+      : searchParams.get("vsub") === "activity"
+      ? "activity"
+      : "entry";
 
   // Data States
   const [event, setEvent] = useState(null);
@@ -71,6 +80,7 @@ export default function EventOperationsPage() {
   const [activitySummaries, setActivitySummaries] = useState([]);
   const [summariesLoading, setSummariesLoading] = useState(false);
   const [actioningIds, setActioningIds] = useState(new Set());
+  const [selectedActivityForRegistrations, setSelectedActivityForRegistrations] = useState(null);
 
   // Attendance state
   const [entryAttendance, setEntryAttendance] = useState([]);
@@ -93,13 +103,20 @@ export default function EventOperationsPage() {
   // UI state
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
+  const setSuccess = useCallback((message) => {
+    if (message) addToast(message, "success");
+  }, [addToast]);
 
   // Switch tabs while updating URL
   const setTab = (tab) => {
     const next = new URLSearchParams(searchParams);
     next.set("tab", tab);
+    if (tab !== "volunteers" || next.get("vsub") === "judges") {
+      next.delete("vsub");
+    }
     setSearchParams(next);
   };
 
@@ -118,7 +135,6 @@ export default function EventOperationsPage() {
   // Initial Load: Event info and activities
   const loadInitialData = useCallback(async () => {
     try {
-      setError("");
       const [eventData, activitiesData] = await Promise.all([
         getEventById(eventId),
         getActivitiesByEvent(eventId)
@@ -135,7 +151,7 @@ export default function EventOperationsPage() {
     } finally {
       setInitialLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   useEffect(() => {
     loadInitialData();
@@ -159,7 +175,7 @@ export default function EventOperationsPage() {
     } finally {
       setAttendanceLoading(false);
     }
-  }, [eventId, attendanceSubTab, selectedActivityId]);
+  }, [eventId, attendanceSubTab, selectedActivityId, setError]);
 
   useEffect(() => {
     if (!initialLoading && activeTab === "attendance") {
@@ -185,7 +201,7 @@ export default function EventOperationsPage() {
     } finally {
       setVolLoading(false);
     }
-  }, [eventId, volunteerSubTab, selectedVolActivityId]);
+  }, [eventId, volunteerSubTab, selectedVolActivityId, setError]);
 
   useEffect(() => {
     if (!initialLoading && activeTab === "volunteers") {
@@ -206,7 +222,7 @@ export default function EventOperationsPage() {
     } finally {
       setSummariesLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   useEffect(() => {
     if (!initialLoading && activeTab === "activities") {
@@ -217,7 +233,6 @@ export default function EventOperationsPage() {
   // Activity Start/Complete handlers
   const handleStartActivity = async (activityId) => {
     setActioningIds((prev) => new Set(prev).add(activityId));
-    setError("");
     try {
       await startActivity(eventId, activityId);
       setSuccess("Activity started successfully!");
@@ -235,7 +250,6 @@ export default function EventOperationsPage() {
 
   const handleCompleteActivity = async (activityId) => {
     setActioningIds((prev) => new Set(prev).add(activityId));
-    setError("");
     try {
       await completeActivity(eventId, activityId);
       setSuccess("Activity marked as completed!");
@@ -254,7 +268,6 @@ export default function EventOperationsPage() {
   // Refresh current view
   const handleRefresh = async () => {
     setRefreshing(true);
-    setError("");
     try {
       if (activeTab === "activities") {
         await loadActivitySummaries();
@@ -276,8 +289,6 @@ export default function EventOperationsPage() {
     if (!volunteerEmail.trim()) return;
 
     setInviting(true);
-    setError("");
-    setSuccess("");
 
     try {
       if (volunteerSubTab === "entry") {
@@ -312,7 +323,6 @@ export default function EventOperationsPage() {
       return;
     }
     try {
-      setError("");
       await revokeStaff(staffId);
       if (volunteerSubTab === "entry") {
         setEntryStaff((prev) =>
@@ -508,37 +518,6 @@ export default function EventOperationsPage() {
           </div>
         </div>
 
-        {/* Global Alerts */}
-        {error && (
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError("")}
-              className="text-rose-500 hover:text-rose-700 text-xs cursor-pointer font-bold"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {success && (
-          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{success}</span>
-            </div>
-            <button
-              onClick={() => setSuccess("")}
-              className="text-emerald-500 hover:text-emerald-700 text-xs cursor-pointer font-bold"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {/* Master Navigation Tabs */}
         <div className="border-b border-slate-200">
           <nav className="flex space-x-6 overflow-x-auto">
@@ -584,7 +563,7 @@ export default function EventOperationsPage() {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Volunteers & Staff</span>
+              <span>Staff Assignment</span>
               <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600">
                 {entryStaff.length}
               </span>
@@ -610,7 +589,15 @@ export default function EventOperationsPage() {
             ══════════════════════════════════════════════════════════ */}
         {activeTab === "activities" && (
           <div className="space-y-4">
-            {summariesLoading ? (
+            {selectedActivityForRegistrations ? (
+              <ActivityRegistrationsModal
+                isOpen={true}
+                activity={selectedActivityForRegistrations}
+                isInline={true}
+                onRegistrationUpdated={loadActivitySummaries}
+                onClose={() => setSelectedActivityForRegistrations(null)}
+              />
+            ) : summariesLoading ? (
               <div className="py-12 text-center flex flex-col items-center justify-center space-y-2">
                 <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
                 <p className="text-xs text-slate-500">Loading activity summaries...</p>
@@ -764,6 +751,16 @@ export default function EventOperationsPage() {
                                   Finished
                                 </span>
                               )}
+
+                              <button
+                                type="button"
+                                onClick={() => setSelectedActivityForRegistrations({ ...act, eventId })}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                                title="Review registrations and approvals"
+                              >
+                                <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+                                <span>Registrations</span>
+                              </button>
                             </div>
                           </div>
 
@@ -789,6 +786,15 @@ export default function EventOperationsPage() {
                               <span className="block text-[9px] font-bold text-purple-500 uppercase tracking-wider">Turnout</span>
                               <span className="text-lg font-extrabold text-purple-700">{act.turnoutRate || 0}%</span>
                             </div>
+                          </div>
+                          <div className="border-t border-slate-100 px-4 pb-4 pt-3 sm:px-5">
+                            <Link
+                              to={`/organizer/activities/${act.id}/judging?eventId=${eventId}`}
+                              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            >
+                              <ClipboardCheck className="h-4 w-4" />
+                              Configure judging
+                            </Link>
                           </div>
                         </div>
                       </div>
@@ -1076,7 +1082,7 @@ export default function EventOperationsPage() {
           <div className="space-y-4">
             {/* Sub-Tabs / Scope Bar */}
             <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setVolunteerScope("entry")}
@@ -1087,7 +1093,7 @@ export default function EventOperationsPage() {
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Event Entry Staff</span>
+                  <span>Event Entry Volunteers</span>
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                     volunteerSubTab === "entry" ? "bg-indigo-700 text-white" : "bg-white text-slate-700"
                   }`}>
@@ -1106,7 +1112,7 @@ export default function EventOperationsPage() {
                     }`}
                   >
                     <Users className="w-3.5 h-3.5" />
-                    <span>Activity Staff</span>
+                    <span>Activity Volunteers</span>
                     <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                       volunteerSubTab === "activity" ? "bg-indigo-700 text-white" : "bg-white text-slate-700"
                     }`}>
@@ -1114,21 +1120,59 @@ export default function EventOperationsPage() {
                     </span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setVolunteerScope("judges")}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    volunteerSubTab === "judges"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Competition Judges</span>
+                </button>
               </div>
 
-              {/* Volunteer search */}
-              <div className="relative flex-1 max-w-xs">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search volunteers..."
-                  value={volSearch}
-                  onChange={(e) => setVolSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                />
-              </div>
+              {volunteerSubTab !== "judges" && (
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search volunteers..."
+                    value={volSearch}
+                    onChange={(e) => setVolSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
+                  />
+                </div>
+              )}
             </div>
 
+            {volunteerSubTab === "judges" ? (
+              <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                <p className="text-sm text-slate-700">
+                  Configure judging rounds, rubrics, and judge assignments separately for each activity.
+                </p>
+                {activities.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {activities.map((activity) => (
+                      <Link
+                        key={activity.id}
+                        to={`/organizer/activities/${activity.id}/judging?eventId=${eventId}`}
+                        className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50"
+                      >
+                        <ClipboardCheck className="h-4 w-4" />
+                        Configure {activity.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">Add an activity before configuring judging.</p>
+                )}
+              </div>
+            ) : (
+              <>
             {/* If Activity Scope: Activity Selector */}
             {volunteerSubTab === "activity" && activities.length > 0 && (
               <div className="bg-slate-100/80 p-2 rounded-xl flex items-center gap-1.5 overflow-x-auto">
@@ -1329,6 +1373,8 @@ export default function EventOperationsPage() {
                 </div>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1427,6 +1473,7 @@ export default function EventOperationsPage() {
           </div>
         )}
       </main>
+
     </div>
   );
 }

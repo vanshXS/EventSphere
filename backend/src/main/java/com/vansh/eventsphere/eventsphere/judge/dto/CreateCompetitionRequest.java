@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.judge.dto;
 
 import com.vansh.eventsphere.eventsphere.judge.model.enums.CompetitionMode;
+import com.vansh.eventsphere.eventsphere.judge.model.enums.RankingPolicy;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -11,5 +12,5 @@ public class CreateCompetitionRequest {
     private Boolean judgingEnabled;
 
     private CompetitionMode competitionMode;
-
+    private RankingPolicy rankingPolicy;
 }

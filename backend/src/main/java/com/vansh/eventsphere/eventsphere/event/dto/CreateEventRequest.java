@@ -45,6 +45,8 @@ public class CreateEventRequest {
     @FutureOrPresent(message = "End date and time cannot be in the past")
     private LocalDateTime endDateTime;
 
+    private Integer checkInOpensMinutesBeforeStart;
+
     @NotNull(message = "Visibility must be set up")
     private EventVisibility visibility;
 

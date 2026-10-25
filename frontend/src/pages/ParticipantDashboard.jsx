@@ -7,11 +7,8 @@ import {
 
 import {
   Loader2,
-  AlertCircle,
-  CheckCircle2,
   Plus,
-  RefreshCw,
-  X
+  RefreshCw
 } from "lucide-react";
 
 import { useAuth } from "../features/auth/AuthContext";
@@ -43,9 +40,11 @@ import ActivityDetailsModal from "../features/activities/components/ActivityDeta
 
 import MyTeamsList from "../features/teams/components/MyTeamsList";
 import CreateTeamModal from "../features/teams/components/CreateTeamModal";
+import { useToast } from "../components/common/ToastContext";
 
 export default function ParticipantDashboard() {
   const { user, logoutUser } = useAuth();
+  const addToast = useToast();
 
   const [activeTab, setActiveTab] = useState("EXPLORE");
 
@@ -57,8 +56,12 @@ export default function ParticipantDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [loadVersion, setLoadVersion] = useState(0);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const setError = (message) => {
+    if (message) addToast(message, "error");
+  };
+  const setSuccessMessage = (message) => {
+    if (message) addToast(message, "success");
+  };
 
   const [refreshingRegistrations, setRefreshingRegistrations] =
     useState(false);
@@ -111,14 +114,18 @@ export default function ParticipantDashboard() {
         setMyRegistrations(sortRegistrationsByNewest(registrationsData));
         setMyTeams(teamsData);
         setVolunteerAssignments(assignmentsData);
-        setError("");
       })
       .catch((err) => {
         if (!ignore) {
-          setError(
-            err.response?.data?.message ||
-              "Could not load your dashboard. Please try again."
-          );
+          const message = err.response?.data?.message ||
+            "Could not load your dashboard. Please try again.";
+          addToast(message, "error", {
+            actionLabel: "Reload dashboard",
+            onAction: () => {
+              setLoading(true);
+              setLoadVersion((previous) => previous + 1);
+            }
+          });
         }
       })
       .finally(() => {
@@ -128,7 +135,7 @@ export default function ParticipantDashboard() {
     return () => {
       ignore = true;
     };
-  }, [loadVersion]);
+  }, [loadVersion, addToast]);
 
   const closeEventDetails = useCallback(() => {
     setSelectedEventForDetails(null);
@@ -146,14 +153,7 @@ export default function ParticipantDashboard() {
     setShowCreateTeamModal(false);
   }, []);
 
-  const retryLoad = () => {
-    setLoading(true);
-    setError("");
-    setLoadVersion((previous) => previous + 1);
-  };
-
   const handleRegistrationSuccess = (registration) => {
-    setError("");
 
     setMyRegistrations((previous) => [
       registration,
@@ -164,7 +164,6 @@ export default function ParticipantDashboard() {
   };
 
   const handleEventRegistrationSuccess = (registration) => {
-    setError("");
 
     setMyRegistrations((previous) => [
       registration,
@@ -192,7 +191,6 @@ export default function ParticipantDashboard() {
 
     refreshLock.current = true;
     setRefreshingRegistrations(true);
-    setError("");
 
     try {
       const registrations = await getMyRegistrations();
@@ -222,7 +220,6 @@ export default function ParticipantDashboard() {
 
     cancellationLock.current = true;
     setCancellingId(registration.id);
-    setError("");
 
     try {
       const updated = await cancelRegistration(registration);
@@ -293,60 +290,6 @@ export default function ParticipantDashboard() {
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        {successMessage && (
-          <div
-            role="status"
-            className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 animate-fade-in"
-          >
-            <CheckCircle2 className="h-5 w-5 shrink-0" />
-            <span className="flex-1 font-medium">{successMessage}</span>
-
-            <button
-              type="button"
-              onClick={() => setSuccessMessage("")}
-              aria-label="Dismiss message"
-              className="rounded p-0.5 hover:bg-emerald-100 cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {error && (
-          <div
-            role="alert"
-            className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 animate-fade-in"
-          >
-            <AlertCircle className="h-5 w-5 shrink-0" />
-
-            <div className="flex-1 space-y-2">
-              <p className="font-medium">{error}</p>
-
-              {!loading && (
-                <button
-                  type="button"
-                  onClick={retryLoad}
-                  disabled={
-                    Boolean(cancellingId) || refreshingRegistrations
-                  }
-                  className="font-semibold underline disabled:opacity-50 cursor-pointer"
-                >
-                  Reload dashboard
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setError("")}
-              aria-label="Dismiss error"
-              className="rounded p-0.5 hover:bg-rose-100 cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
             <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />

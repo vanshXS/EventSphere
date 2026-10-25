@@ -12,6 +12,8 @@ export const formatActivityPayload = (formData) => {
     location: formData.location?.trim() || null,
     startDateTime: toIsoDateTime(formData.startDateTime),
     endDateTime: toIsoDateTime(formData.endDateTime),
+    checkInOpensMinutesBeforeStart:
+      Number(formData.checkInOpensMinutesBeforeStart ?? 30),
     registrationDeadline: toIsoDateTime(formData.registrationDeadline),
     registrationType: formData.registrationType,
     requiresApproval: formData.requiresApproval === true,
@@ -59,6 +61,8 @@ export const normalizeActivity = (activity) => {
     location: activity.location,
     startDateTime: activity.startDateTime,
     endDateTime: activity.endDateTime,
+    checkInOpensMinutesBeforeStart:
+      activity.checkInOpensMinutesBeforeStart ?? 30,
     actualStartDateTime: activity.actualStartDateTime,
     actualEndDateTime: activity.actualEndDateTime,
     status,

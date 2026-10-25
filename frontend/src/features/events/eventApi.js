@@ -11,6 +11,8 @@ export const formatEventPayload = (formData) => {
     venue: formData.venue?.trim(),
     startDateTime: toIsoDateTime(formData.startDateTime),
     endDateTime: toIsoDateTime(formData.endDateTime),
+    checkInOpensMinutesBeforeStart:
+      Number(formData.checkInOpensMinutesBeforeStart ?? 60),
     visibility: formData.visibility || "OPEN_TO_ALL"
   };
 };
@@ -28,6 +30,8 @@ export const normalizeEvent = (event) => {
     venue: event.venue,
     startDateTime: event.startDateTime,
     endDateTime: event.endDateTime,
+    checkInOpensMinutesBeforeStart:
+      event.checkInOpensMinutesBeforeStart ?? 60,
     visibility: event.eventVisibility || event.visibility || "OPEN_TO_ALL",
     status: event.status || event.eventStatus || "DRAFT"
   };

@@ -40,6 +40,8 @@ public class UpdateActivityRequest {
     @NotNull(message = "End date and time are required")
     private LocalDateTime endDateTime;
 
+    private Integer checkInOpensMinutesBeforeStart;
+
     @Size(max = 200, message = "Location cannot exceed 200 characters")
     private String location;
 

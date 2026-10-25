@@ -22,6 +22,7 @@ public class ActivityValidator {
             CreateActivityRequest request,
             Event parentEvent
     ) {
+        validateCheckInWindow(request.getCheckInOpensMinutesBeforeStart());
         validate(
                 request.getRegistrationDeadline(),
                 request.getStartDateTime(),
@@ -44,6 +45,7 @@ public class ActivityValidator {
             UpdateActivityRequest request,
             Event parentEvent
     ) {
+        validateCheckInWindow(request.getCheckInOpensMinutesBeforeStart());
         validate(
                 request.getRegistrationDeadline(),
                 request.getStartDateTime(),
@@ -66,6 +68,7 @@ public class ActivityValidator {
             Activity activity,
             Event parentEvent
     ) {
+        validateCheckInWindow(activity.getCheckInOpensMinutesBeforeStart());
         validate(
                 activity.getRegistrationDeadline(),
                 activity.getStartDateTime(),
@@ -77,6 +80,15 @@ public class ActivityValidator {
                 activity.getVisibility(),
                 parentEvent
         );
+    }
+
+    private void validateCheckInWindow(Integer minutes) {
+        if (minutes != null
+                && !java.util.Set.of(0, 15, 30, 60, 120).contains(minutes)) {
+            throw new BadRequestException(
+                    "Activity check-in window must be 0, 15, 30, 60, or 120 minutes."
+            );
+        }
     }
 
 

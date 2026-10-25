@@ -23,6 +23,7 @@ export default function EventForm({
     venue: "",
     startDateTime: "",
     endDateTime: "",
+    checkInOpensMinutesBeforeStart: 60,
     visibility: "OPEN_TO_ALL"
   });
 
@@ -36,6 +37,8 @@ export default function EventForm({
         venue: initialData.venue || "",
         startDateTime: toInputDateTime(initialData.startDateTime),
         endDateTime: toInputDateTime(initialData.endDateTime),
+        checkInOpensMinutesBeforeStart:
+          initialData.checkInOpensMinutesBeforeStart ?? 60,
         visibility: initialData.visibility || initialData.eventVisibility || "OPEN_TO_ALL"
       });
     }
@@ -205,6 +208,7 @@ export default function EventForm({
               <p className="text-xs text-rose-600 font-medium">{fieldErrors.visibility}</p>
             )}
           </div>
+
         </div>
 
         {/* Description */}
@@ -287,6 +291,26 @@ export default function EventForm({
               <p className="text-xs text-rose-600 font-medium">{fieldErrors.endDateTime}</p>
             )}
           </div>
+        </div>
+
+        <div className="space-y-1.5 text-left">
+          <label htmlFor="event-check-in-window" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+            Event entry opens before start
+          </label>
+          <select
+            id="event-check-in-window"
+            name="checkInOpensMinutesBeforeStart"
+            value={formData.checkInOpensMinutesBeforeStart}
+            onChange={handleChange}
+            disabled={isSubmitting}
+            className="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:border-indigo-600 focus:ring-indigo-600/20"
+          >
+            <option value={0}>At start time</option>
+            <option value={15}>15 minutes before</option>
+            <option value={30}>30 minutes before</option>
+            <option value={60}>60 minutes before</option>
+            <option value={120}>120 minutes before</option>
+          </select>
         </div>
       </div>
 

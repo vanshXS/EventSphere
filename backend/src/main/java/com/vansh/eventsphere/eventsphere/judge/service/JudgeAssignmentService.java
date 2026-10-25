@@ -42,11 +42,20 @@ public class JudgeAssignmentService {
             String roundId,
             String judgeId,
             String organizerId) {
+        return assignJudgeToRound(roundId, judgeId, null, organizerId);
+    }
 
+    public JudgeAssignmentResponse assignJudgeToRound(
+            String roundId,
+            String judgeId,
+            String email,
+            String organizerId) {
         JudgeRound round =
                 getAndValidateDraftRoundForOrganizer(roundId, organizerId);
 
-        User judge = judgingRoundValidator.getAndValidateActiveJudge(judgeId);
+        User judge = email == null
+                ? judgingRoundValidator.getAndValidateActiveJudge(judgeId)
+                : judgingRoundValidator.getAndValidateActiveJudgeByEmail(email);
         String validatedJudgeId = judge.getUserId();
 
         Optional<JudgeAssignment> existing =
@@ -82,8 +91,7 @@ public class JudgeAssignmentService {
     }
 
     /**
-     * Revokes a judge's access to a draft or open round.
-     * Revocation is allowed during judging so access can be withdrawn promptly.
+     * Revokes a judge's access without deleting assignment history.
      */
     public JudgeAssignmentResponse revokeJudgeFromRound(
             String roundId,
@@ -93,24 +101,14 @@ public class JudgeAssignmentService {
         JudgeRound round =
                 getAndValidateOwnedRound(roundId, organizerId);
 
-        if (round.getStatus() != JudgingRoundStatus.DRAFT
-                && round.getStatus() != JudgingRoundStatus.OPEN) {
-            throw new BadRequestException(
-                    "Assignments can only be revoked while the round is DRAFT or OPEN.");
-        }
-
         if(judgeId == null || judgeId.isBlank()){
             throw new BadRequestException(
                     "Judge Id is required"
             );
         }
 
-        // The supplied judge ID must resolve to an actual judge account.
-        User judge = judgingRoundValidator.getAndValidateActiveJudge(judgeId);
-        String validatedJudgeId = judge.getUserId();
-
         JudgeAssignment assignment = judgeAssignmentRepository
-                .findByRoundIdAndJudgeId(round.getId(), validatedJudgeId)
+                .findByRoundIdAndJudgeId(round.getId(), judgeId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Judge assignment not found."));
@@ -273,11 +271,10 @@ public class JudgeAssignmentService {
                 judgingRoundValidator.getAndValidateDraftRound(roundId);
 
         Activity activity =
-                judgingRoundValidator.getAndValidateOwnedActivity(
+                judgingRoundValidator.getAndValidateJudgingActivity(
                         round.getActivityId(), organizerId);
 
-        judgingRoundValidator.getAndValidateMultiRoundCompetition(
-                activity.getId(), organizerId);
+        judgingRoundValidator.validateRoundCapacity(activity.getId(), round.getId());
 
         return round;
     }

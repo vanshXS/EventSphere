@@ -4,10 +4,12 @@ import { registerParticipant } from "../authApi";
 import { parseAuthError } from "../utils/errorMapper";
 import AuthLayout from "../../../components/common/AuthLayout";
 import FormField from "../../../components/common/FormField";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import CollegeSelector from "../components/CollegeSelector";
+import { useToast } from "../../../components/common/ToastContext";
 
 export default function ParticipantRegisterPage() {
+  const addToast = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -16,8 +18,18 @@ export default function ParticipantRegisterPage() {
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
-  const [generalError, setGeneralError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [registrationComplete, setRegistrationComplete] = useState(false);
+  const setGeneralError = (message) => {
+    if (message) addToast(message, "error");
+  };
+  const setSuccessMessage = (message) => {
+    if (message) {
+      setRegistrationComplete(true);
+      addToast(message, "success");
+    } else {
+      setRegistrationComplete(false);
+    }
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
@@ -35,7 +47,6 @@ export default function ParticipantRegisterPage() {
         [name]: ""
       }));
     }
-    if (generalError) setGeneralError("");
   };
 
   const validateClientSide = () => {
@@ -67,7 +78,6 @@ export default function ParticipantRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setGeneralError("");
     setSuccessMessage("");
 
     if (!validateClientSide()) {
@@ -103,26 +113,6 @@ export default function ParticipantRegisterPage() {
       title="Participant Registration"
       subtitle="Join EventSphere to participate in college events"
     >
-      {generalError && (
-        <div
-          role="alert"
-          className="mb-5 p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-start gap-2.5"
-        >
-          <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" aria-hidden="true" />
-          <div className="flex-1 font-medium">{generalError}</div>
-        </div>
-      )}
-
-      {successMessage && (
-        <div
-          role="status"
-          className="mb-5 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-2.5"
-        >
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" aria-hidden="true" />
-          <div className="flex-1 font-medium">{successMessage}</div>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} noValidate>
         <FormField
           id="participant-name"
@@ -193,7 +183,7 @@ export default function ParticipantRegisterPage() {
 
         <button
           type="submit"
-          disabled={isSubmitting || !!successMessage}
+          disabled={isSubmitting || registrationComplete}
           className="w-full mt-3 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 focus:bg-indigo-700 text-white font-medium rounded-lg text-sm transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center space-x-2 cursor-pointer"
         >
           {isSubmitting ? (

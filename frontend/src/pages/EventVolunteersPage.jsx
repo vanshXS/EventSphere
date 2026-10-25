@@ -8,17 +8,23 @@ import {
   inviteEventStaff,
   revokeStaff
 } from "../features/attendance/attendanceApi";
+import { useToast } from "../components/common/ToastContext";
 
 export default function EventVolunteersPage() {
   const { eventId } = useParams();
+  const addToast = useToast();
   const [event, setEvent] = useState(null);
   const [staff, setStaff] = useState([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
+  const setSuccess = useCallback((message) => {
+    if (message) addToast(message, "success");
+  }, [addToast]);
   const [copied, setCopied] = useState("");
   // Cache invitation links from POST responses so they survive page reload
   const savedLinksRef = useRef({});
@@ -26,7 +32,6 @@ export default function EventVolunteersPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
       const [eventData, staffData] = await Promise.all([
         getEventById(eventId),
         getEventStaff(eventId)
@@ -45,7 +50,7 @@ export default function EventVolunteersPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   useEffect(() => {
     load();
@@ -55,7 +60,6 @@ export default function EventVolunteersPage() {
     e.preventDefault();
     try {
       setSaving(true);
-      setError("");
       const created = await inviteEventStaff(eventId, {
         name: name.trim() || null,
         email: email.trim()
@@ -79,7 +83,6 @@ export default function EventVolunteersPage() {
 
   const revoke = async (assignmentId) => {
     try {
-      setError("");
       await revokeStaff(assignmentId);
       setStaff((previous) =>
         previous.map((item) =>
@@ -157,17 +160,6 @@ export default function EventVolunteersPage() {
             </Link>
           </div>
         </section>
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-            {success}
-          </div>
-        )}
 
         <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <form

@@ -31,6 +31,10 @@ public class ActivityMapper {
                 .location(activity.getLocation())
                 .startDateTime(activity.getStartDateTime())
                 .endDateTime(activity.getEndDateTime())
+                .checkInOpensMinutesBeforeStart(
+                        activity.getCheckInOpensMinutesBeforeStart() == null
+                                ? Activity.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                                : activity.getCheckInOpensMinutesBeforeStart())
                 .actualStartDateTime(activity.getActualStartDateTime())
                 .actualEndDateTime(activity.getActualEndDateTime())
                 .registrationDeadline(activity.getRegistrationDeadline())

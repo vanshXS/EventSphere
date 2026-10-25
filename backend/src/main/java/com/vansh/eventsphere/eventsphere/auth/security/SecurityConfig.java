@@ -37,7 +37,8 @@ public class SecurityConfig {
                                         "/api/auth/refresh",
                                         "/api/colleges",
                                         "/api/colleges/**",
-                                        "/api/staff/invitations/**"
+                                        "/api/staff/invitations/**",
+                                        "/api/judge/invitations/**"
                                 )
                                 .permitAll()
                                 .requestMatchers("/api/organizer/**")

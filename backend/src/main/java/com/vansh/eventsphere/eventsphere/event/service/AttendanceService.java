@@ -39,7 +39,7 @@ public class AttendanceService {
 
             Ticket ticket = ticketService.verifyToken(qrPayload);
             validateTicketScope(ticket, checkInType);
-            validateTicketLifecycle(ticket, checkInType);
+            validateTicketLifecycle(ticket, checkInType, LocalDateTime.now());
 
             if (!eventStaffService.hasCheckInAccess(
                     staffUserId,
@@ -159,9 +159,10 @@ public class AttendanceService {
         }
     }
 
-    private void validateTicketLifecycle(
+    void validateTicketLifecycle(
             Ticket ticket,
-            CheckInType checkInType
+            CheckInType checkInType,
+            LocalDateTime now
     ) {
         if (checkInType == CheckInType.EVENT_ENTRY) {
             Event event = eventRepository.findById(ticket.getEventId())
@@ -172,7 +173,18 @@ public class AttendanceService {
             if (event.getEventStatus() != EventStatus.PUBLISHED
                     && event.getEventStatus() != EventStatus.ONGOING) {
                 throw new BadRequestException(
-                        "Event entry check-in is not available right now."
+                        "Event entry check-in is unavailable while the Event is "
+                                + event.getEventStatus() + "."
+                );
+            }
+
+            int minutes = event.getCheckInOpensMinutesBeforeStart() == null
+                    ? Event.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                    : event.getCheckInOpensMinutesBeforeStart();
+            LocalDateTime opensAt = event.getStartDateTime().minusMinutes(minutes);
+            if (now.isBefore(opensAt)) {
+                throw new BadRequestException(
+                        "Event entry check-in opens at " + opensAt + "."
                 );
             }
             return;
@@ -183,9 +195,57 @@ public class AttendanceService {
                         new ResourceNotFoundException("Activity not found.")
                 );
 
-        if (activity.getStatus() != EventStatus.ONGOING) {
+        if (activity.getEventId() != null) {
+            Event parentEvent = eventRepository.findById(activity.getEventId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Parent event not found.")
+                    );
+            if (parentEvent.getEventStatus() != EventStatus.PUBLISHED
+                    && parentEvent.getEventStatus() != EventStatus.ONGOING) {
+                throw new BadRequestException(
+                        "Activity check-in is unavailable while the parent Event is "
+                                + parentEvent.getEventStatus() + "."
+                );
+            }
+        }
+
+        EventStatus status = activity.getStatus();
+        if (status == null) {
+            status = activity.getActualEndDateTime() != null
+                    ? EventStatus.COMPLETED
+                    : activity.getActualStartDateTime() != null
+                    ? EventStatus.ONGOING
+                    : activity.getEventId() != null
+                    ? EventStatus.PUBLISHED
+                    : EventStatus.DRAFT;
+        }
+
+        if (status == EventStatus.ONGOING) {
+            return;
+        }
+
+        if (status != EventStatus.PUBLISHED) {
             throw new BadRequestException(
-                    "Activity check-in is available only while the activity is ongoing."
+                    "Activity check-in is unavailable while the Activity is "
+                            + status + "."
+            );
+        }
+
+        if (activity.getEndDateTime() != null
+                && now.isAfter(activity.getEndDateTime())) {
+            throw new BadRequestException(
+                    "The Activity's scheduled end time has passed without it being started. "
+                            + "Please contact the organizer."
+            );
+        }
+
+        int minutes = activity.getCheckInOpensMinutesBeforeStart() == null
+                ? Activity.DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START
+                : activity.getCheckInOpensMinutesBeforeStart();
+        LocalDateTime opensAt = activity.getStartDateTime().minusMinutes(minutes);
+        if (now.isBefore(opensAt)) {
+            throw new BadRequestException(
+                    "Activity check-in opens at " + opensAt + "."
             );
         }
     }

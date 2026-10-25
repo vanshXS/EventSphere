@@ -27,6 +27,7 @@ public class EventResponse {
     private String venue;
     private LocalDateTime startDateTime;
     private LocalDateTime endDateTime;
+    private Integer checkInOpensMinutesBeforeStart;
 
     private LocalDateTime registrationDeadLine;
 

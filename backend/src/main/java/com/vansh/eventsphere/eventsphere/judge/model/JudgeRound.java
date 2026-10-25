@@ -39,6 +39,9 @@ public class JudgeRound {
 
     private String description;
 
+    private LocalDateTime scheduledStartDateTime;
+    private LocalDateTime scheduledEndDateTime;
+    private String scheduledTimeZoneId;
 
     private Integer sequence;
 

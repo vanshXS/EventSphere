@@ -9,8 +9,10 @@ import {
   inviteActivityStaff,
   revokeStaff
 } from "../features/attendance/attendanceApi";
+import { useToast } from "../components/common/ToastContext";
 
 export default function EventActivityVolunteersPage() {
+  const addToast = useToast();
   const { eventId } = useParams();
   const [event, setEvent] = useState(null);
   const [activities, setActivities] = useState([]);
@@ -21,15 +23,18 @@ export default function EventActivityVolunteersPage() {
   const [loading, setLoading] = useState(true);
   const [staffLoading, setStaffLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
+  const setSuccess = useCallback((message) => {
+    if (message) addToast(message, "success");
+  }, [addToast]);
   const [copied, setCopied] = useState("");
   const savedLinksRef = useRef({});
 
   const loadBase = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
       const [eventData, activityData] = await Promise.all([
         getEventById(eventId),
         getActivitiesByEvent(eventId)
@@ -53,7 +58,7 @@ export default function EventActivityVolunteersPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   const loadStaff = useCallback(async () => {
     if (!selectedActivityId) {
@@ -62,7 +67,6 @@ export default function EventActivityVolunteersPage() {
     }
     try {
       setStaffLoading(true);
-      setError("");
       const staffData = await getActivityStaff(selectedActivityId);
       setStaff(staffData.map((s) => ({
         ...s,
@@ -76,7 +80,7 @@ export default function EventActivityVolunteersPage() {
     } finally {
       setStaffLoading(false);
     }
-  }, [selectedActivityId]);
+  }, [selectedActivityId, setError]);
 
   useEffect(() => {
     loadBase();
@@ -92,7 +96,6 @@ export default function EventActivityVolunteersPage() {
 
     try {
       setSaving(true);
-      setError("");
       const created = await inviteActivityStaff(selectedActivityId, {
         name: name.trim() || null,
         email: email.trim()
@@ -116,7 +119,6 @@ export default function EventActivityVolunteersPage() {
 
   const revoke = async (assignmentId) => {
     try {
-      setError("");
       await revokeStaff(assignmentId);
       setStaff((previous) =>
         previous.map((item) =>
@@ -193,17 +195,6 @@ export default function EventActivityVolunteersPage() {
             </select>
           </label>
         </section>
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-            {success}
-          </div>
-        )}
 
         {!selectedActivity ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">

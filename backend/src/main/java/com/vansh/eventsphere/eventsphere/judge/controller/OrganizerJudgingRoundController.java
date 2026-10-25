@@ -3,6 +3,8 @@ package com.vansh.eventsphere.eventsphere.judge.controller;
 
 import com.vansh.eventsphere.eventsphere.judge.dto.CreateJudgingRoundRequest;
 import com.vansh.eventsphere.eventsphere.judge.dto.JudgeRoundResponse;
+import com.vansh.eventsphere.eventsphere.judge.dto.RoundClosurePreviewResponse;
+import com.vansh.eventsphere.eventsphere.judge.dto.UpdateJudgeRoundRequest;
 import com.vansh.eventsphere.eventsphere.judge.service.JudgingRoundService;
 
 import jakarta.validation.Valid;
@@ -56,6 +58,17 @@ public class OrganizerJudgingRoundController {
         return ResponseEntity.ok(rounds);
     }
 
+    @PutMapping("/judging-rounds/{roundId}")
+    public ResponseEntity<JudgeRoundResponse> updateDraftRound(
+            @PathVariable String roundId,
+            @Valid @RequestBody UpdateJudgeRoundRequest request,
+            Authentication authentication) {
+
+        JudgeRoundResponse response = judgingRoundService.updateDraftRound(
+                roundId, request, authentication.getName());
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/judging-rounds/{roundId}/open")
     public ResponseEntity<JudgeRoundResponse> openRound(
             @PathVariable String roundId,
@@ -84,5 +97,16 @@ public class OrganizerJudgingRoundController {
                         organizerId);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/judging-rounds/{roundId}/closure-preview")
+    public ResponseEntity<RoundClosurePreviewResponse> getClosurePreview(
+            @PathVariable String roundId,
+            Authentication authentication) {
+
+        return ResponseEntity.ok(
+                judgingRoundService.getClosurePreview(
+                        roundId,
+                        authentication.getName()));
     }
 }

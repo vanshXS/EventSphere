@@ -27,9 +27,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 @Component
@@ -69,22 +72,43 @@ public class JudgeRoundValidator {
         } else {
             actualOwnerId = activity.getOrganizerId();
 
+        }
+        if (organizerId == null || !organizerId.equals(actualOwnerId)) {
+            throw new AccessDeniedException(
+                    "You are not allowed to manage judging for this activity.");
+        }
 
-            if (organizerId == null || !organizerId.equals(actualOwnerId)) {
-                throw new AccessDeniedException(
-                        "You are not allowed to manage judging for this activity.");
-            }
+        return activity;
+    }
+
+    public Activity getAndValidateJudgingActivity(String activityId, String organizerId) {
+        Activity activity = activityOwnershipValidator.getAndValidateOwnedActivity(
+                activityId, organizerId);
+        Competition competition = competitionRepository.findByActivityId(activityId)
+                .orElseThrow(() -> new BadRequestException(
+                        "Configure judging for this activity before managing rounds."));
+        if (!competition.isJudgingEnabled()) {
+            throw new BadRequestException("Judging is not enabled for this activity.");
         }
         return activity;
     }
 
-    public Activity getAndValidateMultiRoundCompetition(String activityId, String organizerId){
+    public void validateRoundCapacity(String activityId, String roundId) {
+        Competition competition = competitionRepository.findByActivityId(activityId)
+                .orElseThrow(() -> new BadRequestException(
+                        "Configure judging for this activity before managing rounds."));
+        if (competition.getCompetitionMode() != CompetitionMode.SINGLE_STAGE) {
+            return;
+        }
 
-            return activityOwnershipValidator.getAndValidateOwnedActivity(
-                    activityId,
-                    organizerId
-            );
-
+        boolean anotherRoundExists = judgingRoundRepository
+                .findByActivityIdOrderBySequenceAsc(activityId)
+                .stream()
+                .anyMatch(round -> !Objects.equals(round.getId(), roundId));
+        if (anotherRoundExists) {
+            throw new BadRequestException(
+                    "A single-stage competition can have only one judging round.");
+        }
     }
 
     /**
@@ -125,6 +149,75 @@ public class JudgeRoundValidator {
         }
     }
 
+    public void validateSchedule(
+            Activity activity,
+            String roundId,
+            java.time.LocalDateTime scheduledStartDateTime,
+            java.time.LocalDateTime scheduledEndDateTime,
+            String scheduledTimeZoneId
+    ) {
+        if (scheduledTimeZoneId != null && !scheduledTimeZoneId.isBlank()) {
+            try {
+                ZoneId.of(scheduledTimeZoneId);
+            } catch (DateTimeException exception) {
+                throw new BadRequestException("The judging round timezone is invalid.");
+            }
+        }
+        if (scheduledStartDateTime != null
+                && scheduledEndDateTime != null
+                && !scheduledEndDateTime.isAfter(scheduledStartDateTime)) {
+            throw new BadRequestException(
+                    "Judging round end time must be after its start time.");
+        }
+
+        if (scheduledStartDateTime != null
+                && activity.getStartDateTime() != null
+                && scheduledStartDateTime.isBefore(activity.getStartDateTime())) {
+            throw new BadRequestException(
+                    "Judging round cannot start before the activity's scheduled start.");
+        }
+
+        if (scheduledStartDateTime != null
+                && activity.getEndDateTime() != null
+                && scheduledStartDateTime.isAfter(activity.getEndDateTime())) {
+            throw new BadRequestException(
+                    "Judging round cannot start after the activity's scheduled end.");
+        }
+
+        if (scheduledEndDateTime != null
+                && activity.getStartDateTime() != null
+                && scheduledEndDateTime.isBefore(activity.getStartDateTime())) {
+            throw new BadRequestException(
+                    "Judging round cannot end before the activity's scheduled start.");
+        }
+
+        if (scheduledEndDateTime != null
+                && activity.getEndDateTime() != null
+                && scheduledEndDateTime.isAfter(activity.getEndDateTime())) {
+            throw new BadRequestException(
+                    "Judging round cannot end after the activity's scheduled end.");
+        }
+
+        if (scheduledStartDateTime == null || scheduledEndDateTime == null) {
+            return;
+        }
+
+        boolean overlaps = judgingRoundRepository
+                .findByActivityIdOrderBySequenceAsc(activity.getId())
+                .stream()
+                .filter(existing -> !Objects.equals(existing.getId(), roundId))
+                .filter(existing -> existing.getScheduledStartDateTime() != null
+                        && existing.getScheduledEndDateTime() != null)
+                .anyMatch(existing ->
+                        scheduledStartDateTime.isBefore(existing.getScheduledEndDateTime())
+                                && scheduledEndDateTime.isAfter(existing.getScheduledStartDateTime()));
+
+        if (overlaps) {
+            throw new BadRequestException(
+                    "This schedule overlaps another judging round for the activity.");
+        }
+    }
+
     /**
      * Returns a round only if it exists and remains editable.
      */
@@ -156,6 +249,19 @@ public class JudgeRoundValidator {
                     "The selected user must be an active judge.");
         }
 
+        return judge;
+    }
+
+    public User getAndValidateActiveJudgeByEmail(String email) {
+        String normalizedEmail = email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+        User judge = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No active judge account was found for this email. Invite the address if they are new to EventSphere."));
+
+        if (judge.getRole() != Role.JUDGE || !judge.isActive()) {
+            throw new BadRequestException(
+                    "No active judge account was found for this email. Invite the address if they are new to EventSphere.");
+        }
         return judge;
     }
 
@@ -201,6 +307,13 @@ public class JudgeRoundValidator {
     }
 
     public void validateRoundCanOpen(JudgeRound round) {
+
+        if (round.getScheduledStartDateTime() == null
+                || round.getScheduledEndDateTime() == null
+                || !round.getScheduledEndDateTime().isAfter(round.getScheduledStartDateTime())) {
+            throw new BadRequestException(
+                    "Set a valid judging round start and end schedule before opening it.");
+        }
 
         if(round.getCriteria() == null || round.getCriteria().isEmpty()){
             throw new BadRequestException(

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -15,6 +16,13 @@ public class CreateJudgingRoundRequest {
 
     @Size(max = 500)
     private String description;
+
+    private LocalDateTime scheduledStartDateTime;
+
+    private LocalDateTime scheduledEndDateTime;
+
+    @Size(max = 100)
+    private String scheduledTimeZoneId;
 
     @NotNull
     @Positive

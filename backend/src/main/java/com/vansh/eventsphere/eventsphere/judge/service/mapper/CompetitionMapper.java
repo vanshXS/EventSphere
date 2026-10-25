@@ -20,6 +20,7 @@ public class CompetitionMapper {
                 .organizerId(organizerId)
                 .judgingEnabled(request.getJudgingEnabled())
                 .competitionMode(request.getCompetitionMode())
+                .rankingPolicy(request.getRankingPolicy())
                 .build();
     }
 
@@ -30,6 +31,7 @@ public class CompetitionMapper {
                 .organizerId(competition.getOrganizerId())
                 .judgingEnabled(competition.isJudgingEnabled())
                 .competitionMode(competition.getCompetitionMode())
+                .rankingPolicy(competition.getRankingPolicy())
                 .createdAt(competition.getCreatedAt())
                 .updatedAt(competition.getUpdatedAt())
                 .build();

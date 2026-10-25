@@ -11,7 +11,6 @@ import {
   MapPin,
   Users,
   UserCheck,
-  AlertCircle,
   RefreshCw,
   Loader2,
   ExternalLink,
@@ -31,6 +30,8 @@ import {
   getActivityTypeBadgeStyle
 } from "../../activities/utils/activityHelpers";
 import { formatDateRange, formatDateTime } from "../utils/eventHelpers";
+import ActivityRegistrationsModal from "../../registration/components/ActivityRegistrationsModal";
+import { useToast } from "../../../components/common/ToastContext";
 
 export default function EventActivitiesModal({
   isOpen,
@@ -38,12 +39,18 @@ export default function EventActivitiesModal({
   onClose,
   onActivityStatusChange
 }) {
+  const addToast = useToast();
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [actionSuccess, setActionSuccess] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
+  const setActionSuccess = (message) => {
+    if (message) addToast(message, "success");
+  };
   const [actioningIds, setActioningIds] = useState(new Set());
+  const [selectedActivityForRegistrations, setSelectedActivityForRegistrations] = useState(null);
 
   // Close on Escape & prevent background scrolling
   useEffect(() => {
@@ -68,7 +75,6 @@ export default function EventActivitiesModal({
     if (!event?.id) return;
     if (!isSilent) setLoading(true);
     else setRefreshing(true);
-    setError("");
 
     try {
       const data = await getActivitySummariesByEvent(event.id);
@@ -82,7 +88,7 @@ export default function EventActivitiesModal({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [event?.id]);
+  }, [event?.id, setError]);
 
   useEffect(() => {
     if (isOpen && event?.id) {
@@ -93,8 +99,6 @@ export default function EventActivitiesModal({
   // Handle start activity
   const handleStart = async (activityId) => {
     setActioningIds((prev) => new Set(prev).add(activityId));
-    setError("");
-    setActionSuccess("");
     try {
       await startActivity(event.id, activityId);
       setActionSuccess("Activity started successfully! Live check-in scanner is now unlocked.");
@@ -114,8 +118,6 @@ export default function EventActivitiesModal({
   // Handle complete activity
   const handleComplete = async (activityId) => {
     setActioningIds((prev) => new Set(prev).add(activityId));
-    setError("");
-    setActionSuccess("");
     try {
       await completeActivity(event.id, activityId);
       setActionSuccess("Activity marked as completed! Scanning is now closed.");
@@ -201,37 +203,6 @@ export default function EventActivitiesModal({
             </button>
           </div>
         </div>
-
-        {/* Global Banner Messages */}
-        {error && (
-          <div className="px-6 py-2.5 bg-rose-50 border-b border-rose-100 text-rose-800 text-xs font-medium flex items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError("")}
-              className="text-rose-600 hover:text-rose-800 text-xs font-bold cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {actionSuccess && (
-          <div className="px-6 py-2.5 bg-emerald-50 border-b border-emerald-100 text-emerald-800 text-xs font-medium flex items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{actionSuccess}</span>
-            </div>
-            <button
-              onClick={() => setActionSuccess("")}
-              className="text-emerald-600 hover:text-emerald-800 text-xs font-bold cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {/* Quick Summary Metric Strip */}
         {!loading && activities.length > 0 && (
@@ -428,6 +399,16 @@ export default function EventActivitiesModal({
                             </span>
                           )}
 
+                          <button
+                            type="button"
+                            onClick={() => setSelectedActivityForRegistrations({ ...act, eventId: event.id })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                            title="Review registrations and approvals"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>Registrations</span>
+                          </button>
+
                           <Link
                             to={`/organizer/events/${event.id}/operations?tab=activities`}
                             onClick={onClose}
@@ -516,6 +497,13 @@ export default function EventActivitiesModal({
           </button>
         </div>
       </div>
+
+      <ActivityRegistrationsModal
+        isOpen={Boolean(selectedActivityForRegistrations)}
+        activity={selectedActivityForRegistrations}
+        onClose={() => setSelectedActivityForRegistrations(null)}
+        onRegistrationUpdated={() => loadSummaries(true)}
+      />
     </div>,
     document.body
   );

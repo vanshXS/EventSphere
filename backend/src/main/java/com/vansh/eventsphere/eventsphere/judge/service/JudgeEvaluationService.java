@@ -48,7 +48,7 @@ public class JudgeEvaluationService {
             String roundId,
             String registrationId,
             SaveJudgeEvaluationRequest request,
-            String judgeEmail
+            String judgeId
     ) {
         if (request == null) {
             throw new BadRequestException(
@@ -57,7 +57,7 @@ public class JudgeEvaluationService {
         }
 
         JudgeRound round = getAndValidateOpenRound(roundId);
-        User judge = getAndValidateJudge(judgeEmail);
+        User judge = getAndValidateJudge(judgeId);
 
         validateActiveAssignment(roundId, judge.getUserId());
 
@@ -101,7 +101,7 @@ public class JudgeEvaluationService {
             String roundId,
             String registrationId,
             SaveJudgeEvaluationRequest request,
-            String judgeEmail
+            String judgeId
     ) {
         if (request == null) {
             throw new BadRequestException(
@@ -110,7 +110,7 @@ public class JudgeEvaluationService {
         }
 
         JudgeRound round = getAndValidateOpenRound(roundId);
-        User judge = getAndValidateJudge(judgeEmail);
+        User judge = getAndValidateJudge(judgeId);
 
         validateActiveAssignment(roundId, judge.getUserId());
 
@@ -164,10 +164,10 @@ public class JudgeEvaluationService {
     public JudgeEvaluationResponse getMyEvaluation(
             String roundId,
             String registrationId,
-            String judgeEmail
+            String judgeId
     ) {
         JudgeRound round = getRound(roundId);
-        User judge = getAndValidateJudge(judgeEmail);
+        User judge = getAndValidateJudge(judgeId);
 
         validateActiveAssignment(roundId, judge.getUserId());
 
@@ -212,14 +212,14 @@ public class JudgeEvaluationService {
         return round;
     }
 
-    private User getAndValidateJudge(String judgeEmail) {
-        if (judgeEmail == null || judgeEmail.isBlank()) {
+    private User getAndValidateJudge(String judgeId) {
+        if (judgeId == null || judgeId.isBlank()) {
             throw new AccessDeniedException(
                     "Authenticated judge identity is required."
             );
         }
 
-        User judge = userRepository.findByEmail(judgeEmail)
+        User judge = userRepository.findById(judgeId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Judge account not found."

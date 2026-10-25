@@ -28,6 +28,9 @@ public class JudgeRoundMapper {
                 .activityId(activityId)
                 .name(request.getName().trim())
                 .description(normalizeOptionalText(request.getDescription()))
+                .scheduledStartDateTime(request.getScheduledStartDateTime())
+                .scheduledEndDateTime(request.getScheduledEndDateTime())
+                .scheduledTimeZoneId(request.getScheduledTimeZoneId())
                 .sequence(request.getSequence())
                 .criteria(criteria)
                 .status(JudgingRoundStatus.DRAFT)
@@ -47,6 +50,20 @@ public class JudgeRoundMapper {
                 .build();
     }
 
+    public void updateDraftRound(
+            JudgeRound round,
+            UpdateJudgeRoundRequest request
+    ) {
+        round.setName(request.getName().trim());
+        round.setDescription(normalizeOptionalText(request.getDescription()));
+        round.setScheduledStartDateTime(request.getScheduledStartDateTime());
+        round.setScheduledEndDateTime(request.getScheduledEndDateTime());
+        round.setScheduledTimeZoneId(request.getScheduledTimeZoneId());
+        round.setCriteria(request.getCriteria().stream()
+                .map(this::toCriterionEntity)
+                .toList());
+    }
+
     public JudgeRoundResponse toRoundResponse(JudgeRound round) {
 
         List<JudgeCriterionResponse> criteria = round.getCriteria()
@@ -60,9 +77,15 @@ public class JudgeRoundMapper {
                 .name(round.getName())
                 .description(round.getDescription())
                 .sequence(round.getSequence())
+                .scheduledStartDateTime(round.getScheduledStartDateTime())
+                .scheduledEndDateTime(round.getScheduledEndDateTime())
+                .scheduledTimeZoneId(round.getScheduledTimeZoneId())
                 .criteria(criteria)
                 .status(round.getStatus())
                 .createdBy(round.getCreatedBy())
+                .openedAt(round.getOpenedAt())
+                .closedAt(round.getClosedAt())
+                .publishedAt(round.getPublishedAt())
                 .createdAt(round.getCreatedAt())
                 .updatedAt(round.getUpdatedAt())
                 .build();

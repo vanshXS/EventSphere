@@ -8,24 +8,29 @@ import {
   inviteActivityStaff,
   revokeStaff
 } from "../features/attendance/attendanceApi";
+import { useToast } from "../components/common/ToastContext";
 
 export default function StandaloneActivityVolunteersPage() {
   const { activityId } = useParams();
+  const addToast = useToast();
   const [activity, setActivity] = useState(null);
   const [staff, setStaff] = useState([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
+  const setSuccess = useCallback((message) => {
+    if (message) addToast(message, "success");
+  }, [addToast]);
   const [copied, setCopied] = useState("");
   const savedLinksRef = useRef({});
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
       const [activityData, staffData] = await Promise.all([
         getStandaloneActivity(activityId),
         getActivityStaff(activityId)
@@ -43,7 +48,7 @@ export default function StandaloneActivityVolunteersPage() {
     } finally {
       setLoading(false);
     }
-  }, [activityId]);
+  }, [activityId, setError]);
 
   useEffect(() => {
     load();
@@ -53,7 +58,6 @@ export default function StandaloneActivityVolunteersPage() {
     e.preventDefault();
     try {
       setSaving(true);
-      setError("");
       const created = await inviteActivityStaff(activityId, {
         name: name.trim() || null,
         email: email.trim()
@@ -131,13 +135,6 @@ export default function StandaloneActivityVolunteersPage() {
             These volunteers can scan only tickets issued for this activity.
           </p>
         </section>
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>
-        )}
-        {success && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{success}</div>
-        )}
 
         <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <form onSubmit={invite} className="rounded-2xl border border-slate-200 bg-white p-5">

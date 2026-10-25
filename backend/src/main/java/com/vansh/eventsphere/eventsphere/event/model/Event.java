@@ -29,6 +29,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor @AllArgsConstructor
 public class Event {
 
+    public static final int DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START = 60;
+
     @Id
     private String id;
     private String organizerId;
@@ -41,6 +43,9 @@ public class Event {
     private LocalDateTime startDateTime;
     @Indexed
     private LocalDateTime endDateTime;
+    @Builder.Default
+    private Integer checkInOpensMinutesBeforeStart =
+            DEFAULT_CHECK_IN_OPENS_MINUTES_BEFORE_START;
     private String rules;
 
     private EventVisibility visibility;

@@ -5,21 +5,24 @@ import { Link, useParams } from "react-router-dom";
 import { getEventById } from "../features/events/eventApi";
 import { getActivitiesByEvent } from "../features/activities/activityApi";
 import { getActivityAttendance } from "../features/attendance/attendanceApi";
+import { useToast } from "../components/common/ToastContext";
 
 export default function EventActivityAttendancePage() {
   const { eventId } = useParams();
+  const addToast = useToast();
   const [event, setEvent] = useState(null);
   const [activities, setActivities] = useState([]);
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const [error, setError] = useState("");
+  const setError = useCallback((message) => {
+    if (message) addToast(message, "error");
+  }, [addToast]);
 
   const loadBase = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
       const [eventData, activityData] = await Promise.all([
         getEventById(eventId),
         getActivitiesByEvent(eventId)
@@ -44,7 +47,7 @@ export default function EventActivityAttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   const loadAttendance = useCallback(async () => {
     if (!selectedActivityId) {
@@ -54,7 +57,6 @@ export default function EventActivityAttendancePage() {
 
     try {
       setAttendanceLoading(true);
-      setError("");
       setAttendance(await getActivityAttendance(selectedActivityId));
     } catch (err) {
       setError(
@@ -64,7 +66,7 @@ export default function EventActivityAttendancePage() {
     } finally {
       setAttendanceLoading(false);
     }
-  }, [selectedActivityId]);
+  }, [selectedActivityId, setError]);
 
   useEffect(() => {
     loadBase();
@@ -135,12 +137,6 @@ export default function EventActivityAttendancePage() {
             </button>
           </div>
         </section>
-
-        {error && (
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-            {error}
-          </div>
-        )}
 
         {!selectedActivity ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">

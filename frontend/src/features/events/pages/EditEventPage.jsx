@@ -21,16 +21,17 @@ import {
   MapPin, 
   Lock,
   Globe,
-  CheckCircle2,
   Send,
   Trash2
 } from "lucide-react";
 import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
+import { useToast } from "../../../components/common/ToastContext";
 
 export default function EditEventPage() {
   const { eventId } = useParams();
   const { user, logoutUser } = useAuth();
+  const addToast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,15 +40,17 @@ export default function EditEventPage() {
   const [fetchError, setFetchError] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [serverError, setServerError] = useState("");
+  const setServerError = (message) => {
+    if (message) addToast(message, "error");
+  };
 
   // Activity module state
   const [activities, setActivities] = useState([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState("");
-  const [activitySuccessMessage, setActivitySuccessMessage] = useState("");
-  const [flashMessage, setFlashMessage] = useState(location.state?.flashMessage || "");
-  const flashTone = location.state?.flashTone || "success";
+  const setActivitySuccessMessage = (message) => {
+    if (message) addToast(message, "success");
+  };
 
   // Action states for deletion and operational lifecycle
   const [showDeleteEventConfirm, setShowDeleteEventConfirm] = useState(false);
@@ -105,17 +108,17 @@ export default function EditEventPage() {
     }
   }, [event, fetchActivities]);
 
-  // Clear activity success message after 4s
   useEffect(() => {
-    if (activitySuccessMessage) {
-      const timer = setTimeout(() => setActivitySuccessMessage(""), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [activitySuccessMessage]);
+    if (!location.state?.flashMessage) return;
+    addToast(
+      location.state.flashMessage,
+      location.state.flashTone === "error" ? "error" : "success"
+    );
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate, addToast]);
 
   const handleSubmit = async (formData) => {
     setIsSubmitting(true);
-    setServerError("");
 
     try {
       await updateEvent(eventId, formData);
@@ -151,7 +154,7 @@ export default function EditEventPage() {
       setIsPublishing(true);
       const updated = await publishEvent(eventId);
       setEvent(updated);
-      setFlashMessage("Event published successfully! Participants can now view and register for this event.");
+      addToast("Event published successfully! Participants can now view and register for this event.", "success");
     } catch (err) {
       console.error("Failed to publish event:", err);
       setServerError(err.response?.data?.message || "Failed to publish event. Please try again.");
@@ -297,43 +300,6 @@ export default function EditEventPage() {
           )}
         </div>
 
-        {/* Global Notifications */}
-        {flashMessage && (
-          <div
-            role={flashTone === "error" ? "alert" : "status"}
-            className={`p-3.5 rounded-xl border text-sm flex items-start justify-between gap-2.5 ${
-              flashTone === "error"
-                ? "bg-rose-50 border-rose-200 text-rose-800"
-                : "bg-emerald-50 border-emerald-200 text-emerald-800"
-            }`}
-          >
-            <div className="flex items-start gap-2.5 font-medium">
-              {flashTone === "error" ? (
-                <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" aria-hidden="true" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" aria-hidden="true" />
-              )}
-              <span>{flashMessage}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFlashMessage("")}
-              className="text-xs font-semibold underline cursor-pointer shrink-0"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-        {activitySuccessMessage && (
-          <div
-            role="status"
-            className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-start gap-2.5 animate-fade-in"
-          >
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" aria-hidden="true" />
-            <div className="flex-1 font-medium">{activitySuccessMessage}</div>
-          </div>
-        )}
-
         {/* State 1: Loading */}
         {loading && (
           <div className="p-12 text-center bg-white rounded-xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center space-y-3">
@@ -370,7 +336,6 @@ export default function EditEventPage() {
               onSubmit={handleSubmit}
               isSubmitting={isSubmitting}
               submitLabel="Save Changes"
-              serverError={serverError}
             />
 
             {/* Activities Section */}

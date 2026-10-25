@@ -11,8 +11,13 @@ import UnauthorizedPage from "../pages/UnauthorizedPage";
 import ParticipantTicketPage from "../pages/ParticipantTicketPage";
 import VolunteerInvitationPage from "../pages/VolunteerInvitationPage";
 import VolunteerScannerPage from "../pages/VolunteerScannerPage";
+import JudgeInvitationPage from "../pages/JudgeInvitationPage";
 import EventOperationsPage from "../pages/EventOperationsPage";
 import StandaloneActivityOperationsPage from "../pages/StandaloneActivityOperationsPage";
+import OrganizerJudgingPage from "../features/judging/pages/OrganizerJudgingPage";
+import JudgeDashboardPage from "../features/judging/pages/JudgeDashboardPage";
+import JudgeRoundPage from "../features/judging/pages/JudgeRoundPage";
+import JudgeEvaluationPage from "../features/judging/pages/JudgeEvaluationPage";
 
 // Helper redirects for backward compatibility with older route bookmarks
 function EventOperationsRedirect({ tab, sub, vsub }) {
@@ -47,6 +52,10 @@ export default function AppRoutes() {
         <Route
           path="/volunteer/invitations/:token"
           element={<VolunteerInvitationPage />}
+        />
+        <Route
+          path="/judge/invitations/:token"
+          element={<JudgeInvitationPage />}
         />
 
         {/* Protected Organizer Routes */}
@@ -155,6 +164,15 @@ export default function AppRoutes() {
           }
         />
 
+        <Route
+          path="/organizer/activities/:activityId/judging"
+          element={
+            <ProtectedRoutes allowedRole={["ORGANIZER"]}>
+              <OrganizerJudgingPage />
+            </ProtectedRoutes>
+          }
+        />
+
         {/* Protected Participant Routes */}
         <Route
           path="/participant"
@@ -181,7 +199,34 @@ export default function AppRoutes() {
           }
         />
 
+        {/* Protected Judge Routes */}
+        <Route
+          path="/judge"
+          element={
+            <ProtectedRoutes allowedRole={["JUDGE"]}>
+              <JudgeDashboardPage />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/judge/rounds/:roundId"
+          element={
+            <ProtectedRoutes allowedRole={["JUDGE"]}>
+              <JudgeRoundPage />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/judge/rounds/:roundId/entries/:registrationId"
+          element={
+            <ProtectedRoutes allowedRole={["JUDGE"]}>
+              <JudgeEvaluationPage />
+            </ProtectedRoutes>
+          }
+        />
+
         {/* Convenience Aliases */}
+        <Route path="/judge/dashboard" element={<Navigate to="/judge" replace />} />
         <Route path="/dashboard" element={<Navigate to="/participant" replace />} />
         <Route path="/organizer/dashboard" element={<Navigate to="/organizer" replace />} />
 

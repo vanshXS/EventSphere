@@ -1,16 +1,11 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { 
   X, 
   Users, 
-  User, 
-  Clock, 
   Loader2, 
   AlertCircle, 
   RefreshCw, 
-  CheckCircle2, 
-  XCircle, 
-  Layers 
 } from "lucide-react";
 import { 
   getOrganizerActivityRegistrations,
@@ -24,7 +19,9 @@ import { isActiveRegistration } from "../utils/registrationHelpers";
 export default function ActivityRegistrationsModal({
   isOpen,
   activity,
-  onClose
+  onClose,
+  onRegistrationUpdated,
+  isInline = false
 }) {
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +50,7 @@ export default function ActivityRegistrationsModal({
       setActionLoadingId(registrationId);
       await approveRegistration(registrationId);
       await fetchRegistrations();
+      await onRegistrationUpdated?.();
     } catch (err) {
       console.error("Failed to approve registration:", err);
       alert(err.response?.data?.message || "Failed to approve registration.");
@@ -68,6 +66,7 @@ export default function ActivityRegistrationsModal({
       setActionLoadingId(registrationId);
       await rejectRegistration(registrationId, reason);
       await fetchRegistrations();
+      await onRegistrationUpdated?.();
     } catch (err) {
       console.error("Failed to reject registration:", err);
       alert(err.response?.data?.message || "Failed to reject registration.");
@@ -77,19 +76,40 @@ export default function ActivityRegistrationsModal({
   };
 
   useEffect(() => {
-    if (isOpen && activity) {
-      fetchRegistrations();
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
+    if (!isOpen || !activity?.id) return undefined;
+
+    let cancelled = false;
+    const loadRegistrations = async () => {
+      try {
+        const data = await getOrganizerActivityRegistrations(activity.id, activity.eventId);
+        if (!cancelled) {
+          setRegistrations(data);
+          setError("");
+        }
+      } catch (err) {
+        console.error("Failed to load activity registrations:", err);
+        if (!cancelled) {
+          setError(
+            err.response?.data?.message || "Failed to load registrations. Please try again."
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-  }, [isOpen, activity]);
+
+    void loadRegistrations();
+    if (!isInline) document.body.style.overflow = "hidden";
+
+    return () => {
+      cancelled = true;
+      if (!isInline) document.body.style.overflow = "unset";
+    };
+  }, [isOpen, activity?.id, activity?.eventId, isInline]);
 
   if (!isOpen || !activity) return null;
 
   const activeRegistrations = registrations.filter(isActiveRegistration);
-  const pendingRegistrations = registrations.filter((r) => r.status === "PENDING");
   const cancelledRegistrations = registrations.filter(
     (r) => r.status === "CANCELLED" || r.status === "REJECTED"
   );
@@ -98,15 +118,17 @@ export default function ActivityRegistrationsModal({
 
   const modalContent = (
     <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
+      role={isInline ? undefined : "dialog"}
+      aria-modal={isInline ? undefined : "true"}
+      className={isInline ? "w-full" : "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs transition-opacity"}
+      onClick={isInline ? undefined : (e) => {
+        if (e.target === e.currentTarget && !loading) onClose?.();
       }}
     >
       <div
-        className="relative w-full max-w-4xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left max-h-[90vh] flex flex-col"
+        className={isInline
+          ? "w-full overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm"
+          : "relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-xl"}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -131,13 +153,14 @@ export default function ActivityRegistrationsModal({
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {onClose && <button
+                type="button"
+                onClick={onClose}
+                aria-label={isInline ? "Back to activities" : "Close registrations"}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>}
           </div>
         </div>
 
@@ -170,7 +193,7 @@ export default function ActivityRegistrationsModal({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+        <div className={`p-5 sm:p-6 ${isInline ? "" : "flex-1 overflow-y-auto"}`}>
           {loading ? (
             <div className="py-16 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
@@ -269,20 +292,19 @@ export default function ActivityRegistrationsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 flex justify-end bg-slate-50/50">
+        {onClose && <div className="flex justify-end border-t border-slate-100 bg-slate-50/50 p-4 sm:p-5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
           >
-            Close
+            {isInline ? "Back to activities" : "Close"}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );
 
-  return typeof document !== "undefined"
-    ? createPortal(modalContent, document.body)
-    : modalContent;
+  if (isInline) return modalContent;
+  return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
 }

@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import com.vansh.eventsphere.eventsphere.judge.dto.InviteJudgeRequest;
+import com.vansh.eventsphere.eventsphere.judge.dto.JudgeInvitationResponse;
+import com.vansh.eventsphere.eventsphere.judge.service.JudgeInvitationService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +25,61 @@ import java.util.List;
 public class OrganizerJudgeAssignmentController {
 
     private final JudgeAssignmentService judgeAssignmentService;
+    private final JudgeInvitationService judgeInvitationService;
+
+    /**
+     * Invites a judge by email to a judging round, generating a secure onboarding link.
+     */
+    @PostMapping("/judging-rounds/{roundId}/judges/invite")
+    public ResponseEntity<JudgeInvitationResponse> inviteJudge(
+            @PathVariable String roundId,
+            @Valid @RequestBody InviteJudgeRequest request,
+            Authentication authentication) {
+
+        JudgeInvitationResponse response =
+                judgeInvitationService.inviteJudge(
+                        roundId,
+                        request,
+                        authentication.getName());
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    /**
+     * Lists all judge invitations (pending, accepted, revoked) for a round.
+     */
+    @GetMapping("/judging-rounds/{roundId}/judges/invitations")
+    public ResponseEntity<List<JudgeInvitationResponse>> getInvitations(
+            @PathVariable String roundId,
+            Authentication authentication) {
+
+        List<JudgeInvitationResponse> invitations =
+                judgeInvitationService.getRoundInvitations(
+                        roundId,
+                        authentication.getName());
+
+        return ResponseEntity.ok(invitations);
+    }
+
+    /**
+     * Revokes a pending judge invitation.
+     */
+    @DeleteMapping("/judging-rounds/{roundId}/judges/invitations/{invitationId}")
+    public ResponseEntity<JudgeInvitationResponse> revokeInvitation(
+            @PathVariable String roundId,
+            @PathVariable String invitationId,
+            Authentication authentication) {
+
+        JudgeInvitationResponse response =
+                judgeInvitationService.revokeInvitation(
+                        roundId,
+                        invitationId,
+                        authentication.getName());
+
+        return ResponseEntity.ok(response);
+    }
 
     /**
      * Assigns one judge to one draft round.
@@ -36,6 +94,7 @@ public class OrganizerJudgeAssignmentController {
                 judgeAssignmentService.assignJudgeToRound(
                         roundId,
                         request.getJudgeId(),
+                        request.getEmail(),
                         authentication.getName());
 
         return ResponseEntity
