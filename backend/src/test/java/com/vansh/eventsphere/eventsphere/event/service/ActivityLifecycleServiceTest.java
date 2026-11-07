@@ -162,7 +162,7 @@ class ActivityLifecycleServiceTest {
                                 now.plusHours(2),
                                 now.plusHours(4));
 
-                when(activityRepository.findByStatusIn(any())).thenReturn(List.of(activity));
+                lenient().when(activityRepository.findByStatusIn(any())).thenReturn(List.of(activity));
 
                 eventStatusSchedular.updateStatus();
 
@@ -184,7 +184,7 @@ class ActivityLifecycleServiceTest {
                                 now.minusMinutes(30),
                                 now.plusHours(1));
 
-                when(activityRepository.findByStatusIn(any())).thenReturn(List.of(activity));
+                lenient().when(activityRepository.findByStatusIn(any())).thenReturn(List.of(activity));
 
                 eventStatusSchedular.updateStatus();
 
@@ -611,7 +611,7 @@ class ActivityLifecycleServiceTest {
                                 now.minusMinutes(10),
                                 now.plusHours(1));
 
-                when(activityRepository.findByStatusIn(any())).thenReturn(List.of(ongoingOverrun, publishedPastStart));
+                lenient().when(activityRepository.findByStatusIn(any())).thenReturn(List.of(ongoingOverrun, publishedPastStart));
 
                 eventStatusSchedular.updateStatus();
 

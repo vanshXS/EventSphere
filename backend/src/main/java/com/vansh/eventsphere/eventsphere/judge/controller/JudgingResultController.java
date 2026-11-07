@@ -1,10 +1,13 @@
 package com.vansh.eventsphere.eventsphere.judge.controller;
 
 import com.vansh.eventsphere.eventsphere.judge.dto.JudgeResultsResponse;
+import com.vansh.eventsphere.eventsphere.judge.dto.ParticipantLeaderboardResponse;
 import com.vansh.eventsphere.eventsphere.judge.service.JudgingResultService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -47,6 +50,17 @@ public class JudgingResultController {
     ) {
         return judgingResultService.getParticipantResults(
                 roundId,
+                authentication.getName()
+        );
+    }
+
+    @GetMapping(
+            "/api/participant/judging-results/me"
+    )
+    public List<ParticipantLeaderboardResponse> getParticipantLeaderboardResults(
+            Authentication authentication
+    ) {
+        return judgingResultService.getParticipantLeaderboardResults(
                 authentication.getName()
         );
     }

@@ -40,6 +40,7 @@ import ActivityDetailsModal from "../features/activities/components/ActivityDeta
 
 import MyTeamsList from "../features/teams/components/MyTeamsList";
 import CreateTeamModal from "../features/teams/components/CreateTeamModal";
+import ParticipantLeaderboard from "../features/judging/components/ParticipantLeaderboard";
 import { useToast } from "../components/common/ToastContext";
 
 export default function ParticipantDashboard() {
@@ -47,6 +48,7 @@ export default function ParticipantDashboard() {
   const addToast = useToast();
 
   const [activeTab, setActiveTab] = useState("EXPLORE");
+  const [selectedResultActivityId, setSelectedResultActivityId] = useState(null);
 
   const [events, setEvents] = useState([]);
   const [standaloneActivities, setStandaloneActivities] = useState([]);
@@ -269,8 +271,18 @@ export default function ParticipantDashboard() {
     setSuccessMessage(`Team "${team.name}" updated.`);
   };
 
+  const handleTeamDeleted = (teamId) => {
+    setMyTeams((previous) => previous.filter((item) => item.id !== teamId));
+    setSuccessMessage("Team deleted successfully.");
+  };
+
   const showMyRegistrations = () => {
     setActiveTab("MY_REGISTRATIONS");
+  };
+
+  const handleViewResults = (activityId) => {
+    setSelectedResultActivityId(activityId || null);
+    setActiveTab("RESULTS");
   };
 
   const activeRegistrationsCount = myRegistrations.filter(
@@ -362,6 +374,7 @@ export default function ParticipantDashboard() {
                   currentUser={user}
                   onCancelRegistration={handleCancelRegistration}
                   onBrowseEvents={() => setActiveTab("EXPLORE")}
+                  onViewResults={handleViewResults}
                 />
               </section>
             )}
@@ -393,8 +406,18 @@ export default function ParticipantDashboard() {
                   user={user}
                   onCreateTeamClick={() => setShowCreateTeamModal(true)}
                   onTeamUpdated={handleTeamUpdated}
+                  onTeamDeleted={handleTeamDeleted}
                 />
               </section>
+            )}
+
+            {activeTab === "RESULTS" && (
+              <ParticipantLeaderboard
+                myRegistrations={myRegistrations}
+                selectedActivityId={selectedResultActivityId}
+                onBrowseEvents={() => setActiveTab("EXPLORE")}
+                onClearSelectedActivity={() => setSelectedResultActivityId(null)}
+              />
             )}
           </>
         )}

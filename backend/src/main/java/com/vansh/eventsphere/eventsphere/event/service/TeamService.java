@@ -4,7 +4,9 @@ import com.vansh.eventsphere.eventsphere.event.dto.AddTeamMemberRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.ChangeTeamLeaderRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.CreateTeamRequest;
 import com.vansh.eventsphere.eventsphere.event.dto.TeamResponse;
+import com.vansh.eventsphere.eventsphere.event.model.RegistrationStatus;
 import com.vansh.eventsphere.eventsphere.event.model.Team;
+import com.vansh.eventsphere.eventsphere.event.repository.ActivityRegistrationRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.TeamRepository;
 import com.vansh.eventsphere.eventsphere.event.service.mappers.TeamMapper;
 import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
@@ -25,6 +27,7 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
     private final TeamMapper mapper;
+    private final ActivityRegistrationRepository activityRegistrationRepository;
 
 
     /**
@@ -154,6 +157,23 @@ public class TeamService {
         return mapper.mapToResponse(updatedTeam);
     }
 
+    public void deleteTeam(String teamId, String requesterId) {
+        Team team = getTeamEntity(teamId);
+        validateLeader(team, requesterId);
+
+        boolean hasActiveRegistrations = activityRegistrationRepository.findByTeamIdIn(List.of(teamId))
+                .stream()
+                .anyMatch(reg -> reg.getStatus() == RegistrationStatus.APPROVED
+                        || reg.getStatus() == RegistrationStatus.REGISTERED
+                        || reg.getStatus() == RegistrationStatus.PENDING);
+
+        if (hasActiveRegistrations) {
+            throw new BadRequestException("Cannot delete team with active or pending activity registrations. Please cancel your registrations first.");
+        }
+
+        teamRepository.delete(team);
+    }
+
     //Helper functions
     private Team getTeamEntity(String teamId) {
         return
@@ -163,20 +183,21 @@ public class TeamService {
                         ));
     }
 
-    private User getUser(String userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+    private User getUser(String identifier) {
+        return userRepository.findById(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + identifier));
     }
 
     private void validateLeader(
             Team team,
             String requesterId
     ) {
-        if(!team.getLeaderId().equals(requesterId)) {
+        User requester = getUser(requesterId);
+        if (!team.getLeaderId().equals(requester.getUserId()) && !team.getLeaderId().equals(requesterId)) {
             throw new BadRequestException(
                     "Only the team leader can perform this action."
             );
         }
-
     }
 }

@@ -54,3 +54,11 @@ export const removeTeamMember = async (teamId, memberId) => {
   const response = await api.delete(`/api/participant/teams/${teamId}/members/${memberId}`);
   return response.data;
 };
+
+/**
+ * Delete a team entirely (leader only)
+ */
+export const deleteTeam = async (teamId) => {
+  const response = await api.delete(`/api/participant/teams/${teamId}`);
+  return response.data;
+};

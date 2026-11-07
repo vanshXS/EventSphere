@@ -74,6 +74,15 @@ public class TeamController {
     ) {
         return teamService.removeMember(teamId, memberId, authentication.getName());
     }
+
+    @DeleteMapping("/{teamId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTeam(
+            @PathVariable String teamId,
+            Authentication authentication
+    ) {
+        teamService.deleteTeam(teamId, authentication.getName());
+    }
 }
 
 

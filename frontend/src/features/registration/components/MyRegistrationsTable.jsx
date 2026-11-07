@@ -9,7 +9,16 @@ import {
   Ticket,
   X,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
+  Trophy,
+  LayoutList,
+  LayoutGrid,
+  CheckCircle2,
+  Clock,
+  Ban,
+  Users,
+  User,
+  Sparkles
 } from "lucide-react";
 
 import { useAuth } from "../../auth/AuthContext";
@@ -21,7 +30,8 @@ import {
 
 import {
   getActivityTypeLabel,
-  getActivityTypeBadgeStyle
+  getActivityTypeBadgeStyle,
+  isEnded
 } from "../../activities/utils/activityHelpers";
 
 import {
@@ -61,6 +71,7 @@ export default function MyRegistrationsTable({
   cancellingId,
   onCancelRegistration,
   onBrowseEvents,
+  onViewResults,
   currentUser
 }) {
   const { user: authUser } = useAuth();
@@ -69,6 +80,7 @@ export default function MyRegistrationsTable({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [viewMode, setViewMode] = useState("TABLE"); // "TABLE" | "CARDS"
   const [regToCancel, setRegToCancel] = useState(null);
   const [cancelError, setCancelError] = useState("");
 
@@ -106,20 +118,6 @@ export default function MyRegistrationsTable({
     setTicketError("");
   };
 
-  const canCancelRegistration = (registration) => {
-    if (!isActiveRegistration(registration)) return false;
-
-    if (registration.registrationType === "TEAM") {
-      if (!currentUserId) return false;
-      if (registration.teamLeaderId) {
-        return registration.teamLeaderId === currentUserId;
-      }
-      return registration.participantId === currentUserId;
-    }
-
-    return true;
-  };
-
   const enrichedRegistrations = useMemo(() => {
     const activitiesMap = new Map(
       standaloneActivities.map((activity) => [activity.id, activity])
@@ -138,8 +136,44 @@ export default function MyRegistrationsTable({
       const event = eventsMap.get(registration.eventId);
       const team = teamsMap.get(registration.teamId);
 
+      // Determine accurate lifecycle states
+      const activityEnded = isEnded(activity);
+      const eventEnded =
+        event &&
+        (event.eventStatus === "COMPLETED" ||
+          (event.endDateTime &&
+            new Date(event.endDateTime).getTime() <= Date.now()));
+      const registrationEnded =
+        registration.endDateTime &&
+        new Date(registration.endDateTime).getTime() <= Date.now();
+
+      const ended = Boolean(activityEnded || eventEnded || registrationEnded);
+
+      const isActivityCancelled =
+        activity?.status === "CANCELLED" || event?.eventStatus === "CANCELLED";
+      const isRegCancelled =
+        registration.status === "CANCELLED" ||
+        normalizeRegistrationStatus(registration.status) === "CANCELLED";
+      const isRegRejected =
+        registration.status === "REJECTED" ||
+        normalizeRegistrationStatus(registration.status) === "REJECTED";
+
+      const isCompetition =
+        activity?.type === "HACKATHON" ||
+        activity?.type === "TECHNICAL_COMPETITION" ||
+        activity?.activityType === "HACKATHON" ||
+        activity?.activityType === "TECHNICAL_COMPETITION" ||
+        Boolean(registration.activityId);
+
       return {
         ...registration,
+        activity,
+        event,
+        isEnded: ended,
+        isEventCancelled: isActivityCancelled,
+        isCancelled: isRegCancelled,
+        isRejected: isRegRejected,
+        isCompetition,
         activityName:
           registration.activityName ||
           activity?.name ||
@@ -162,6 +196,38 @@ export default function MyRegistrationsTable({
       };
     });
   }, [registrations, standaloneActivities, events, myTeams]);
+
+  // Robust permission checks
+  const canCancelRegistration = (registration) => {
+    if (!registration) return false;
+    if (registration.isCancelled || registration.isRejected) return false;
+    if (registration.isEnded) return false;
+    if (registration.isEventCancelled) return false;
+
+    // Must be in active state (PENDING or APPROVED)
+    if (!isActiveRegistration(registration)) return false;
+
+    // Team check: only leader can cancel team entry
+    if (registration.registrationType === "TEAM") {
+      if (!currentUserId) return false;
+      if (registration.teamLeaderId) {
+        return registration.teamLeaderId === currentUserId;
+      }
+      return registration.participantId === currentUserId;
+    }
+
+    return true;
+  };
+
+  const canViewTicket = (registration) => {
+    if (!registration) return false;
+    if (registration.isCancelled || registration.isRejected) return false;
+    if (registration.isEventCancelled) return false;
+
+    // Ticket is valid only when approved / registered
+    const status = normalizeRegistrationStatus(registration.status);
+    return status === "APPROVED" || registration.status === "REGISTERED";
+  };
 
   const filteredRegistrations = enrichedRegistrations.filter(
     (registration) => {
@@ -209,15 +275,18 @@ export default function MyRegistrationsTable({
 
   if (registrations.length === 0) {
     return (
-      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-xs">
-        <Calendar className="mx-auto h-8 w-8 text-indigo-500" />
+      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+          <Calendar className="h-7 w-7" />
+        </div>
 
         <div>
-          <h3 className="font-semibold text-slate-900">
+          <h3 className="text-lg font-bold text-slate-900">
             No registrations yet
           </h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Explore an activity and register individually or with your team.
+          <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+            Explore activities and register individually or with your team to start
+            participating in events.
           </p>
         </div>
 
@@ -225,9 +294,10 @@ export default function MyRegistrationsTable({
           <button
             type="button"
             onClick={onBrowseEvents}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 transition-colors cursor-pointer"
           >
-            Explore Events
+            <Sparkles className="h-4 w-4" />
+            Explore Competitions & Events
           </button>
         )}
       </div>
@@ -236,239 +306,382 @@ export default function MyRegistrationsTable({
 
   return (
     <>
-      <div className="space-y-4">
-        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-          <div className="flex flex-wrap gap-2">
-            {filters.map(([value, label]) => {
-              const count = enrichedRegistrations.filter(
-                (registration) => matchesStatus(registration, value)
-              ).length;
+      <div className="space-y-5">
+        {/* Filter and Control Bar */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Status Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {filters.map(([value, label]) => {
+                const count = enrichedRegistrations.filter(
+                  (registration) => matchesStatus(registration, value)
+                ).length;
 
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStatusFilter(value)}
-                  className={`rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
-                    statusFilter === value
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
-                  }`}
-                >
-                  {label} ({count})
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatusFilter(value)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                      statusFilter === value
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                    }`}
+                  >
+                    {label}
+                    <span
+                      className={`ml-1.5 rounded-full px-1.5 py-0.2 text-[10px] ${
+                        statusFilter === value
+                          ? "bg-indigo-500 text-white"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setViewMode("TABLE")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                  viewMode === "TABLE"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+                title="Table view"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+                Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("CARDS")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                  viewMode === "CARDS"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+                title="Card view"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Cards
+              </button>
+            </div>
           </div>
 
-          <div className="relative max-w-md">
+          {/* Search Box */}
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               aria-label="Search my registrations"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search activity, event or team..."
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-colors"
+              placeholder="Search by activity, event, team or location..."
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2.5 pl-9 pr-3 text-sm focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Empty Search Results */}
         {filteredRegistrations.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
-            No registrations match your search and filter criteria.
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500 shadow-xs">
+            <Search className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+            <p className="font-semibold text-slate-700">No matching registrations found</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Try adjusting your search query or selecting a different status filter.
+            </p>
           </div>
         ) : (
           <>
-            {/* Mobile Cards (visible below md) */}
-            <div className="space-y-3 md:hidden">
-              {filteredRegistrations.map((registration) => (
-                <div
-                  key={`mobile-${registration.id}`}
-                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span
-                      className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${getActivityTypeBadgeStyle(
-                        registration.activityType
-                      )}`}
-                    >
-                      {getActivityTypeLabel(registration.activityType)}
-                    </span>
-                    <RegistrationStatusBadge status={registration.status} />
-                  </div>
-
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 leading-snug">
-                      {registration.activityName}
-                    </h3>
-                    {registration.eventName && (
-                      <p className="text-sm text-slate-500 mt-0.5">
-                        {registration.eventName}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5 text-sm text-slate-600">
-                    {registration.registrationType === "TEAM" ? (
-                      <div className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md font-medium">
-                        <span>Team: {registration.teamName || "Team entry"}</span>
-                        {registration.teamMemberIds && (
-                          <span className="text-indigo-500 font-normal">
-                            ({registration.teamMemberIds.length} members)
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-500">Individual Entry</p>
-                    )}
-
-                    {registration.startDateTime && (
-                      <div className="flex items-center gap-1.5 text-slate-600">
-                        <Calendar className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-                        <span>
-                          {formatDateRange(
-                            registration.startDateTime,
-                            registration.endDateTime
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                    {registration.location && (
-                      <div className="flex items-center gap-1.5 text-slate-500">
-                        <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                        <span>{registration.location}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {registration.reviewNote && (
-                    <div className="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 border border-slate-200/60">
-                      <span className="font-semibold text-slate-700">Note: </span>
-                      {registration.reviewNote}
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                    {(registration.ticket || isActiveRegistration(registration)) && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenTicketModal(registration)}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer shadow-xs"
-                      >
-                        <Ticket className="h-4 w-4" />
-                        View Ticket
-                      </button>
-                    )}
-
-                    {canCancelRegistration(registration) && (
-                      <button
-                        type="button"
-                        disabled={Boolean(cancellingId)}
-                        onClick={() => {
-                          setCancelError("");
-                          setRegToCancel(registration);
-                        }}
-                        className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 cursor-pointer"
-                      >
-                        {cancellingId === registration.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <XCircle className="h-4 w-4" />
-                        )}
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Desktop Table (visible md and up) */}
-            <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    <tr>
-                      {[
-                        "Activity",
-                        "Participation",
-                        "Schedule / Venue",
-                        "Status / Review",
-                        "Registered",
-                        "Actions"
-                      ].map((heading) => (
-                        <th
-                          key={heading}
-                          scope="col"
-                          className="px-4 py-3.5 font-semibold"
-                        >
-                          {heading}
+            {/* Table View */}
+            {viewMode === "TABLE" && (
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-left text-sm">
+                    <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th scope="col" className="px-4 py-3.5">
+                          Activity / Event
                         </th>
-                      ))}
-                    </tr>
-                  </thead>
+                        <th scope="col" className="px-4 py-3.5">
+                          Entry Type
+                        </th>
+                        <th scope="col" className="px-4 py-3.5">
+                          Schedule & Venue
+                        </th>
+                        <th scope="col" className="px-4 py-3.5">
+                          Status
+                        </th>
+                        <th scope="col" className="px-4 py-3.5 text-right">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
 
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredRegistrations.map((registration) => (
-                      <tr
-                        key={registration.id}
-                        className="align-top hover:bg-slate-50/60 transition-colors"
-                      >
-                        <td className="max-w-xs space-y-1.5 px-4 py-4">
-                          <span
-                            className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold ${getActivityTypeBadgeStyle(
-                              registration.activityType
-                            )}`}
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredRegistrations.map((registration) => {
+                        const canCancel = canCancelRegistration(registration);
+                        const hasTicket = canViewTicket(registration);
+
+                        return (
+                          <tr
+                            key={registration.id}
+                            className="transition-colors hover:bg-slate-50/60"
                           >
-                            {getActivityTypeLabel(
-                              registration.activityType
-                            )}
-                          </span>
+                            {/* Activity / Event */}
+                            <td className="px-4 py-4 max-w-xs space-y-1.5">
+                              <span
+                                className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold ${getActivityTypeBadgeStyle(
+                                  registration.activityType
+                                )}`}
+                              >
+                                {getActivityTypeLabel(registration.activityType)}
+                              </span>
 
-                          <p className="text-sm font-bold text-slate-900 leading-snug">
-                            {registration.activityName}
-                          </p>
-
-                          {registration.eventName && (
-                            <p className="text-xs text-slate-500">
-                              {registration.eventName}
-                            </p>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4 text-slate-700">
-                          {registration.registrationType === "TEAM" ? (
-                            <>
-                              <p className="font-semibold text-indigo-700 text-sm">
-                                {registration.teamName || "Team"}
+                              <p className="font-bold text-slate-900 leading-snug">
+                                {registration.activityName}
                               </p>
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-slate-500">
-                                <span className="text-xs">Team entry</span>
-                                {registration.teamMemberIds && (
-                                  <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-600">
-                                    {registration.teamMemberIds.length} members
+
+                              {registration.eventName && (
+                                <p className="text-xs text-slate-500 flex items-center gap-1">
+                                  <span>Event:</span>
+                                  <span className="font-medium text-slate-600">
+                                    {registration.eventName}
+                                  </span>
+                                </p>
+                              )}
+                            </td>
+
+                            {/* Entry Type */}
+                            <td className="px-4 py-4 text-slate-700">
+                              {registration.registrationType === "TEAM" ? (
+                                <div className="space-y-1">
+                                  <div className="inline-flex items-center gap-1 rounded-md bg-purple-50 border border-purple-200 px-2 py-0.5 text-xs font-semibold text-purple-700">
+                                    <Users className="h-3 w-3" />
+                                    {registration.teamName || "Team"}
+                                  </div>
+
+                                  {registration.teamMemberIds && (
+                                    <p className="text-xs text-slate-400">
+                                      {registration.teamMemberIds.length} members
+                                    </p>
+                                  )}
+
+                                  {registration.teamLeaderId && (
+                                    <p className="text-[11px] text-slate-500 font-medium">
+                                      {registration.teamLeaderId === currentUserId
+                                        ? "Team Leader"
+                                        : "Team Member"}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                  <User className="h-3 w-3" />
+                                  Individual
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Schedule & Venue */}
+                            <td className="px-4 py-4 text-xs text-slate-600 max-w-xs space-y-1">
+                              {registration.startDateTime && (
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                                  <span className="font-medium">
+                                    {formatDateRange(
+                                      registration.startDateTime,
+                                      registration.endDateTime
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+
+                              {registration.location && (
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                  <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                  <span>{registration.location}</span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Status & Lifecycle Notes */}
+                            <td className="px-4 py-4 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <RegistrationStatusBadge status={registration.status} />
+
+                                {registration.isEnded && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                    <Clock className="h-3 w-3" />
+                                    Ended
+                                  </span>
+                                )}
+
+                                {registration.isEventCancelled && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">
+                                    <Ban className="h-3 w-3" />
+                                    Event Cancelled
                                   </span>
                                 )}
                               </div>
-                              {registration.teamLeaderId && (
-                                <p className="mt-0.5 text-xs text-slate-400">
-                                  {registration.teamLeaderId === currentUserId
-                                    ? "Team Leader"
-                                    : "Team Member"}
+
+                              {registration.reviewNote && (
+                                <p className="max-w-xs rounded-lg border border-slate-100 bg-slate-50 p-2 text-xs text-slate-600">
+                                  <span className="font-semibold text-slate-700">Note: </span>
+                                  {registration.reviewNote}
                                 </p>
                               )}
-                            </>
-                          ) : (
-                            <span className="text-sm text-slate-600">Individual</span>
-                          )}
-                        </td>
+                            </td>
 
-                        <td className="max-w-xs space-y-1.5 px-4 py-4 text-slate-600 text-sm">
+                            {/* Actions Column */}
+                            <td className="px-4 py-4 text-right">
+                              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                                {/* View Ticket button (only if active, approved, not cancelled) */}
+                                {hasTicket && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenTicketModal(registration)}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 shadow-xs hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer"
+                                    title="View QR Entry Ticket"
+                                  >
+                                    <Ticket className="h-3.5 w-3.5" />
+                                    Ticket
+                                  </button>
+                                )}
+
+                                {/* Results button (takes participant directly to Results tab for this activity) */}
+                                {onViewResults && registration.activityId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onViewResults(registration.activityId)}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer"
+                                    title="View Competition Results"
+                                  >
+                                    <Trophy className="h-3.5 w-3.5 text-amber-600" />
+                                    Results
+                                  </button>
+                                )}
+
+                                {/* Cancel Registration button */}
+                                {canCancel ? (
+                                  <button
+                                    type="button"
+                                    disabled={Boolean(cancellingId)}
+                                    onClick={() => {
+                                      setCancelError("");
+                                      setRegToCancel(registration);
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition-colors cursor-pointer"
+                                  >
+                                    {cancellingId === registration.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    )}
+                                    Cancel
+                                  </button>
+                                ) : !registration.isCancelled &&
+                                  !registration.isEnded &&
+                                  registration.registrationType === "TEAM" &&
+                                  registration.teamLeaderId !== currentUserId ? (
+                                  <span
+                                    className="inline-flex items-center text-[11px] text-slate-400"
+                                    title="Only the team leader can cancel this team registration"
+                                  >
+                                    Leader only
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3 text-xs text-slate-500">
+                  Showing {filteredRegistrations.length} of {enrichedRegistrations.length} registrations ·{" "}
+                  <span className="font-semibold text-slate-700">{activeCount} active</span>
+                </div>
+              </div>
+            )}
+
+            {/* Cards View */}
+            {viewMode === "CARDS" && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredRegistrations.map((registration) => {
+                  const canCancel = canCancelRegistration(registration);
+                  const hasTicket = canViewTicket(registration);
+
+                  return (
+                    <div
+                      key={`card-${registration.id}`}
+                      className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-shadow hover:shadow-md"
+                    >
+                      <div className="space-y-3">
+                        {/* Header Badges */}
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span
+                            className={`inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold ${getActivityTypeBadgeStyle(
+                              registration.activityType
+                            )}`}
+                          >
+                            {getActivityTypeLabel(registration.activityType)}
+                          </span>
+
+                          <RegistrationStatusBadge status={registration.status} />
+                        </div>
+
+                        {/* Title & Event */}
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900 leading-snug">
+                            {registration.activityName}
+                          </h3>
+                          {registration.eventName && (
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {registration.eventName}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Metadata Details */}
+                        <div className="space-y-2 rounded-xl bg-slate-50/80 p-3 text-xs text-slate-600 border border-slate-100">
+                          {registration.registrationType === "TEAM" ? (
+                            <div className="flex items-center gap-1.5 font-medium text-purple-700">
+                              <Users className="h-3.5 w-3.5" />
+                              <span>Team: {registration.teamName || "Team Entry"}</span>
+                              {registration.teamMemberIds && (
+                                <span className="text-slate-400">
+                                  ({registration.teamMemberIds.length})
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 font-medium text-blue-700">
+                              <User className="h-3.5 w-3.5" />
+                              <span>Individual Entry</span>
+                            </div>
+                          )}
+
                           {registration.startDateTime && (
-                            <div className="flex items-start gap-1.5">
-                              <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
-                              <span className="leading-tight">
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">
                                 {formatDateRange(
                                   registration.startDateTime,
                                   registration.endDateTime
@@ -478,94 +691,70 @@ export default function MyRegistrationsTable({
                           )}
 
                           {registration.location && (
-                            <div className="flex items-start gap-1.5">
-                              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                              <span className="leading-tight">{registration.location}</span>
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                              <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{registration.location}</span>
                             </div>
                           )}
-                        </td>
+                        </div>
 
-                        <td className="max-w-xs space-y-1.5 px-4 py-4">
-                          <RegistrationStatusBadge
-                            status={registration.status}
-                          />
-
-                          {registration.reviewedAt && (
-                            <p className="text-xs text-slate-500">
-                              Reviewed{" "}
-                              {formatDateTime(registration.reviewedAt)}
-                            </p>
-                          )}
-
-                          {registration.reviewNote && (
-                            <p className="whitespace-pre-wrap break-words text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                              {registration.reviewNote}
-                            </p>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4 text-xs text-slate-500">
-                          {formatDateTime(registration.registeredAt)}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {(registration.ticket || isActiveRegistration(registration)) && (
-                              <button
-                                type="button"
-                                onClick={() => handleOpenTicketModal(registration)}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer shadow-xs"
-                                title="View Check-in QR Ticket"
-                              >
-                                <Ticket className="h-3.5 w-3.5" />
-                                View Ticket
-                              </button>
-                            )}
-
-                            {canCancelRegistration(registration) ? (
-                              <button
-                                type="button"
-                                disabled={Boolean(cancellingId)}
-                                onClick={() => {
-                                  setCancelError("");
-                                  setRegToCancel(registration);
-                                }}
-                                className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 cursor-pointer transition-colors"
-                              >
-                                {cancellingId === registration.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5" />
-                                )}
-                                Cancel
-                              </button>
-                            ) : isActiveRegistration(registration) &&
-                              registration.registrationType === "TEAM" ? (
-                              <span
-                                className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-500"
-                                title="Only the team leader can cancel this team registration"
-                              >
-                                Leader only
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">
-                                —
-                              </span>
-                            )}
+                        {/* Extra Notes */}
+                        {registration.reviewNote && (
+                          <div className="rounded-lg bg-amber-50/60 p-2.5 text-xs text-amber-800 border border-amber-200/60">
+                            <span className="font-semibold">Note: </span>
+                            {registration.reviewNote}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        )}
+                      </div>
 
-              <p className="border-t border-slate-100 bg-slate-50/50 px-4 py-3 text-xs text-slate-500">
-                Showing {filteredRegistrations.length} of{" "}
-                {enrichedRegistrations.length} registrations ·{" "}
-                {activeCount} active
-              </p>
-            </div>
+                      {/* Card Actions */}
+                      <div className="mt-4 flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
+                        {hasTicket && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenTicketModal(registration)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 shadow-xs hover:bg-indigo-100 transition-colors cursor-pointer"
+                          >
+                            <Ticket className="h-3.5 w-3.5" />
+                            Ticket
+                          </button>
+                        )}
+
+                        {onViewResults && registration.activityId && (
+                          <button
+                            type="button"
+                            onClick={() => onViewResults(registration.activityId)}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 transition-colors cursor-pointer"
+                          >
+                            <Trophy className="h-3.5 w-3.5 text-amber-600" />
+                            Results
+                          </button>
+                        )}
+
+                        {canCancel && (
+                          <button
+                            type="button"
+                            disabled={Boolean(cancellingId)}
+                            onClick={() => {
+                              setCancelError("");
+                              setRegToCancel(registration);
+                            }}
+                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 transition-colors cursor-pointer"
+                          >
+                            {cancellingId === registration.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <XCircle className="h-3.5 w-3.5" />
+                            )}
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

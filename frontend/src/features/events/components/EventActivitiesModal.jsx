@@ -27,7 +27,8 @@ import {
 } from "../../activities/activityApi";
 import {
   getActivityTypeLabel,
-  getActivityTypeBadgeStyle
+  getActivityTypeBadgeStyle,
+  isEnded
 } from "../../activities/utils/activityHelpers";
 import { formatDateRange, formatDateTime } from "../utils/eventHelpers";
 import ActivityRegistrationsModal from "../../registration/components/ActivityRegistrationsModal";
@@ -277,7 +278,7 @@ export default function EventActivitiesModal({
                 const isCompleted = act.status === "COMPLETED" || Boolean(act.actualEndDateTime);
                 const isOngoing = (act.status === "ONGOING" || Boolean(act.actualStartDateTime)) && !isCompleted;
                 const isDraft = act.status === "DRAFT" && !act.actualStartDateTime;
-                const canStart = !isOngoing && !isCompleted;
+                const canStart = !isOngoing && !isCompleted && !isEnded(act);
                 const isActioning = actioningIds.has(act.id);
 
                 const statusStyles = isCompleted

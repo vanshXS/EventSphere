@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.judge.dto;
 
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,6 +13,7 @@ import com.vansh.eventsphere.eventsphere.event.model.RegistrationType;
 @Data
 @AllArgsConstructor @NoArgsConstructor
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class JudgingResultEntryResponse {
 
     private String registrationId;
@@ -20,4 +22,5 @@ public class JudgingResultEntryResponse {
     private BigDecimal totalScore;
     private int judgeCount;
     private int rank;
+    private Boolean isMyEntry;
 }

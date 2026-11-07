@@ -19,6 +19,8 @@ const paths = {
   judgeRegistrations: (roundId) => `/api/judge/judging-rounds/${roundId}/registrations`,
   evaluation: (roundId, registrationId) =>
     `/api/judge/judging-rounds/${roundId}/registrations/${registrationId}/evaluation`,
+  participantMyResults: "/api/participant/judging-results/me",
+  participantRoundResults: (roundId) => `/api/participant/judging-rounds/${roundId}/results`,
 };
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
@@ -146,6 +148,18 @@ export const submitEvaluation = async (roundId, registrationId, payload) => {
     `${paths.evaluation(roundId, registrationId)}/submit`,
     payload
   );
+  return response.data;
+};
+
+export const getParticipantLeaderboardResults = async () => {
+  const response = await api.get(paths.participantMyResults);
+  return asArray(response.data);
+};
+
+export const getParticipantMyResults = getParticipantLeaderboardResults;
+
+export const getParticipantRoundResults = async (roundId) => {
+  const response = await api.get(paths.participantRoundResults(roundId));
   return response.data;
 };
 

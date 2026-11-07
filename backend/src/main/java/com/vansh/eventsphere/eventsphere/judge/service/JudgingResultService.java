@@ -7,12 +7,14 @@ import com.vansh.eventsphere.eventsphere.event.model.RegistrationStatus;
 import com.vansh.eventsphere.eventsphere.event.model.RegistrationType;
 import com.vansh.eventsphere.eventsphere.event.model.Team;
 import com.vansh.eventsphere.eventsphere.event.repository.ActivityRegistrationRepository;
+import com.vansh.eventsphere.eventsphere.event.repository.ActivityRepository;
 import com.vansh.eventsphere.eventsphere.event.repository.TeamRepository;
 import com.vansh.eventsphere.eventsphere.event.service.validators.ActivityOwnershipValidator;
 import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import com.vansh.eventsphere.eventsphere.judge.dto.JudgingResultEntryResponse;
 import com.vansh.eventsphere.eventsphere.judge.dto.JudgeResultsResponse;
+import com.vansh.eventsphere.eventsphere.judge.dto.ParticipantLeaderboardResponse;
 import com.vansh.eventsphere.eventsphere.judge.model.*;
 import com.vansh.eventsphere.eventsphere.judge.model.enums.JudgeAssignmentStatus;
 import com.vansh.eventsphere.eventsphere.judge.model.enums.JudgeEvaluationStatus;
@@ -40,6 +42,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -58,6 +62,7 @@ public class JudgingResultService {
     private final JudgingResultRepository resultRepository;
 
     private final ActivityRegistrationRepository registrationRepository;
+    private final ActivityRepository activityRepository;
     private final TeamRepository teamRepository;
     private final UserRepository userRepository;
 
@@ -309,7 +314,7 @@ public class JudgingResultService {
 
     public JudgeResultsResponse getParticipantResults(
             String roundId,
-            String participantEmail
+            String participantId
     ) {
         JudgeRound round = getRound(roundId);
 
@@ -320,12 +325,7 @@ public class JudgingResultService {
             );
         }
 
-        User participant = userRepository.findByEmail(participantEmail)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Participant account not found."
-                        )
-                );
+        User participant = resolveParticipant(participantId);
 
         if (participant.getRole()
                 != com.vansh.eventsphere.eventsphere.user.model.Role.PARTICIPANT
@@ -361,6 +361,130 @@ public class JudgingResultService {
         return getPublishedResponse(round);
     }
 
+    public List<ParticipantLeaderboardResponse> getParticipantLeaderboardResults(
+            String participantId
+    ) {
+        User participant = resolveParticipant(participantId);
+
+        if (participant.getRole()
+                != com.vansh.eventsphere.eventsphere.user.model.Role.PARTICIPANT
+                || !participant.isActive()) {
+            throw new AccessDeniedException(
+                    "An active participant account is required."
+            );
+        }
+
+        List<ActivityRegistration> registrations =
+                registrationRepository.findByParticipantIdOrTeamMemberIdsContaining(
+                        participant.getUserId(),
+                        participant.getUserId()
+                );
+
+        List<ActivityRegistration> eligibleRegistrations = registrations.stream()
+                .filter(registration -> registration.getStatus() != null
+                        && ELIGIBLE_STATUSES.contains(registration.getStatus()))
+                .toList();
+
+        if (eligibleRegistrations.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> participantRegistrationIds = eligibleRegistrations.stream()
+                .map(ActivityRegistration::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toSet());
+
+        Set<String> activityIds = eligibleRegistrations.stream()
+                .map(ActivityRegistration::getActivityId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toSet());
+
+        if (activityIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<JudgeRound> publishedRounds =
+                roundRepository.findByActivityIdInAndStatus(
+                        activityIds,
+                        JudgingRoundStatus.PUBLISHED
+                );
+
+        if (publishedRounds.isEmpty()) {
+            return List.of();
+        }
+
+        Set<String> roundIds = publishedRounds.stream()
+                .map(JudgeRound::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toSet());
+
+        List<JudgingResult> results = resultRepository.findByRoundIdIn(roundIds);
+        Map<String, JudgingResult> resultsByRoundId = results.stream()
+                .collect(Collectors.toMap(
+                        JudgingResult::getRoundId,
+                        Function.identity(),
+                        (existing, replacement) -> existing
+                ));
+
+        Map<String, Activity> activitiesById = activityRepository.findAllById(activityIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        Activity::getId,
+                        Function.identity(),
+                        (existing, replacement) -> existing
+                ));
+
+        Comparator<JudgeRound> roundComparator = Comparator
+                .comparing((JudgeRound r) -> {
+                    Activity a = activitiesById.get(r.getActivityId());
+                    return a != null && a.getName() != null ? a.getName().toLowerCase() : "";
+                })
+                .thenComparing((JudgeRound r) -> r.getSequence() != null ? r.getSequence() : 0)
+                .thenComparing((JudgeRound r) -> r.getPublishedAt() != null ? r.getPublishedAt() : LocalDateTime.MIN);
+
+        List<ParticipantLeaderboardResponse> responses = new ArrayList<>();
+
+        for (JudgeRound round : publishedRounds.stream().sorted(roundComparator).toList()) {
+            JudgingResult result = resultsByRoundId.get(round.getId());
+            if (result == null) {
+                continue;
+            }
+
+            Activity activity = activitiesById.get(round.getActivityId());
+            String activityName = (activity != null && activity.getName() != null && !activity.getName().isBlank())
+                    ? activity.getName()
+                    : "Activity";
+
+            List<JudgingResultEntryResponse> entries = result.getEntries() == null
+                    ? List.of()
+                    : result.getEntries().stream()
+                    .map(entry -> JudgingResultEntryResponse.builder()
+                            .registrationId(entry.getRegistrationId())
+                            .entryName(entry.getEntryName())
+                            .entryType(entry.getEntryType())
+                            .totalScore(entry.getTotalScore())
+                            .judgeCount(entry.getJudgeCount())
+                            .rank(entry.getRank())
+                            .isMyEntry(participantRegistrationIds.contains(entry.getRegistrationId()) ? Boolean.TRUE : Boolean.FALSE)
+                            .build())
+                    .toList();
+
+            responses.add(ParticipantLeaderboardResponse.builder()
+                    .activityId(round.getActivityId())
+                    .activityName(activityName)
+                    .roundId(round.getId())
+                    .roundName(round.getName())
+                    .sequence(round.getSequence())
+                    .status(round.getStatus())
+                    .rankingPolicy(result.getRankingPolicy())
+                    .publishedAt(result.getPublishedAt() != null ? result.getPublishedAt() : round.getPublishedAt())
+                    .entries(entries)
+                    .build());
+        }
+
+        return responses;
+    }
+
     private JudgeResultsResponse getPublishedResponse(
             JudgeRound round
     ) {
@@ -371,6 +495,19 @@ public class JudgingResultService {
         }
 
         return toResponse(round, getResult(round.getId()));
+    }
+
+    private User resolveParticipant(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new ResourceNotFoundException("Participant account not found.");
+        }
+        return userRepository.findById(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Participant account not found."
+                        )
+                );
     }
 
     private JudgeRound getRound(String roundId) {

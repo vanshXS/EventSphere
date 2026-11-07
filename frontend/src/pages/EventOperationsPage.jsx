@@ -48,7 +48,11 @@ import {
 } from "../features/attendance/attendanceApi";
 import { formatDateRange, formatDateTime } from "../features/events/utils/eventHelpers";
 import EventStatusBadge from "../features/events/components/EventStatusBadge";
-import { getActivityTypeLabel, getActivityTypeBadgeStyle } from "../features/activities/utils/activityHelpers";
+import {
+  getActivityTypeLabel,
+  getActivityTypeBadgeStyle,
+  isEnded
+} from "../features/activities/utils/activityHelpers";
 import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
 import { useToast } from "../components/common/ToastContext";
 
@@ -652,7 +656,7 @@ export default function EventOperationsPage() {
                     const isCompleted = act.status === "COMPLETED" || Boolean(act.actualEndDateTime);
                     const isOngoing = (act.status === "ONGOING" || Boolean(act.actualStartDateTime)) && !isCompleted;
                     const isDraft = act.status === "DRAFT" && !act.actualStartDateTime;
-                    const canStart = !isOngoing && !isCompleted;
+                    const canStart = !isOngoing && !isCompleted && !isEnded(act);
 
                     const statusStyles = isCompleted
                       ? "bg-slate-100 text-slate-600 border-slate-200"
@@ -896,7 +900,8 @@ export default function EventOperationsPage() {
             {attendanceSubTab === "activity" && selectedActivityObj && (() => {
               const isActCompleted = selectedActivityObj.status === "COMPLETED" || Boolean(selectedActivityObj.actualEndDateTime);
               const isActOngoing = (selectedActivityObj.status === "ONGOING" || Boolean(selectedActivityObj.actualStartDateTime)) && !isActCompleted;
-              const canActStart = !isActOngoing && !isActCompleted;
+              const canActStart =
+                !isActOngoing && !isActCompleted && !isEnded(selectedActivityObj);
               const isActioningThis = actioningIds.has(selectedActivityObj.id);
 
               return (
