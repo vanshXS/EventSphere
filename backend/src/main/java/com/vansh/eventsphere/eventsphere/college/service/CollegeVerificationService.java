@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.vansh.eventsphere.eventsphere.college.model.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -12,14 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.vansh.eventsphere.eventsphere.college.dto.AssignCollegeAdminRequest;
 import com.vansh.eventsphere.eventsphere.college.dto.CollegeApplicationRequest;
 import com.vansh.eventsphere.eventsphere.college.dto.CollegeApplicationResponse;
-import com.vansh.eventsphere.eventsphere.college.model.College;
-import com.vansh.eventsphere.eventsphere.college.model.CollegeAdminAssignment;
-import com.vansh.eventsphere.eventsphere.college.model.CollegeAdminAssignmentStatus;
-import com.vansh.eventsphere.eventsphere.college.model.CollegeAffiliationRequest;
-import com.vansh.eventsphere.eventsphere.college.model.CollegeApplication;
-import com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationMode;
-import com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationStatus;
-import com.vansh.eventsphere.eventsphere.college.model.OTPChallenge;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeAdminAssignmentRepository;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeAffiliationRequestRepository;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeApplicationRepository;
@@ -120,7 +113,11 @@ public class CollegeVerificationService {
 
     // Public: Send domain OTP for college application
     @Transactional
-    public void sendDomainOTP(String applicationId, String email, String domain) {
+    public void sendDomainOTP(
+            String applicationId,
+            String email,
+            String domain
+    ) {
         CollegeApplication application = collegeApplicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
 
@@ -135,6 +132,10 @@ public class CollegeVerificationService {
         String normalizedEmail = email.trim().toLowerCase();
         String normalizedDomain = normalizeDomain(domain);
 
+        if (normalizedDomain == null) {
+            throw new BadRequestException("Invalid domain");
+        }
+
         if (!normalizedEmail.endsWith("@" + normalizedDomain)) {
             throw new BadRequestException("Email must belong to the proposed domain");
         }
@@ -147,51 +148,106 @@ public class CollegeVerificationService {
             throw new BadRequestException("Email does not match the registered contact email");
         }
 
-        otpService.invalidateChallenge(applicationId, normalizedEmail, OTP_PURPOSE_COLLEGE_DOMAIN);
-        OTPChallenge challenge = otpService.createChallenge(applicationId, normalizedEmail, OTP_PURPOSE_COLLEGE_DOMAIN);
+        Optional<OTPChallenge> existingChallenge = otpService.findLatestChallenge(
+                applicationId,
+                normalizedEmail,
+                OTP_PURPOSE_COLLEGE_DOMAIN
+        );
+
+        if (existingChallenge.isPresent()
+                && !otpService.canResend(existingChallenge.get())) {
+            throw new BadRequestException("Please wait 60 seconds before requesting another OTP");
+        }
+
+        otpService.invalidateChallenge(
+                applicationId,
+                normalizedEmail,
+                OTP_PURPOSE_COLLEGE_DOMAIN
+        );
+
+        OTPService.GeneratedOTP generated = otpService.createChallenge(
+                applicationId,
+                normalizedEmail,
+                OTP_PURPOSE_COLLEGE_DOMAIN
+        );
 
         try {
-            emailService.sendCollegeDomainOTP(normalizedEmail, normalizedDomain, generateOTPFromChallenge(challenge));
+            emailService.sendCollegeDomainOTP(
+                    normalizedEmail,
+                    normalizedDomain,
+                    generated.rawOtp()
+            );
+
         } catch (Exception e) {
-            otpService.deleteChallenge(challenge);
-            throw new BadRequestException("Failed to send verification email. Please try again later.");
+            otpService.deleteChallenge(generated.challenge());
+
+            throw new BadRequestException(
+                    "Failed to send verification email. Please try again later."
+            );
         }
     }
 
     // Public: Verify domain OTP for college application
-    @Transactional
-    public void verifyDomainOTP(String applicationId, String email, String otp) {
+    @Transactional(noRollbackFor =  BadRequestException.class)
+    public void verifyDomainOTP(
+            String applicationId,
+            String email,
+            String otp
+    ) {
         CollegeApplication application = collegeApplicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
 
-        String targetEmail = (email != null && !email.isBlank()) ? email : application.getDomainContactEmail();
-        if (targetEmail == null || targetEmail.isBlank()) {
-            throw new BadRequestException("No contact email found for this application");
+        if (application.getVerificationStatus() != CollegeVerificationStatus.PENDING_VERIFICATION) {
+            throw new BadRequestException("Application is not pending verification");
         }
-        String normalizedEmail = targetEmail.trim().toLowerCase();
 
-        Optional<OTPChallenge> challengeOpt = otpService.findValidChallenge(applicationId, normalizedEmail,
-                OTP_PURPOSE_COLLEGE_DOMAIN);
+        if (application.getVerificationMode() != CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            throw new BadRequestException("This application does not use official domain verification");
+        }
+
+        String targetEmail = (email != null && !email.trim().isEmpty())
+                ? email.trim().toLowerCase()
+                : application.getDomainContactEmail();
+
+        if (targetEmail == null || !targetEmail.equals(application.getDomainContactEmail())) {
+            throw new BadRequestException("Email does not match the registered contact email");
+        }
+
+        Optional<OTPChallenge> challengeOpt = otpService.findValidChallenge(
+                applicationId,
+                targetEmail,
+                OTP_PURPOSE_COLLEGE_DOMAIN
+        );
+
         if (challengeOpt.isEmpty()) {
             throw new BadRequestException("Invalid or expired OTP challenge");
         }
 
         OTPChallenge challenge = challengeOpt.get();
+
         if (!otpService.verifyOTP(challenge, otp)) {
-            throw new BadRequestException("Invalid OTP. Attempts remaining: " + (challenge.getMaxAttempts() - challenge.getAttempts()));
+
+            int remaining = challenge.getMaxAttempts() - challenge.getAttempts();
+
+            if (remaining <= 0) {
+                otpService.deleteChallenge(challenge);
+                throw new BadRequestException("Maximum OTP attempts exceeded. Request a new code.");
+            }
+
+            throw new BadRequestException(
+                    "Invalid OTP. Attempts remaining: " + remaining
+            );
         }
 
-        if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
-            otpService.deleteChallenge(challenge);
-            throw new BadRequestException("Maximum OTP attempts exceeded");
-        }
-
+        // Do not reject a correct OTP just because it was the fifth attempt.
         application.setDomainOwnershipVerifiedAt(LocalDateTime.now());
         application.setDomainVerificationToken(challenge.getId());
         application.setUpdatedAt(LocalDateTime.now());
+
         collegeApplicationRepository.save(application);
 
         otpService.deleteChallenge(challenge);
+
         log.info("Domain ownership verified for application: {}", applicationId);
     }
 
@@ -417,6 +473,7 @@ public class CollegeVerificationService {
     // Participant: Send student affiliation OTP
     @Transactional
     public void sendStudentAffiliationOTP(String userId) {
+
         User participant = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -440,6 +497,7 @@ public class CollegeVerificationService {
         }
 
         String userDomain = extractDomain(participant.getEmail());
+
         if (userDomain == null || !college.getVerifiedDomains().contains(userDomain)) {
             throw new BadRequestException("Your email domain does not match the college's verified domain");
         }
@@ -448,63 +506,126 @@ public class CollegeVerificationService {
             throw new BadRequestException("You are already verified for this college");
         }
 
-        otpService.invalidateChallenge(userId, participant.getEmail(), OTP_PURPOSE_STUDENT_AFFILIATION);
-        OTPChallenge challenge = otpService.createChallenge(userId, participant.getEmail(), OTP_PURPOSE_STUDENT_AFFILIATION);
+        Optional<OTPChallenge> existingChallenge = otpService.findLatestChallenge(
+                userId,
+                participant.getEmail(),
+                OTP_PURPOSE_STUDENT_AFFILIATION
+        );
+
+        if (existingChallenge.isPresent()
+                && !otpService.canResend(existingChallenge.get())) {
+            throw new BadRequestException("Please wait 60 seconds before requesting another OTP");
+        }
+
+        otpService.invalidateChallenge(
+                userId,
+                participant.getEmail(),
+                OTP_PURPOSE_STUDENT_AFFILIATION
+        );
+
+        OTPService.GeneratedOTP generated = otpService.createChallenge(
+                userId,
+                participant.getEmail(),
+                OTP_PURPOSE_STUDENT_AFFILIATION
+        );
 
         try {
-            emailService.sendStudentAffiliationOTP(participant.getEmail(), college.getName(), generateOTPFromChallenge(challenge));
+            emailService.sendStudentAffiliationOTP(
+                    participant.getEmail(),
+                    college.getName(),
+                    generated.rawOtp()
+            );
+
         } catch (Exception e) {
-            otpService.deleteChallenge(challenge);
-            throw new BadRequestException("Failed to send verification email. Please try again later.");
+            otpService.deleteChallenge(generated.challenge());
+
+            throw new BadRequestException(
+                    "Failed to send verification email. Please try again later."
+            );
         }
 
         participant.setCollegeVerificationStatus("PENDING");
         participant.setUpdatedAt(LocalDateTime.now());
+
         userRepository.save(participant);
     }
 
     // Participant: Verify student affiliation OTP
-    @Transactional
+    @Transactional(noRollbackFor =  BadRequestException.class)
     public void verifyStudentAffiliationOTP(String userId, String otp) {
+
         User participant = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        String email = participant.getEmail();
-
-        Optional<OTPChallenge> challengeOpt = otpService.findValidChallenge(userId, email, OTP_PURPOSE_STUDENT_AFFILIATION);
-        if (challengeOpt.isEmpty()) {
-            throw new BadRequestException("Invalid or expired OTP challenge");
+        if (participant.getCollegeId() == null) {
+            throw new BadRequestException("No college selected");
         }
 
-        OTPChallenge challenge = challengeOpt.get();
-        if (!otpService.verifyOTP(challenge, otp)) {
-            throw new BadRequestException("Invalid OTP. Attempts remaining: " + (challenge.getMaxAttempts() - challenge.getAttempts()));
-        }
-
-        if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
-            otpService.deleteChallenge(challenge);
-            throw new BadRequestException("Maximum OTP attempts exceeded");
+        if ("VERIFIED".equals(participant.getCollegeVerificationStatus())) {
+            throw new BadRequestException("You are already verified");
         }
 
         College college = collegeRepository.findById(participant.getCollegeId())
                 .orElseThrow(() -> new ResourceNotFoundException("College not found"));
 
+        if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED
+                || college.getVerificationMode() != CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            throw new BadRequestException("College does not support domain verification");
+        }
+
+        String userDomain = extractDomain(participant.getEmail());
+
+        if (userDomain == null
+                || college.getVerifiedDomains() == null
+                || !college.getVerifiedDomains().contains(userDomain)) {
+            throw new BadRequestException("Email domain does not match the college");
+        }
+
+        Optional<OTPChallenge> challengeOpt = otpService.findValidChallenge(
+                userId,
+                participant.getEmail(),
+                OTP_PURPOSE_STUDENT_AFFILIATION
+        );
+
+        if (challengeOpt.isEmpty()) {
+            throw new BadRequestException("Invalid or expired OTP challenge");
+        }
+
+        OTPChallenge challenge = challengeOpt.get();
+
+        if (!otpService.verifyOTP(challenge, otp)) {
+
+            int remaining = challenge.getMaxAttempts() - challenge.getAttempts();
+
+            if (remaining <= 0) {
+                otpService.deleteChallenge(challenge);
+                throw new BadRequestException("Maximum OTP attempts exceeded. Request a new code.");
+            }
+
+            throw new BadRequestException(
+                    "Invalid OTP. Attempts remaining: " + remaining
+            );
+        }
+
         participant.setCollegeVerificationStatus("VERIFIED");
         participant.setCollegeVerifiedAt(LocalDateTime.now());
-        participant.setCollegeVerifiedBy(college.getId()); // or use a system ID
+        participant.setCollegeVerifiedBy(college.getId());
         participant.setUpdatedAt(LocalDateTime.now());
+
         userRepository.save(participant);
 
         otpService.deleteChallenge(challenge);
+
         log.info("Student affiliation verified for user: {}", participant.getEmail());
     }
 
     // Participant: Submit manual affiliation request
     @Transactional
     public CollegeAffiliationRequest submitManualAffiliationRequest(String userId, String studentIdentifier,
-            String course, String department, String documentStoragePath) {
+                                                                    String course, String department, StoredDocument document) {
         User participant = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
 
         if (participant.getCollegeId() == null) {
             throw new BadRequestException("No college selected");
@@ -533,13 +654,20 @@ public class CollegeVerificationService {
             throw new BadRequestException("Student identifier is required");
         }
 
+        if(document == null || document.getStoragePath() == null || document.getStoragePath().isBlank()) {
+            throw new BadRequestException("Supporting document is required.");
+        }
+
         CollegeAffiliationRequest request = CollegeAffiliationRequest.builder()
                 .participantId(userId)
                 .collegeId(participant.getCollegeId())
                 .studentIdentifier(studentIdentifier.trim())
                 .course(course != null ? course.trim() : null)
                 .department(department != null ? department.trim() : null)
-                .supportingDocumentId(documentStoragePath)
+                .supportingDocumentStorageName(document.getStoragePath())
+                .supportingDocumentOriginalFilename(document.getOriginalFilename())
+                .supportingDocumentContentType(document.getContentType())
+                .supportingDocumentSize(document.getSize())
                 .status("PENDING")
                 .submittedAt(LocalDateTime.now())
                 .build();
@@ -552,6 +680,30 @@ public class CollegeVerificationService {
 
         log.info("Manual affiliation request submitted for user: {}", participant.getEmail());
         return saved;
+    }
+
+    public CollegeAffiliationRequest getAffiliationRequestForDocument(
+            String requestId,
+            String userId
+    ) {
+        CollegeAffiliationRequest request = collegeAffiliationRequestRepository
+                .findById(requestId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Affiliation request not found")
+                );
+
+        verifyCollegeAdminPermission(
+                userId,
+                request.getCollegeId(),
+                "VIEW_AFFILIATION_DOCUMENTS"
+        );
+
+        if (request.getSupportingDocumentStorageName() == null
+                || request.getSupportingDocumentStorageName().isBlank()) {
+            throw new ResourceNotFoundException("Supporting document not found");
+        }
+
+        return request;
     }
 
     // Participant: Get own affiliation status
@@ -606,25 +758,40 @@ public class CollegeVerificationService {
         if (email == null || !email.contains("@")) return null;
         return email.substring(email.lastIndexOf("@") + 1).toLowerCase();
     }
+    private void verifyCollegeAdminPermission(
+            String userId,
+            String collegeId,
+            String requiredPermission
+    ) {
+        CollegeAdminAssignment assignment = collegeAdminAssignmentRepository
+                .findByUserIdAndCollegeIdAndStatus(
+                        userId,
+                        collegeId,
+                        CollegeAdminAssignmentStatus.ACTIVE
+                )
+                .orElseThrow(() ->
+                        new BadRequestException(
+                                "You are not authorized for this college"
+                        )
+                );
+
+        List<String> permissions = assignment.getPermissions();
+
+        if (permissions == null || !permissions.contains(requiredPermission)) {
+            throw new BadRequestException(
+                    "You do not have permission: " + requiredPermission
+            );
+        }
+    }
 
     private void verifyCollegeAdminAccess(String userId, String collegeId) {
-        Optional<CollegeAdminAssignment> assignment = collegeAdminAssignmentRepository
-                .findByUserIdAndCollegeIdAndStatus(userId, collegeId, CollegeAdminAssignmentStatus.ACTIVE);
-        if (assignment.isEmpty()) {
-            throw new BadRequestException("You are not authorized as College Admin for this college");
-        }
-        // Check permissions
-        List<String> permissions = assignment.get().getPermissions();
-        if (permissions == null || !permissions.contains("REVIEW_STUDENT_AFFILIATION")) {
-            throw new BadRequestException("You do not have permission to review affiliation requests");
-        }
+        verifyCollegeAdminPermission(
+                userId,
+                collegeId,
+                "REVIEW_STUDENT_AFFILIATION"
+        );
     }
 
-    private String generateOTPFromChallenge(OTPChallenge challenge) {
-        // In production, we would send the actual OTP before hashing
-        // For this implementation, we regenerate and send a new OTP
-        return otpService.generateOTP();
-    }
 
     private CollegeApplicationResponse toResponse(CollegeApplication application) {
         CollegeApplicationResponse response = new CollegeApplicationResponse();

@@ -144,15 +144,25 @@ export const verifyStudentAffiliationOTP = async (otp) => {
 };
 
 export const submitManualAffiliationRequest = async (data) => {
+    if (!data.document) {
+        throw new Error("Supporting document is required.");
+    }
     const formData = new FormData();
     formData.append('studentIdentifier', data.studentIdentifier);
     if (data.course) formData.append('course', data.course);
     if (data.department) formData.append('department', data.department);
-    if (data.document) formData.append('document', data.document);
+    formData.append('document', data.document);
     const response = await api.post('/api/colleges/participant/college-affiliation/requests', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response.data;
+};
+
+export const downloadAffiliationDocument = async (requestId) => {
+    const response = await api.get(`/api/colleges/college-admin/affiliation-requests/${requestId}/documents`, {
+        responseType: 'blob'
+    });
+    return response;
 };
 
 export const getMyAffiliationStatus = async () => {

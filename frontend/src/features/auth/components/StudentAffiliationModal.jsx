@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   ShieldCheck,
@@ -46,7 +47,7 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
   const [successMessage, setSuccessMessage] = useState("");
 
   // Determine college mode: default to user's college mode or OFFICIAL_DOMAIN
-  const collegeMode = user?.collegeVerificationMode || "OFFICIAL_DOMAIN";
+  const collegeMode = user?.collegeVerificationMode || affiliationData?.verificationMode || "OFFICIAL_DOMAIN";
   const currentStatus = user?.collegeVerificationStatus || affiliationData?.status || "UNVERIFIED";
 
   // Fetch status on open
@@ -150,6 +151,11 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
       return;
     }
 
+    if (!documentFile) {
+      setGeneralError("Supporting document (Student ID Card) is required.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setGeneralError("");
@@ -172,7 +178,7 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -489,11 +495,12 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Student ID Card Document (PDF, JPG, PNG)
+                      Student ID Card Document (PDF, JPG, PNG) <span className="text-rose-500">*</span>
                     </label>
                     <div className="relative border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50/50">
                       <input
                         type="file"
+                        required
                         accept=".pdf,.png,.jpg,.jpeg"
                         onChange={(e) => setDocumentFile(e.target.files?.[0] || null)}
                         className="absolute inset-0 opacity-0 cursor-pointer"
@@ -511,7 +518,7 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={isSubmitting || !studentId.trim()}
+                      disabled={isSubmitting || !studentId.trim() || !documentFile}
                       className="w-full py-2.5 px-4 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {isSubmitting ? (
@@ -533,7 +540,8 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import com.vansh.eventsphere.eventsphere.auth.dto.*;
 import com.vansh.eventsphere.eventsphere.auth.security.JwtService;
 import com.vansh.eventsphere.eventsphere.auth.security.RefreshTokenService;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationMode;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import com.vansh.eventsphere.eventsphere.refresh_token.model.RefreshToken;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -69,6 +70,16 @@ public class AuthService {
             throw new BadRequestException("College is not verified. Only verified colleges can register organizers.");
         }
 
+        if (college.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
+                && college.getVerifiedDomains() != null
+                && !college.getVerifiedDomains().isEmpty()) {
+            String domain = extractDomain(normalizedEmail);
+            if (domain == null || !college.getVerifiedDomains().contains(domain)) {
+                throw new BadRequestException("Organizer email must belong to the college's verified domain: "
+                        + String.join(", ", college.getVerifiedDomains()));
+            }
+        }
+
         User organizer = User.builder()
         .name(request.getName())
         .email(normalizedEmail)
@@ -109,6 +120,16 @@ public class AuthService {
 
         if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED) {
             throw new BadRequestException("College is not verified. Only verified colleges can register participants.");
+        }
+
+        if (college.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
+                && college.getVerifiedDomains() != null
+                && !college.getVerifiedDomains().isEmpty()) {
+            String domain = extractDomain(email);
+            if (domain == null || !college.getVerifiedDomains().contains(domain)) {
+                throw new BadRequestException("Participant email must belong to the college's verified domain: "
+                        + String.join(", ", college.getVerifiedDomains()));
+            }
         }
 
 
@@ -221,6 +242,11 @@ public class AuthService {
 
         log.info("User logged out successfully");
 
+    }
+
+    private String extractDomain(String email) {
+        if (email == null || !email.contains("@")) return null;
+        return email.substring(email.lastIndexOf("@") + 1).toLowerCase();
     }
 
 }

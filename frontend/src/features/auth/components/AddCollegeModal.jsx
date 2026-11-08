@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Building2,
@@ -142,8 +143,8 @@ export default function AddCollegeModal({
       const payload = {
         name: name.trim(),
         code: code.trim().toUpperCase(),
-        website: website.trim(),
-        address: address.trim(),
+        officialWebsite: website.trim() || null,
+        address: address.trim() || null,
         verificationMode,
         proposedDomain: verificationMode === "OFFICIAL_DOMAIN" ? proposedDomain.trim().toLowerCase() : null,
         domainContactEmail: verificationMode === "OFFICIAL_DOMAIN" ? domainContactEmail.trim().toLowerCase() : null,
@@ -231,7 +232,9 @@ export default function AddCollegeModal({
     }
   };
 
-  return (
+  if (!isOpen) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -608,6 +611,7 @@ export default function AddCollegeModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

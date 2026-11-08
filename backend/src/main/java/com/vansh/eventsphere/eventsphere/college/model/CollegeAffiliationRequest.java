@@ -33,7 +33,10 @@ public class CollegeAffiliationRequest {
 
     private String department;
 
-    private String supportingDocumentId;
+    private String supportingDocumentStorageName;
+    private String supportingDocumentOriginalFilename;
+    private String supportingDocumentContentType;
+    private long supportingDocumentSize;
 
     private String status;
 

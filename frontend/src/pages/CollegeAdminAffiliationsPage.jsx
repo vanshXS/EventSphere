@@ -13,14 +13,16 @@ import {
   FileText,
   GraduationCap,
   Building2,
-  Eye
+  Eye,
+  Download
 } from "lucide-react";
 import { useAuth } from "../features/auth/AuthContext";
 import AppHeader from "../components/common/AppHeader";
 import {
   getAffiliationRequests,
   approveAffiliationRequest,
-  rejectAffiliationRequest
+  rejectAffiliationRequest,
+  downloadAffiliationDocument
 } from "../features/auth/authApi";
 import { useToast } from "../components/common/ToastContext";
 
@@ -66,6 +68,7 @@ export default function CollegeAdminAffiliationsPage() {
 
   // Detail view
   const [viewingReq, setViewingReq] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const collegeId = user?.collegeId;
 
@@ -126,6 +129,29 @@ export default function CollegeAdminAffiliationsPage() {
       addToast(err.response?.data?.message || "Failed to reject affiliation.", "error");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDownloadDocument = async (req) => {
+    try {
+      setDownloadingId(req.id);
+      const response = await downloadAffiliationDocument(req.id);
+      const blob = new Blob([response.data], {
+        type: req.supportingDocumentContentType || "application/octet-stream"
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = req.supportingDocumentOriginalFilename || `affiliation-doc-${req.studentIdentifier || req.id}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Document download error:", err);
+      addToast(err.response?.data?.message || "Failed to download document.", "error");
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -288,11 +314,21 @@ export default function CollegeAdminAffiliationsPage() {
                           <span className="font-mono font-bold text-slate-800">
                             {req.studentIdentifier || "—"}
                           </span>
-                          {req.supportingDocumentId && (
-                            <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-indigo-600 font-medium bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">
-                              <FileText className="w-2.5 h-2.5" />
+                          {req.supportingDocumentStorageName && (
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadDocument(req)}
+                              disabled={downloadingId === req.id}
+                              title="Download supporting document"
+                              className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-indigo-600 hover:text-indigo-800 font-medium bg-indigo-50 hover:bg-indigo-100 px-1.5 py-0.5 rounded border border-indigo-100 transition-colors cursor-pointer"
+                            >
+                              {downloadingId === req.id ? (
+                                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              ) : (
+                                <FileText className="w-2.5 h-2.5" />
+                              )}
                               Doc
-                            </span>
+                            </button>
                           )}
                         </div>
                       </div>
@@ -416,13 +452,22 @@ export default function CollegeAdminAffiliationsPage() {
                     {viewingReq.submittedAt ? new Date(viewingReq.submittedAt).toLocaleString() : "—"}
                   </span>
                 </div>
-                {viewingReq.supportingDocumentId && (
+                {viewingReq.supportingDocumentStorageName && (
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400">Document</span>
-                    <span className="inline-flex items-center gap-1 font-medium text-indigo-600">
-                      <FileText className="w-3.5 h-3.5" />
-                      Attached (review in admin portal)
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDocument(viewingReq)}
+                      disabled={downloadingId === viewingReq.id}
+                      className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-100 transition-colors cursor-pointer text-xs"
+                    >
+                      {downloadingId === viewingReq.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5" />
+                      )}
+                      Download Document
+                    </button>
                   </div>
                 )}
                 {viewingReq.rejectionReason && (

@@ -3,6 +3,7 @@ package com.vansh.eventsphere.eventsphere.auth.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -41,6 +42,7 @@ public class SecurityConfig {
                                         "/api/judge/invitations/**"
                                 )
                                 .permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/colleges").denyAll()
                                 .requestMatchers("/api/colleges/super-admin/**")
                                 .hasRole("SUPER_ADMIN")
                                 .requestMatchers("/api/colleges/college-admin/**")

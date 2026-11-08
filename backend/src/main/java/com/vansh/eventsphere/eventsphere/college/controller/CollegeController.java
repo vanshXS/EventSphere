@@ -1,5 +1,6 @@
 package com.vansh.eventsphere.eventsphere.college.controller;
 
+import com.vansh.eventsphere.eventsphere.college.dto.CollegeSummaryResponse;
 import com.vansh.eventsphere.eventsphere.college.model.College;
 import com.vansh.eventsphere.eventsphere.college.service.CollegeService;
 
@@ -17,7 +18,7 @@ public class CollegeController {
     private final CollegeService collegeService;
 
     @GetMapping("/search")
-    public List<College> searchCollege(
+    public List<CollegeSummaryResponse> searchCollege(
             @RequestParam String name
     ) {
 
@@ -25,18 +26,10 @@ public class CollegeController {
     }
 
     @GetMapping("/{id}")
-    public College getCollegeById(
+    public CollegeSummaryResponse getCollegeById(
             @PathVariable String id
     ) {
         return collegeService.getCollegeById(id);
     }
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public College createCollege(
-            @RequestBody College college
-    ) {
-
-        return collegeService.createCollege(college);
-    }
 }

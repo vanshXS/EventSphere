@@ -135,7 +135,9 @@ export default function CollegeSelector({
     const collegeObj = {
       id: college.id || college._id || String(Date.now()),
       name: college.name,
-      code: college.code
+      code: college.code,
+      verificationMode: college.verificationMode,
+      verifiedDomains: college.verifiedDomains || []
     };
     setInternalSelected(collegeObj);
     setSearchText(collegeObj.name);

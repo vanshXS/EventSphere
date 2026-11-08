@@ -2,6 +2,10 @@ package com.vansh.eventsphere.eventsphere.college.controller;
 
 import java.util.List;
 
+import com.vansh.eventsphere.eventsphere.college.model.StoredDocument;
+import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
+
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -9,6 +13,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.nio.charset.StandardCharsets;
+
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import com.vansh.eventsphere.eventsphere.college.dto.AssignCollegeAdminRequest;
 import com.vansh.eventsphere.eventsphere.college.dto.CollegeApplicationRequest;
@@ -57,13 +67,8 @@ public class CollegeVerificationController {
     @PostMapping("/applications/{applicationId}/domain-otp/verify")
     public void verifyDomainOTP(
             @PathVariable String applicationId,
-            @Valid @RequestBody VerifyDomainOTPRequest request,
-            Authentication authentication) {
-        // Get email from authenticated user or request body
-        String email = authentication != null ? authentication.getName() : request.getEmail();
-        // Actually we need to pass email from the request
-        // Let's use a different approach - the email should come from the challenge
-        collegeVerificationService.verifyDomainOTP(applicationId, email, request.getOtp());
+            @Valid @RequestBody VerifyDomainOTPRequest request) {
+        collegeVerificationService.verifyDomainOTP(applicationId, request.getEmail(), request.getOtp());
     }
 
     // Super Admin: List pending applications
@@ -155,12 +160,44 @@ public class CollegeVerificationController {
 
     // College Admin: Download affiliation documents
     @GetMapping("/college-admin/affiliation-requests/{requestId}/documents")
-    public ResponseEntity<org.springframework.core.io.Resource> downloadAffiliationDocument(
+    public ResponseEntity<Resource> downloadAffiliationDocument(
             @PathVariable String requestId,
-            Authentication authentication) {
+            Authentication authentication
+    ) {
         String userId = getUserId(authentication);
-        // Implementation
-        throw new UnsupportedOperationException("Document download not yet implemented");
+
+        CollegeAffiliationRequest request =
+                collegeVerificationService.getAffiliationRequestForDocument(
+                        requestId,
+                        userId
+                );
+
+        Resource resource = documentStorageService.load(
+                request.getSupportingDocumentStorageName()
+        );
+
+        MediaType contentType;
+
+        try {
+            contentType = MediaType.parseMediaType(
+                    request.getSupportingDocumentContentType()
+            );
+        } catch (Exception e) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        String filename = request.getSupportingDocumentOriginalFilename();
+
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(filename, StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .body(resource);
     }
 
     // Participant: Send student affiliation OTP
@@ -185,15 +222,18 @@ public class CollegeVerificationController {
             @RequestParam String studentIdentifier,
             @RequestParam(required = false) String course,
             @RequestParam(required = false) String department,
-            @RequestParam(required = false) MultipartFile document,
+            @RequestParam MultipartFile document,
             Authentication authentication) {
         String userId = getUserId(authentication);
         String documentPath = null;
-        if (document != null && !document.isEmpty()) {
-            // Store document
-            documentPath = documentStorageService.store(document).getStoragePath();
-        }
-        return collegeVerificationService.submitManualAffiliationRequest(userId, studentIdentifier, course, department, documentPath);
+
+       if(document == null || document.isEmpty()) {
+           throw new BadRequestException("Supporting document is required.");
+       }
+
+        StoredDocument storedDocument = documentStorageService.store(document);
+
+        return collegeVerificationService.submitManualAffiliationRequest(userId, studentIdentifier, course, department, storedDocument);
     }
 
     // Participant: Get own affiliation status
@@ -203,17 +243,25 @@ public class CollegeVerificationController {
         return collegeVerificationService.getMyAffiliationRequest(userId);
     }
 
-    private void verifySuperAdmin(Authentication authentication) {
-        User user = userRepository.findByEmail(authentication.getName())
+    private User resolveAuthenticatedUser(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
+        String principal = authentication.getName();
+        return userRepository.findById(principal)
+                .or(() -> userRepository.findByEmail(principal))
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    }
+
+    private void verifySuperAdmin(Authentication authentication) {
+        User user = resolveAuthenticatedUser(authentication);
         if (user.getRole() != com.vansh.eventsphere.eventsphere.user.model.Role.SUPER_ADMIN) {
             throw new IllegalArgumentException("Super Admin access required");
         }
     }
 
     private String getUserId(Authentication authentication) {
-        User user = userRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = resolveAuthenticatedUser(authentication);
         return user.getUserId();
     }
 }

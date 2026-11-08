@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 import java.util.UUID;
 
 import org.springframework.core.io.Resource;
@@ -48,7 +49,7 @@ public class DocumentStorageService {
         String contentType = file.getContentType();
         long size = file.getSize();
 
-        validateFile(originalName, contentType, size);
+        validateFile(file);
 
         String storedName = UUID.randomUUID().toString() + extension(originalName);
         Path target = storageRoot.resolve(storedName).normalize();
@@ -87,10 +88,14 @@ public class DocumentStorageService {
         }
     }
 
-    private void validateFile(String originalName, String contentType, long size) {
+    private void validateFile(MultipartFile file) {
+        String originalName = file.getOriginalFilename();
+
         if (originalName == null || originalName.trim().isEmpty()) {
             throw new IllegalArgumentException("File name is required");
         }
+
+        long size = file.getSize();
 
         if (size <= 0) {
             throw new IllegalArgumentException("File is empty");
@@ -101,34 +106,65 @@ public class DocumentStorageService {
         }
 
         String ext = extension(originalName).toLowerCase();
-        if (!ext.equals(".pdf") && !ext.equals(".jpg") && !ext.equals(".jpeg") && !ext.equals(".png")) {
-            throw new IllegalArgumentException("Unsupported file type. Allowed: PDF, JPG, PNG");
+
+        if (!ext.equals(".pdf")
+                && !ext.equals(".jpg")
+                && !ext.equals(".jpeg")
+                && !ext.equals(".png")) {
+            throw new IllegalArgumentException(
+                    "Unsupported file type. Allowed: PDF, JPG, PNG"
+            );
         }
 
-        if (!hasValidSignature(originalName, contentType)) {
-            throw new IllegalArgumentException("File signature does not match allowed type");
+        try (InputStream inputStream = file.getInputStream()) {
+            byte[] header = inputStream.readNBytes(8);
+
+            if (!hasValidSignature(ext, header)) {
+                throw new IllegalArgumentException(
+                        "File content does not match the declared file type"
+                );
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not validate uploaded file", e);
         }
     }
 
-    private boolean hasValidSignature(String originalName, String contentType) {
-        String ext = extension(originalName).toLowerCase();
-        if (ext.equals(".pdf")) {
-            return contentType == null
-                    || contentType.contains("pdf")
-                    || contentType.contains("octet-stream");
+    private boolean hasValidSignature(String extension, byte[] header) {
+
+        if (extension.equals(".pdf")) {
+            byte[] pdfSignature = {
+                    0x25, 0x50, 0x44, 0x46, 0x2D
+            };
+
+            return startsWith(header, pdfSignature);
         }
-        if (ext.equals(".jpg") || ext.equals(".jpeg")) {
-            return contentType == null
-                    || contentType.contains("jpeg")
-                    || contentType.contains("jpg")
-                    || contentType.contains("octet-stream");
+
+        if (extension.equals(".jpg") || extension.equals(".jpeg")) {
+            byte[] jpegSignature = {
+                    (byte) 0xFF, (byte) 0xD8, (byte) 0xFF
+            };
+
+            return startsWith(header, jpegSignature);
         }
-        if (ext.equals(".png")) {
-            return contentType == null
-                    || contentType.contains("png")
-                    || contentType.contains("octet-stream");
+
+        if (extension.equals(".png")) {
+            byte[] pngSignature = {
+                    (byte) 0x89, 0x50, 0x4E, 0x47,
+                    0x0D, 0x0A, 0x1A, 0x0A
+            };
+
+            return startsWith(header, pngSignature);
         }
+
         return false;
+    }
+
+    private boolean startsWith(byte[] actual, byte[] expected) {
+        return actual.length >= expected.length
+                && Arrays.equals(
+                Arrays.copyOf(actual, expected.length),
+                expected
+        );
     }
 
     private String extension(String filename) {
