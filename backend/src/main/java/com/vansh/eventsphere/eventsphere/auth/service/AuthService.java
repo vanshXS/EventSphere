@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.vansh.eventsphere.eventsphere.college.model.College;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationStatus;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeRepository;
 import com.vansh.eventsphere.eventsphere.user.model.Role;
 import com.vansh.eventsphere.eventsphere.user.model.User;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import com.vansh.eventsphere.eventsphere.exception.ResourceAlreadyExistsException;
+import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
 
 @Service
 @RequiredArgsConstructor
@@ -41,17 +43,17 @@ public class AuthService {
     
 
     public void registerOrganizer(
-        OrganizerRegisterRequest 
+        OrganizerRegisterRequest
         request
     ) {
-         
+
         log.info("Organizer registration attempt: {}", request.getEmail()
         );
 
         String normalizedEmail = request.getEmail().trim().toLowerCase();
         if(userRepository.existsByEmail(normalizedEmail)){
             log.warn(
-                "Email already exists: {}", 
+                "Email already exists: {}",
                 request.getEmail()
             );
             throw new ResourceAlreadyExistsException("Email is already registered");
@@ -62,7 +64,11 @@ public class AuthService {
 
         College college = collegeRepository.findById(request.getCollegeId())
                 .orElseThrow(() -> new ResourceNotFoundException("College not found"));
- 
+
+        if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED) {
+            throw new BadRequestException("College is not verified. Only verified colleges can register organizers.");
+        }
+
         User organizer = User.builder()
         .name(request.getName())
         .email(normalizedEmail)
@@ -75,7 +81,7 @@ public class AuthService {
 
         userRepository.save(organizer);
         log.info(
-            "Organizer registered successfully: {}", 
+            "Organizer registered successfully: {}",
             normalizedEmail
         );
     }
@@ -101,6 +107,10 @@ public class AuthService {
             return new ResourceNotFoundException("College not found with code: " + collegeCode);
         });
 
+        if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED) {
+            throw new BadRequestException("College is not verified. Only verified colleges can register participants.");
+        }
+
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -113,6 +123,7 @@ public class AuthService {
                 .createdAt(now)
                 .updatedAt(now)
                 .collegeId(college.getId())
+                .collegeVerificationStatus("UNVERIFIED")
                 .build();
 
         userRepository.save(participant);
@@ -162,6 +173,7 @@ public class AuthService {
                 .collegeId(user.getCollegeId())
                 .collegeName(college != null ? college.getName() : null)
                 .collegeCode(college != null ? college.getCode() : null)
+                .collegeVerificationStatus(user.getCollegeVerificationStatus())
                 .build();
 
         return new AuthResult(response, accessToken, refreshToken);
@@ -191,6 +203,7 @@ public class AuthService {
                 .collegeId(user.getCollegeId())
                 .collegeName(refreshCollege != null ? refreshCollege.getName() : null)
                 .collegeCode(refreshCollege != null ? refreshCollege.getCode() : null)
+                .collegeVerificationStatus(user.getCollegeVerificationStatus())
                 .build();
 
         return new AuthResult(

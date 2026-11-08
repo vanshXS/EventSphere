@@ -20,6 +20,8 @@ public class AuthResponse {
     private String collegeId;
     private String collegeName;
     private String collegeCode;
+    private String collegeVerificationStatus;
 
 }
+
 

@@ -26,7 +26,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === "ORGANIZER") {
+      if (user.role === "SUPER_ADMIN") {
+        navigate("/super-admin/colleges", { replace: true });
+      } else if (user.role === "ORGANIZER") {
         navigate("/organizer", { replace: true });
       } else if (user.role === "PARTICIPANT") {
         navigate("/participant", { replace: true });
@@ -82,7 +84,9 @@ export default function LoginPage() {
       const user = await login(formData);
       loginUser(user);
 
-      if (user?.role === "ORGANIZER") {
+      if (user?.role === "SUPER_ADMIN") {
+        navigate("/super-admin/colleges");
+      } else if (user?.role === "ORGANIZER") {
         navigate("/organizer");
       } else if (user?.role === "PARTICIPANT") {
         navigate("/participant");

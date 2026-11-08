@@ -8,10 +8,13 @@ import {
 import {
   Loader2,
   Plus,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck
 } from "lucide-react";
 
 import { useAuth } from "../features/auth/AuthContext";
+import { getMyAffiliationStatus } from "../features/auth/authApi";
+import StudentAffiliationModal from "../features/auth/components/StudentAffiliationModal";
 
 import {
   getVisibleEvents,
@@ -44,11 +47,12 @@ import ParticipantLeaderboard from "../features/judging/components/ParticipantLe
 import { useToast } from "../components/common/ToastContext";
 
 export default function ParticipantDashboard() {
-  const { user, logoutUser } = useAuth();
+  const { user, updateUser, logoutUser } = useAuth();
   const addToast = useToast();
 
   const [activeTab, setActiveTab] = useState("EXPLORE");
   const [selectedResultActivityId, setSelectedResultActivityId] = useState(null);
+  const [isAffiliationModalOpen, setIsAffiliationModalOpen] = useState(false);
 
   const [events, setEvents] = useState([]);
   const [standaloneActivities, setStandaloneActivities] = useState([]);
@@ -92,10 +96,15 @@ export default function ParticipantDashboard() {
       getVisibleStandaloneActivities(),
       getMyRegistrations(),
       getMyTeams(),
-      getMyVolunteerAssignments()
+      getMyVolunteerAssignments(),
+      getMyAffiliationStatus().catch(() => null)
     ])
-      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData]) => {
+      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData]) => {
         if (ignore) return;
+
+        if (affiliationData && affiliationData.status && updateUser) {
+          updateUser({ collegeVerificationStatus: affiliationData.status });
+        }
 
         const sortByNewest = (list) =>
           (Array.isArray(list) ? list : []).slice().sort((a, b) => {
@@ -181,10 +190,22 @@ export default function ParticipantDashboard() {
       handleEventRegistrationSuccess(registration);
       setSelectedEventForDetails(null);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Could not register for this event."
-      );
+      const msg = err.response?.data?.message || "Could not register for this event.";
+      setError(msg);
+      if (
+        msg.toLowerCase().includes("college") ||
+        msg.toLowerCase().includes("affiliat") ||
+        msg.toLowerCase().includes("verification")
+      ) {
+        addToast(
+          "College verification required to register for this event.",
+          "error",
+          {
+            actionLabel: "Verify College Affiliation",
+            onAction: () => setIsAffiliationModalOpen(true)
+          }
+        );
+      }
     }
   };
 
@@ -299,9 +320,39 @@ export default function ParticipantDashboard() {
         teamsCount={myTeams.length}
         volunteerAssignmentsCount={volunteerAssignments.length}
         onLogout={logoutUser}
+        onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
       />
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        {/* College Affiliation Status Alert Banner */}
+        {user?.collegeVerificationStatus !== "VERIFIED" && (
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  {user?.collegeVerificationStatus === "PENDING"
+                    ? "College Affiliation Under Review"
+                    : "Verify Your College Affiliation"}
+                </h4>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {user?.collegeVerificationStatus === "PENDING"
+                    ? "Your institutional affiliation is pending verification by your College Admin. College-exclusive events will unlock once approved."
+                    : "Some campus competitions and events are restricted to verified students. Verify your affiliation to get full access."}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAffiliationModalOpen(true)}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 cursor-pointer transition-colors shadow-2xs"
+            >
+              {user?.collegeVerificationStatus === "PENDING" ? "View Status" : "Verify Now"}
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
             <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -456,6 +507,11 @@ export default function ParticipantDashboard() {
         isOpen={showCreateTeamModal}
         onClose={closeCreateTeam}
         onTeamCreated={handleTeamCreated}
+      />
+
+      <StudentAffiliationModal
+        isOpen={isAffiliationModalOpen}
+        onClose={() => setIsAffiliationModalOpen(false)}
       />
     </div>
   );

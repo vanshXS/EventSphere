@@ -21,7 +21,8 @@ export default function AppHeader({
   navItems = [],
   activeNav,
   onNavChange,
-  actions
+  actions,
+  onVerifyAffiliation
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -58,6 +59,8 @@ export default function AppHeader({
             collegeName={user?.collegeName}
             collegeCode={user?.collegeCode}
             collegeId={user?.collegeId}
+            verificationStatus={user?.collegeVerificationStatus}
+            onVerifyAffiliation={onVerifyAffiliation}
             className="hidden lg:flex"
           />
         </div>

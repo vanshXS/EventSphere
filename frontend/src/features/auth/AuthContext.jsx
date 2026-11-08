@@ -15,7 +15,7 @@ import { Loader2 } from "lucide-react";
 const AuthContext = createContext(null);
 
 const enrichUserData = async (userData) => {
-    if (!userData || !userData.collegeId || userData.collegeName) {
+    if (!userData || !userData.collegeId) {
         return userData;
     }
     try {
@@ -24,7 +24,10 @@ const enrichUserData = async (userData) => {
             return {
                 ...userData,
                 collegeName: college.name,
-                collegeCode: college.code
+                collegeCode: college.code,
+                collegeVerificationMode: college.verificationMode,
+                collegeVerificationStatus: college.verificationStatus,
+                verifiedDomains: college.verifiedDomains || []
             };
         }
     } catch (e) {
@@ -41,6 +44,21 @@ export default function AuthProvider({ children }) {
     const loginUser = async (userData) => {
         const enriched = await enrichUserData(userData);
         setUser(enriched);
+    };
+
+    const updateUser = (fields) => {
+        setUser((prev) => (prev ? { ...prev, ...fields } : prev));
+    };
+
+    const refreshUser = async () => {
+        try {
+            const userData = await refreshAccessToken();
+            const enriched = await enrichUserData(userData);
+            setUser(enriched);
+            return enriched;
+        } catch (error) {
+            console.error("Failed to refresh user:", error);
+        }
     };
 
     const logoutUser = async () => {
@@ -100,6 +118,8 @@ export default function AuthProvider({ children }) {
             value={{
                 user,
                 loginUser,
+                updateUser,
+                refreshUser,
                 logoutUser,
                 isLoading
             }}

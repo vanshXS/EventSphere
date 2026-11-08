@@ -35,12 +35,18 @@ public class SecurityConfig {
                                         "/api/auth/register/**",
                                         "/api/auth/login",
                                         "/api/auth/refresh",
-                                        "/api/colleges",
-                                        "/api/colleges/**",
+                                        "/api/colleges/search",
+                                        "/api/colleges/applications/**",
                                         "/api/staff/invitations/**",
                                         "/api/judge/invitations/**"
                                 )
                                 .permitAll()
+                                .requestMatchers("/api/colleges/super-admin/**")
+                                .hasRole("SUPER_ADMIN")
+                                .requestMatchers("/api/colleges/college-admin/**")
+                                .hasAnyRole("ORGANIZER", "PARTICIPANT", "JUDGE", "VOLUNTEER")
+                                .requestMatchers("/api/colleges/participant/**")
+                                .hasRole("PARTICIPANT")
                                 .requestMatchers("/api/organizer/**")
                                 .hasRole("ORGANIZER")
                                 .requestMatchers("/api/participant/**")

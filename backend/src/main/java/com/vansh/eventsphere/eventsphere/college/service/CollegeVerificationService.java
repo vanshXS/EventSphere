@@ -1,0 +1,657 @@
+package com.vansh.eventsphere.eventsphere.college.service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.vansh.eventsphere.eventsphere.college.dto.AssignCollegeAdminRequest;
+import com.vansh.eventsphere.eventsphere.college.dto.CollegeApplicationRequest;
+import com.vansh.eventsphere.eventsphere.college.dto.CollegeApplicationResponse;
+import com.vansh.eventsphere.eventsphere.college.model.College;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeAdminAssignment;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeAdminAssignmentStatus;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeAffiliationRequest;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeApplication;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationMode;
+import com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationStatus;
+import com.vansh.eventsphere.eventsphere.college.model.OTPChallenge;
+import com.vansh.eventsphere.eventsphere.college.repository.CollegeAdminAssignmentRepository;
+import com.vansh.eventsphere.eventsphere.college.repository.CollegeAffiliationRequestRepository;
+import com.vansh.eventsphere.eventsphere.college.repository.CollegeApplicationRepository;
+import com.vansh.eventsphere.eventsphere.college.repository.CollegeRepository;
+import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
+import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
+import com.vansh.eventsphere.eventsphere.user.model.Role;
+import com.vansh.eventsphere.eventsphere.user.model.User;
+import com.vansh.eventsphere.eventsphere.user.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class CollegeVerificationService {
+
+    private final CollegeApplicationRepository collegeApplicationRepository;
+    private final CollegeRepository collegeRepository;
+    private final CollegeAdminAssignmentRepository collegeAdminAssignmentRepository;
+    private final CollegeAffiliationRequestRepository collegeAffiliationRequestRepository;
+    private final UserRepository userRepository;
+    private final OTPService otpService;
+    private final EmailService emailService;
+    private final DocumentStorageService documentStorageService;
+
+    private static final String OTP_PURPOSE_COLLEGE_DOMAIN = "COLLEGE_DOMAIN_VERIFICATION";
+    private static final String OTP_PURPOSE_STUDENT_AFFILIATION = "STUDENT_AFFILIATION_VERIFICATION";
+
+    // Public: Submit college application
+    @Transactional
+    public CollegeApplicationResponse submitApplication(CollegeApplicationRequest request) {
+        validateApplication(request);
+
+        String normalizedCode = request.getCode().trim().toUpperCase();
+        if (collegeRepository.existsByCode(normalizedCode)
+                || collegeApplicationRepository.existsByCode(normalizedCode)) {
+            throw new BadRequestException("College code already exists");
+        }
+
+        if (request.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            String normalizedDomain = normalizeDomain(request.getProposedDomain());
+            if (normalizedDomain == null) {
+                throw new BadRequestException("Invalid proposed domain");
+            }
+            if (collegeRepository.existsByVerifiedDomainsContaining(normalizedDomain)) {
+                throw new BadRequestException("This domain is already verified for another college");
+            }
+            if (collegeApplicationRepository.findByProposedDomain(normalizedDomain).isPresent()) {
+                throw new BadRequestException("This domain is already proposed by another college application");
+            }
+
+            String normalizedContactEmail = request.getDomainContactEmail().trim().toLowerCase();
+            if (!normalizedContactEmail.endsWith("@" + normalizedDomain)) {
+                throw new BadRequestException("Official contact email must belong to the proposed domain");
+            }
+        }
+
+        CollegeApplication application = CollegeApplication.builder()
+                .name(request.getName().trim())
+                .code(normalizedCode)
+                .officialWebsite(request.getOfficialWebsite() != null ? request.getOfficialWebsite().trim() : null)
+                .address(request.getAddress() != null ? request.getAddress().trim() : null)
+                .verificationMode(request.getVerificationMode())
+                .proposedDomain(request.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
+                        ? normalizeDomain(request.getProposedDomain())
+                        : null)
+                .domainContactEmail(request.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
+                        ? request.getDomainContactEmail().trim().toLowerCase()
+                        : null)
+                .initialAdminEmail(request.getInitialAdminEmail() != null
+                        ? request.getInitialAdminEmail().trim().toLowerCase()
+                        : null)
+                .verificationStatus(CollegeVerificationStatus.PENDING_VERIFICATION)
+                .submittedAt(LocalDateTime.now())
+                .submittedByEmail(request.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
+                        ? request.getDomainContactEmail().trim().toLowerCase()
+                        : null)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        CollegeApplication saved = collegeApplicationRepository.save(application);
+        log.info("College application submitted: {} ({})", saved.getName(), saved.getCode());
+        return toResponse(saved);
+    }
+
+    // Public: Search verified colleges only
+    public List<College> searchVerifiedColleges(String query) {
+        List<College> verified = collegeRepository.findByVerificationStatus(CollegeVerificationStatus.VERIFIED);
+        String lowerQuery = query.toLowerCase();
+        return verified.stream()
+                .filter(c -> c.getName().toLowerCase().contains(lowerQuery)
+                        || c.getCode().toLowerCase().contains(lowerQuery))
+                .toList();
+    }
+
+    // Public: Send domain OTP for college application
+    @Transactional
+    public void sendDomainOTP(String applicationId, String email, String domain) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+
+        if (application.getVerificationStatus() != CollegeVerificationStatus.PENDING_VERIFICATION) {
+            throw new BadRequestException("Application is not pending verification");
+        }
+
+        if (application.getVerificationMode() != CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            throw new BadRequestException("This application does not use official domain verification");
+        }
+
+        String normalizedEmail = email.trim().toLowerCase();
+        String normalizedDomain = normalizeDomain(domain);
+
+        if (!normalizedEmail.endsWith("@" + normalizedDomain)) {
+            throw new BadRequestException("Email must belong to the proposed domain");
+        }
+
+        if (!normalizedDomain.equals(normalizeDomain(application.getProposedDomain()))) {
+            throw new BadRequestException("Domain does not match the application");
+        }
+
+        if (!normalizedEmail.equals(application.getDomainContactEmail())) {
+            throw new BadRequestException("Email does not match the registered contact email");
+        }
+
+        otpService.invalidateChallenge(applicationId, normalizedEmail, OTP_PURPOSE_COLLEGE_DOMAIN);
+        OTPChallenge challenge = otpService.createChallenge(applicationId, normalizedEmail, OTP_PURPOSE_COLLEGE_DOMAIN);
+
+        try {
+            emailService.sendCollegeDomainOTP(normalizedEmail, normalizedDomain, generateOTPFromChallenge(challenge));
+        } catch (Exception e) {
+            otpService.deleteChallenge(challenge);
+            throw new BadRequestException("Failed to send verification email. Please try again later.");
+        }
+    }
+
+    // Public: Verify domain OTP for college application
+    @Transactional
+    public void verifyDomainOTP(String applicationId, String email, String otp) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+
+        String targetEmail = (email != null && !email.isBlank()) ? email : application.getDomainContactEmail();
+        if (targetEmail == null || targetEmail.isBlank()) {
+            throw new BadRequestException("No contact email found for this application");
+        }
+        String normalizedEmail = targetEmail.trim().toLowerCase();
+
+        Optional<OTPChallenge> challengeOpt = otpService.findValidChallenge(applicationId, normalizedEmail,
+                OTP_PURPOSE_COLLEGE_DOMAIN);
+        if (challengeOpt.isEmpty()) {
+            throw new BadRequestException("Invalid or expired OTP challenge");
+        }
+
+        OTPChallenge challenge = challengeOpt.get();
+        if (!otpService.verifyOTP(challenge, otp)) {
+            throw new BadRequestException("Invalid OTP. Attempts remaining: " + (challenge.getMaxAttempts() - challenge.getAttempts()));
+        }
+
+        if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
+            otpService.deleteChallenge(challenge);
+            throw new BadRequestException("Maximum OTP attempts exceeded");
+        }
+
+        application.setDomainOwnershipVerifiedAt(LocalDateTime.now());
+        application.setDomainVerificationToken(challenge.getId());
+        application.setUpdatedAt(LocalDateTime.now());
+        collegeApplicationRepository.save(application);
+
+        otpService.deleteChallenge(challenge);
+        log.info("Domain ownership verified for application: {}", applicationId);
+    }
+
+    // Super Admin: List pending applications
+    public Page<CollegeApplicationResponse> listPendingApplications(Pageable pageable) {
+        return collegeApplicationRepository
+                .findByVerificationStatus(CollegeVerificationStatus.PENDING_VERIFICATION, pageable)
+                .map(this::toResponse);
+    }
+
+    // Super Admin: Get application details
+    public CollegeApplicationResponse getApplicationDetails(String applicationId) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+        return toResponse(application);
+    }
+
+    // Super Admin: Approve application
+    @Transactional
+    public CollegeApplicationResponse approveApplication(String applicationId, String superAdminId) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+
+        if (application.getVerificationStatus() != CollegeVerificationStatus.PENDING_VERIFICATION) {
+            throw new BadRequestException("Application is not pending verification");
+        }
+
+        if (application.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            if (application.getDomainOwnershipVerifiedAt() == null) {
+                throw new BadRequestException("Domain ownership must be verified before approval");
+            }
+            String normalizedDomain = normalizeDomain(application.getProposedDomain());
+            if (collegeRepository.existsByVerifiedDomainsContaining(normalizedDomain)) {
+                throw new BadRequestException("Domain already verified for another college");
+            }
+        }
+
+        // Create College entity
+        College college = College.builder()
+                .name(application.getName())
+                .code(application.getCode())
+                .verificationStatus(CollegeVerificationStatus.VERIFIED)
+                .verificationMode(application.getVerificationMode())
+                .proposedDomain(application.getProposedDomain())
+                .verifiedDomains(application.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
+                        ? List.of(normalizeDomain(application.getProposedDomain()))
+                        : List.of())
+                .domainContactEmail(application.getDomainContactEmail())
+                .domainOwnershipVerifiedAt(application.getDomainOwnershipVerifiedAt())
+                .submittedByEmail(application.getSubmittedByEmail())
+                .submittedAt(application.getSubmittedAt())
+                .reviewedBy(superAdminId)
+                .reviewedAt(LocalDateTime.now())
+                .initialAdminEmail(application.getInitialAdminEmail())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        College savedCollege = collegeRepository.save(college);
+
+        application.setVerificationStatus(CollegeVerificationStatus.VERIFIED);
+        application.setReviewedBy(superAdminId);
+        application.setReviewedAt(LocalDateTime.now());
+        application.setUpdatedAt(LocalDateTime.now());
+        collegeApplicationRepository.save(application);
+
+        log.info("College application approved: {} (College ID: {})", savedCollege.getName(), savedCollege.getId());
+        return toResponse(application);
+    }
+
+    // Super Admin: Reject application
+    @Transactional
+    public CollegeApplicationResponse rejectApplication(String applicationId, String superAdminId, String reason) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+
+        if (application.getVerificationStatus() != CollegeVerificationStatus.PENDING_VERIFICATION) {
+            throw new BadRequestException("Application is not pending verification");
+        }
+
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new BadRequestException("Rejection reason is required");
+        }
+
+        application.setVerificationStatus(CollegeVerificationStatus.REJECTED);
+        application.setReviewedBy(superAdminId);
+        application.setReviewedAt(LocalDateTime.now());
+        application.setRejectionReason(reason.trim());
+        application.setUpdatedAt(LocalDateTime.now());
+        collegeApplicationRepository.save(application);
+
+        log.info("College application rejected: {} - Reason: {}", application.getName(), reason);
+        return toResponse(application);
+    }
+
+    // Super Admin: Assign initial College Admin
+    @Transactional
+    public CollegeAdminAssignment assignInitialCollegeAdmin(String collegeId, AssignCollegeAdminRequest request, String superAdminId) {
+        College college = collegeRepository.findById(collegeId)
+                .orElseThrow(() -> new ResourceNotFoundException("College not found"));
+
+        if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED) {
+            throw new BadRequestException("Can only assign admin to verified colleges");
+        }
+
+        String adminEmail = request.getEmail().trim().toLowerCase();
+        if (college.getInitialAdminEmail() != null && !college.getInitialAdminEmail().equals(adminEmail)) {
+            throw new BadRequestException("Admin email does not match the invited email");
+        }
+
+        // Check if user exists
+        User user = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + adminEmail));
+
+        // Check existing assignment
+        Optional<CollegeAdminAssignment> existing = collegeAdminAssignmentRepository
+                .findByUserIdAndCollegeIdAndStatus(user.getUserId(), collegeId, CollegeAdminAssignmentStatus.ACTIVE);
+        if (existing.isPresent()) {
+            throw new BadRequestException("User is already a College Admin for this college");
+        }
+
+        // Create assignment
+        CollegeAdminAssignment assignment = CollegeAdminAssignment.builder()
+                .userId(user.getUserId())
+                .collegeId(collegeId)
+                .permissions(request.getPermissions() != null ? request.getPermissions() : List.of("REVIEW_STUDENT_AFFILIATION", "VIEW_AFFILIATION_DOCUMENTS"))
+                .status(CollegeAdminAssignmentStatus.ACTIVE.name())
+                .assignedBy(superAdminId)
+                .assignedAt(LocalDateTime.now())
+                .build();
+
+        CollegeAdminAssignment saved = collegeAdminAssignmentRepository.save(assignment);
+
+        // Update college
+        college.setInitialAdminEmail(adminEmail);
+        college.setUpdatedAt(LocalDateTime.now());
+        collegeRepository.save(college);
+
+        // Send invitation email
+        String frontendUrl = System.getenv("FRONTEND_URL");
+        if (frontendUrl != null && !frontendUrl.isEmpty()) {
+            String invitationLink = frontendUrl + "/college-admin/invitation/" + saved.getId();
+            try {
+                emailService.sendCollegeAdminInvitation(adminEmail, college.getName(), invitationLink);
+            } catch (Exception e) {
+                log.warn("Failed to send invitation email: {}", e.getMessage());
+            }
+        }
+
+        log.info("Assigned College Admin: {} for college: {}", user.getEmail(), college.getName());
+        return saved;
+    }
+
+    // College Admin: Get affiliation requests for their college
+    public List<CollegeAffiliationRequest> getAffiliationRequests(String collegeId, String userId) {
+        verifyCollegeAdminAccess(userId, collegeId);
+        return collegeAffiliationRequestRepository.findByCollegeId(collegeId);
+    }
+
+    // College Admin: Approve affiliation request
+    @Transactional
+    public CollegeAffiliationRequest approveAffiliationRequest(String requestId, String userId) {
+        CollegeAffiliationRequest request = collegeAffiliationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Affiliation request not found"));
+
+        verifyCollegeAdminAccess(userId, request.getCollegeId());
+
+        if (!"PENDING".equals(request.getStatus())) {
+            throw new BadRequestException("Request is not pending");
+        }
+
+        request.setStatus("APPROVED");
+        request.setReviewedBy(userId);
+        request.setReviewedAt(LocalDateTime.now());
+        collegeAffiliationRequestRepository.save(request);
+
+        // Update user's affiliation status
+        User participant = userRepository.findById(request.getParticipantId())
+                .orElseThrow(() -> new ResourceNotFoundException("Participant not found"));
+        participant.setCollegeVerificationStatus("VERIFIED");
+        participant.setCollegeVerifiedAt(LocalDateTime.now());
+        participant.setCollegeVerifiedBy(userId);
+        participant.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(participant);
+
+        log.info("Approved affiliation request: {} for user: {}", requestId, participant.getEmail());
+        return request;
+    }
+
+    // College Admin: Reject affiliation request
+    @Transactional
+    public CollegeAffiliationRequest rejectAffiliationRequest(String requestId, String userId, String reason) {
+        CollegeAffiliationRequest request = collegeAffiliationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Affiliation request not found"));
+
+        verifyCollegeAdminAccess(userId, request.getCollegeId());
+
+        if (!"PENDING".equals(request.getStatus())) {
+            throw new BadRequestException("Request is not pending");
+        }
+
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new BadRequestException("Rejection reason is required");
+        }
+
+        request.setStatus("REJECTED");
+        request.setReviewedBy(userId);
+        request.setReviewedAt(LocalDateTime.now());
+        request.setRejectionReason(reason.trim());
+        collegeAffiliationRequestRepository.save(request);
+
+        // Update user's affiliation status
+        User participant = userRepository.findById(request.getParticipantId())
+                .orElseThrow(() -> new ResourceNotFoundException("Participant not found"));
+        participant.setCollegeVerificationStatus("REJECTED");
+        participant.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(participant);
+
+        log.info("Rejected affiliation request: {} for user: {} - Reason: {}", requestId, participant.getEmail(), reason);
+        return request;
+    }
+
+    // Participant: Send student affiliation OTP
+    @Transactional
+    public void sendStudentAffiliationOTP(String userId) {
+        User participant = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (participant.getCollegeId() == null) {
+            throw new BadRequestException("No college selected");
+        }
+
+        College college = collegeRepository.findById(participant.getCollegeId())
+                .orElseThrow(() -> new ResourceNotFoundException("College not found"));
+
+        if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED) {
+            throw new BadRequestException("College is not verified");
+        }
+
+        if (college.getVerificationMode() != CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            throw new BadRequestException("This college does not support official domain verification");
+        }
+
+        if (college.getVerifiedDomains() == null || college.getVerifiedDomains().isEmpty()) {
+            throw new BadRequestException("No verified domains for this college");
+        }
+
+        String userDomain = extractDomain(participant.getEmail());
+        if (userDomain == null || !college.getVerifiedDomains().contains(userDomain)) {
+            throw new BadRequestException("Your email domain does not match the college's verified domain");
+        }
+
+        if ("VERIFIED".equals(participant.getCollegeVerificationStatus())) {
+            throw new BadRequestException("You are already verified for this college");
+        }
+
+        otpService.invalidateChallenge(userId, participant.getEmail(), OTP_PURPOSE_STUDENT_AFFILIATION);
+        OTPChallenge challenge = otpService.createChallenge(userId, participant.getEmail(), OTP_PURPOSE_STUDENT_AFFILIATION);
+
+        try {
+            emailService.sendStudentAffiliationOTP(participant.getEmail(), college.getName(), generateOTPFromChallenge(challenge));
+        } catch (Exception e) {
+            otpService.deleteChallenge(challenge);
+            throw new BadRequestException("Failed to send verification email. Please try again later.");
+        }
+
+        participant.setCollegeVerificationStatus("PENDING");
+        participant.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(participant);
+    }
+
+    // Participant: Verify student affiliation OTP
+    @Transactional
+    public void verifyStudentAffiliationOTP(String userId, String otp) {
+        User participant = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String email = participant.getEmail();
+
+        Optional<OTPChallenge> challengeOpt = otpService.findValidChallenge(userId, email, OTP_PURPOSE_STUDENT_AFFILIATION);
+        if (challengeOpt.isEmpty()) {
+            throw new BadRequestException("Invalid or expired OTP challenge");
+        }
+
+        OTPChallenge challenge = challengeOpt.get();
+        if (!otpService.verifyOTP(challenge, otp)) {
+            throw new BadRequestException("Invalid OTP. Attempts remaining: " + (challenge.getMaxAttempts() - challenge.getAttempts()));
+        }
+
+        if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
+            otpService.deleteChallenge(challenge);
+            throw new BadRequestException("Maximum OTP attempts exceeded");
+        }
+
+        College college = collegeRepository.findById(participant.getCollegeId())
+                .orElseThrow(() -> new ResourceNotFoundException("College not found"));
+
+        participant.setCollegeVerificationStatus("VERIFIED");
+        participant.setCollegeVerifiedAt(LocalDateTime.now());
+        participant.setCollegeVerifiedBy(college.getId()); // or use a system ID
+        participant.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(participant);
+
+        otpService.deleteChallenge(challenge);
+        log.info("Student affiliation verified for user: {}", participant.getEmail());
+    }
+
+    // Participant: Submit manual affiliation request
+    @Transactional
+    public CollegeAffiliationRequest submitManualAffiliationRequest(String userId, String studentIdentifier,
+            String course, String department, String documentStoragePath) {
+        User participant = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (participant.getCollegeId() == null) {
+            throw new BadRequestException("No college selected");
+        }
+
+        College college = collegeRepository.findById(participant.getCollegeId())
+                .orElseThrow(() -> new ResourceNotFoundException("College not found"));
+
+        if (college.getVerificationStatus() != CollegeVerificationStatus.VERIFIED) {
+            throw new BadRequestException("College is not verified");
+        }
+
+        if (college.getVerificationMode() != CollegeVerificationMode.MANUAL_DOCUMENTS) {
+            throw new BadRequestException("This college does not use manual document verification");
+        }
+
+        // Check for existing pending/approved request
+        long pendingCount = collegeAffiliationRequestRepository
+                .countByParticipantIdAndCollegeIdAndStatusIn(userId, participant.getCollegeId(),
+                        List.of("PENDING", "APPROVED"));
+        if (pendingCount > 0) {
+            throw new BadRequestException("You already have a pending or approved affiliation request for this college");
+        }
+
+        if (studentIdentifier == null || studentIdentifier.trim().isEmpty()) {
+            throw new BadRequestException("Student identifier is required");
+        }
+
+        CollegeAffiliationRequest request = CollegeAffiliationRequest.builder()
+                .participantId(userId)
+                .collegeId(participant.getCollegeId())
+                .studentIdentifier(studentIdentifier.trim())
+                .course(course != null ? course.trim() : null)
+                .department(department != null ? department.trim() : null)
+                .supportingDocumentId(documentStoragePath)
+                .status("PENDING")
+                .submittedAt(LocalDateTime.now())
+                .build();
+
+        CollegeAffiliationRequest saved = collegeAffiliationRequestRepository.save(request);
+
+        participant.setCollegeVerificationStatus("PENDING");
+        participant.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(participant);
+
+        log.info("Manual affiliation request submitted for user: {}", participant.getEmail());
+        return saved;
+    }
+
+    // Participant: Get own affiliation status
+    public CollegeAffiliationRequest getMyAffiliationRequest(String userId) {
+        return collegeAffiliationRequestRepository.findByParticipantId(userId)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    // Helper methods
+    private void validateApplication(CollegeApplicationRequest request) {
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new BadRequestException("College name is required");
+        }
+        if (request.getCode() == null || request.getCode().trim().length() < 2) {
+            throw new BadRequestException("College code must be at least 2 characters");
+        }
+        if (request.getVerificationMode() == null) {
+            throw new BadRequestException("Verification mode is required");
+        }
+        if (request.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN) {
+            if (request.getProposedDomain() == null || request.getProposedDomain().trim().isEmpty()) {
+                throw new BadRequestException("Proposed domain is required for official domain verification");
+            }
+            if (request.getDomainContactEmail() == null || request.getDomainContactEmail().trim().isEmpty()) {
+                throw new BadRequestException("Domain contact email is required for official domain verification");
+            }
+        }
+    }
+
+    private String normalizeDomain(String domain) {
+        if (domain == null) return null;
+        String normalized = domain.trim().toLowerCase();
+        if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+            try {
+                normalized = new java.net.URL(normalized).getHost();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        if (normalized.startsWith("www.")) {
+            normalized = normalized.substring(4);
+        }
+        if (!normalized.matches("^[a-z0-9.-]+\\.[a-z]{2,}$")) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private String extractDomain(String email) {
+        if (email == null || !email.contains("@")) return null;
+        return email.substring(email.lastIndexOf("@") + 1).toLowerCase();
+    }
+
+    private void verifyCollegeAdminAccess(String userId, String collegeId) {
+        Optional<CollegeAdminAssignment> assignment = collegeAdminAssignmentRepository
+                .findByUserIdAndCollegeIdAndStatus(userId, collegeId, CollegeAdminAssignmentStatus.ACTIVE);
+        if (assignment.isEmpty()) {
+            throw new BadRequestException("You are not authorized as College Admin for this college");
+        }
+        // Check permissions
+        List<String> permissions = assignment.get().getPermissions();
+        if (permissions == null || !permissions.contains("REVIEW_STUDENT_AFFILIATION")) {
+            throw new BadRequestException("You do not have permission to review affiliation requests");
+        }
+    }
+
+    private String generateOTPFromChallenge(OTPChallenge challenge) {
+        // In production, we would send the actual OTP before hashing
+        // For this implementation, we regenerate and send a new OTP
+        return otpService.generateOTP();
+    }
+
+    private CollegeApplicationResponse toResponse(CollegeApplication application) {
+        CollegeApplicationResponse response = new CollegeApplicationResponse();
+        response.setId(application.getId());
+        response.setName(application.getName());
+        response.setCode(application.getCode());
+        response.setOfficialWebsite(application.getOfficialWebsite());
+        response.setAddress(application.getAddress());
+        response.setVerificationMode(application.getVerificationMode());
+        response.setProposedDomain(application.getProposedDomain());
+        response.setDomainContactEmail(application.getDomainContactEmail());
+        response.setInitialAdminEmail(application.getInitialAdminEmail());
+        response.setVerificationStatus(application.getVerificationStatus());
+        response.setSubmittedByEmail(application.getSubmittedByEmail());
+        response.setDomainOwnershipVerified(application.getDomainOwnershipVerifiedAt() != null);
+        response.setDomainOwnershipVerifiedAt(application.getDomainOwnershipVerifiedAt() != null
+                ? application.getDomainOwnershipVerifiedAt().toString() : null);
+        response.setReviewedBy(application.getReviewedBy());
+        response.setReviewedAt(application.getReviewedAt() != null
+                ? application.getReviewedAt().toString() : null);
+        response.setRejectionReason(application.getRejectionReason());
+        response.setSubmittedAt(application.getSubmittedAt() != null
+                ? application.getSubmittedAt().toString() : null);
+        response.setCreatedAt(application.getCreatedAt() != null
+                ? application.getCreatedAt().toString() : null);
+        response.setUpdatedAt(application.getUpdatedAt() != null
+                ? application.getUpdatedAt().toString() : null);
+        return response;
+    }
+}

@@ -1,10 +1,12 @@
 import React from "react";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, ShieldCheck, Clock, AlertCircle } from "lucide-react";
 
 export default function CollegeNavbarBadge({
   collegeName,
   collegeCode,
   collegeId,
+  verificationStatus,
+  onVerifyAffiliation,
   className = "",
   compact = false
 }) {
@@ -19,7 +21,7 @@ export default function CollegeNavbarBadge({
   const fullTooltip = [
     collegeName,
     collegeCode ? `Code: ${collegeCode}` : null,
-    collegeId ? `ID: ${collegeId}` : null
+    verificationStatus ? `Affiliation: ${verificationStatus}` : null
   ]
     .filter(Boolean)
     .join(" • ");
@@ -34,6 +36,9 @@ export default function CollegeNavbarBadge({
         <span className="text-xs font-semibold text-slate-800 max-w-[120px] truncate">
           {collegeCode || displayName}
         </span>
+        {verificationStatus === "VERIFIED" && (
+          <ShieldCheck className="w-3 h-3 text-emerald-600" />
+        )}
       </div>
     );
   }
@@ -57,6 +62,42 @@ export default function CollegeNavbarBadge({
               {collegeCode}
             </span>
           )}
+          {verificationStatus === "VERIFIED" ? (
+            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold tracking-tight bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+              Verified
+            </span>
+          ) : verificationStatus === "PENDING" ? (
+            <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold tracking-tight bg-amber-100 text-amber-800 border border-amber-200">
+              <Clock className="w-2.5 h-2.5 text-amber-600" />
+              Pending
+            </span>
+          ) : verificationStatus === "REJECTED" ? (
+            onVerifyAffiliation ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVerifyAffiliation();
+                }}
+                className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold tracking-tight bg-rose-100 text-rose-800 border border-rose-200 cursor-pointer hover:bg-rose-200 transition-colors"
+              >
+                <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
+                Rejected
+              </button>
+            ) : null
+          ) : onVerifyAffiliation ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onVerifyAffiliation();
+              }}
+              className="inline-flex items-center gap-1 rounded px-1.5 py-0.2 text-[9px] font-bold tracking-tight bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border border-indigo-200 cursor-pointer transition-colors"
+            >
+              Verify
+            </button>
+          ) : null}
         </div>
 
         <span className="text-xs font-semibold text-slate-800 group-hover:text-slate-900 truncate max-w-[140px] sm:max-w-[200px] md:max-w-[280px] lg:max-w-[340px] leading-tight">

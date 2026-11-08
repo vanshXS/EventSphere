@@ -18,6 +18,8 @@ import OrganizerJudgingPage from "../features/judging/pages/OrganizerJudgingPage
 import JudgeDashboardPage from "../features/judging/pages/JudgeDashboardPage";
 import JudgeRoundPage from "../features/judging/pages/JudgeRoundPage";
 import JudgeEvaluationPage from "../features/judging/pages/JudgeEvaluationPage";
+import SuperAdminCollegesPage from "../pages/SuperAdminCollegesPage";
+import CollegeAdminAffiliationsPage from "../pages/CollegeAdminAffiliationsPage";
 
 // Helper redirects for backward compatibility with older route bookmarks
 function EventOperationsRedirect({ tab, sub, vsub }) {
@@ -229,6 +231,26 @@ export default function AppRoutes() {
         <Route path="/judge/dashboard" element={<Navigate to="/judge" replace />} />
         <Route path="/dashboard" element={<Navigate to="/participant" replace />} />
         <Route path="/organizer/dashboard" element={<Navigate to="/organizer" replace />} />
+
+        {/* Super Admin Routes */}
+        <Route
+          path="/super-admin/colleges"
+          element={
+            <ProtectedRoutes allowedRole={["SUPER_ADMIN"]}>
+              <SuperAdminCollegesPage />
+            </ProtectedRoutes>
+          }
+        />
+
+        {/* College Admin Routes */}
+        <Route
+          path="/college-admin"
+          element={
+            <ProtectedRoutes allowedRole={["ORGANIZER", "PARTICIPANT", "JUDGE", "VOLUNTEER", "SUPER_ADMIN"]}>
+              <CollegeAdminAffiliationsPage />
+            </ProtectedRoutes>
+          }
+        />
 
         {/* Status / Error Routes */}
         <Route path="/unauthorized" element={<UnauthorizedPage />} />

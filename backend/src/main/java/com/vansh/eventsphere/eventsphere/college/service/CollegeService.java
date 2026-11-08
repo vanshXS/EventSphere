@@ -1,4 +1,4 @@
-package com.vansh.eventsphere.eventsphere.college.services;
+package com.vansh.eventsphere.eventsphere.college.service;
 
 import com.vansh.eventsphere.eventsphere.college.model.College;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeRepository;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { searchColleges } from "../authApi";
-import { Search, Loader2, CheckCircle2, X, AlertCircle, RefreshCw, Building, Plus, Info } from "lucide-react";
+import { Search, Loader2, CheckCircle2, X, AlertCircle, RefreshCw, Building, Plus, Info, ShieldCheck } from "lucide-react";
 import AddCollegeModal from "./AddCollegeModal";
 
 export default function CollegeSelector({
@@ -244,9 +244,13 @@ export default function CollegeSelector({
                 <p className="text-sm font-medium text-slate-900 truncate">
                   {activeCollege.name}
                 </p>
-                <div className="mt-0.5">
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                   <span className="inline-block px-2 py-0.5 text-xs font-mono font-medium text-emerald-800 bg-emerald-100/80 rounded border border-emerald-200">
                     {activeCollege.code}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    Verified Institution
                   </span>
                 </div>
               </div>
@@ -422,7 +426,11 @@ export default function CollegeSelector({
                             {college.name}
                           </p>
                         </div>
-                        <div className="shrink-0">
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                            <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                            Verified
+                          </span>
                           <span
                             className={`
                               inline-block px-2 py-0.5 text-xs font-mono font-medium rounded border transition-colors

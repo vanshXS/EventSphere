@@ -15,4 +15,7 @@ public interface CollegeRepository extends MongoRepository<College, String> {
     List<College> findByNameContainingIgnoreCase(String name);
     List<College> findByNameContainingIgnoreCaseOrCodeContainingIgnoreCase(String name, String code);
 
+    List<College> findByVerificationStatus(com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationStatus status);
+
+    boolean existsByVerifiedDomainsContaining(String domain);
 }

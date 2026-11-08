@@ -1,7 +1,8 @@
 package com.vansh.eventsphere.eventsphere.college.controller;
 
 import com.vansh.eventsphere.eventsphere.college.model.College;
-import com.vansh.eventsphere.eventsphere.college.services.CollegeService;
+import com.vansh.eventsphere.eventsphere.college.service.CollegeService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;

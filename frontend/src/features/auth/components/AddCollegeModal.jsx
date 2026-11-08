@@ -1,7 +1,24 @@
 import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { createCollege } from "../authApi";
-import { X, Building2, Loader2, AlertCircle } from "lucide-react";
+import {
+  X,
+  Building2,
+  Globe,
+  Mail,
+  ShieldCheck,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  KeyRound,
+  ArrowRight,
+  Clock,
+  UploadCloud
+} from "lucide-react";
+import {
+  submitCollegeApplication,
+  sendCollegeDomainOTP,
+  verifyCollegeDomainOTP
+} from "../authApi";
 
 export default function AddCollegeModal({
   isOpen,
@@ -9,34 +26,48 @@ export default function AddCollegeModal({
   onCollegeCreated,
   initialName = ""
 }) {
+  // Step state: "FORM" | "OTP" | "SUCCESS"
+  const [step, setStep] = useState("FORM");
+
+  // Form Fields
   const [name, setName] = useState(initialName);
   const [code, setCode] = useState("");
+  const [website, setWebsite] = useState("");
+  const [address, setAddress] = useState("");
+  const [verificationMode, setVerificationMode] = useState("OFFICIAL_DOMAIN"); // "OFFICIAL_DOMAIN" | "MANUAL_DOCUMENTS"
+  const [proposedDomain, setProposedDomain] = useState("");
+  const [domainContactEmail, setDomainContactEmail] = useState("");
+  const [initialAdminEmail, setInitialAdminEmail] = useState("");
+
+  // OTP Verification state
+  const [createdApplication, setCreatedApplication] = useState(null);
+  const [otp, setOtp] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+
+  // Status & Error states
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const nameInputRef = useRef(null);
-  const codeInputRef = useRef(null);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   // Sync initialName when modal opens
   useEffect(() => {
     if (isOpen) {
+      setStep("FORM");
       setName(initialName || "");
       setCode("");
+      setWebsite("");
+      setAddress("");
+      setVerificationMode("OFFICIAL_DOMAIN");
+      setProposedDomain("");
+      setDomainContactEmail("");
+      setInitialAdminEmail("");
+      setCreatedApplication(null);
+      setOtp("");
+      setCooldown(0);
       setFieldErrors({});
       setGeneralError("");
       setIsSubmitting(false);
-
-      // Focus appropriate input on open
-      const timer = setTimeout(() => {
-        if (initialName && initialName.trim().length > 0) {
-          codeInputRef.current?.focus();
-        } else {
-          nameInputRef.current?.focus();
-        }
-      }, 50);
-
-      return () => clearTimeout(timer);
     }
   }, [isOpen, initialName]);
 
@@ -59,95 +90,172 @@ export default function AddCollegeModal({
     };
   }, [isOpen, isSubmitting, onClose]);
 
+  // Resend cooldown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = setInterval(() => {
+      setCooldown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldown]);
+
   if (!isOpen) return null;
 
-  const validate = () => {
+  const validateForm = () => {
     const errors = {};
-    if (!name.trim()) {
-      errors.name = "College name is required";
-    }
+    if (!name.trim()) errors.name = "College / Institution name is required";
     if (!code.trim()) {
       errors.code = "College code is required";
     } else if (code.trim().length < 2) {
       errors.code = "College code must be at least 2 characters";
     }
+
+    if (verificationMode === "OFFICIAL_DOMAIN") {
+      const cleanDomain = proposedDomain.trim().toLowerCase();
+      if (!cleanDomain) {
+        errors.proposedDomain = "Official email domain is required (e.g. university.edu)";
+      } else if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanDomain)) {
+        errors.proposedDomain = "Please enter a valid domain (e.g. college.edu or college.ac.in)";
+      }
+
+      const cleanEmail = domainContactEmail.trim().toLowerCase();
+      if (!cleanEmail) {
+        errors.domainContactEmail = "Official contact email is required";
+      } else if (!cleanEmail.endsWith(`@${cleanDomain}`)) {
+        errors.domainContactEmail = `Email must belong to @${cleanDomain || "the proposed domain"}`;
+      }
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  // Submit initial application
+  const handleSubmitForm = async (e) => {
+    e.preventDefault();
     setGeneralError("");
 
-    if (!validate()) return;
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
-
     try {
-      const trimmedName = name.trim();
-      const trimmedCode = code.trim().toUpperCase();
-
-      const created = await createCollege({
-        name: trimmedName,
-        code: trimmedCode
-      });
-
-      const collegeObj = created?.data || created || {
-        id: created?.id || String(Date.now()),
-        name: trimmedName,
-        code: trimmedCode
+      const payload = {
+        name: name.trim(),
+        code: code.trim().toUpperCase(),
+        website: website.trim(),
+        address: address.trim(),
+        verificationMode,
+        proposedDomain: verificationMode === "OFFICIAL_DOMAIN" ? proposedDomain.trim().toLowerCase() : null,
+        domainContactEmail: verificationMode === "OFFICIAL_DOMAIN" ? domainContactEmail.trim().toLowerCase() : null,
+        initialAdminEmail: initialAdminEmail.trim().toLowerCase() || null
       };
 
-      onCollegeCreated(collegeObj);
-      onClose();
-    } catch (err) {
-      console.error("Failed to create college:", err);
-      const serverMsg = err.response?.data?.message || err.message;
-      if (serverMsg && typeof serverMsg === "string" && serverMsg.includes("already exists")) {
-        setFieldErrors({ code: "A college with this code already exists." });
+      const application = await submitCollegeApplication(payload);
+      setCreatedApplication(application);
+
+      if (verificationMode === "OFFICIAL_DOMAIN") {
+        // Automatically request domain OTP
+        try {
+          setIsSendingOtp(true);
+          await sendCollegeDomainOTP(application.id, {
+            email: domainContactEmail.trim().toLowerCase(),
+            domain: proposedDomain.trim().toLowerCase()
+          });
+          setCooldown(60);
+          setStep("OTP");
+        } catch (otpErr) {
+          console.warn("Domain OTP request issue:", otpErr);
+          // Even if OTP send has a temporary glitch, user is on OTP screen to retry
+          setStep("OTP");
+        } finally {
+          setIsSendingOtp(false);
+        }
       } else {
-        setGeneralError(
-          serverMsg && typeof serverMsg === "string"
-            ? serverMsg
-            : "Failed to add college. Please try again."
-        );
+        // Manual documents path
+        setStep("SUCCESS");
+        if (onCollegeCreated) {
+          onCollegeCreated(application);
+        }
       }
+    } catch (err) {
+      console.error("Failed to submit college application:", err);
+      setGeneralError(
+        err.response?.data?.message ||
+          "Failed to submit college application. Please verify details and try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const modalContent = (
+  // Resend Domain OTP
+  const handleResendOtp = async () => {
+    if (cooldown > 0 || !createdApplication) return;
+    setGeneralError("");
+    setIsSendingOtp(true);
+    try {
+      await sendCollegeDomainOTP(createdApplication.id, {
+        email: domainContactEmail.trim().toLowerCase(),
+        domain: proposedDomain.trim().toLowerCase()
+      });
+      setCooldown(60);
+    } catch (err) {
+      console.error("Failed to resend OTP:", err);
+      setGeneralError(err.response?.data?.message || "Failed to resend verification code.");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  // Verify Domain OTP
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.trim().length !== 6) {
+      setGeneralError("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setGeneralError("");
+    try {
+      await verifyCollegeDomainOTP(createdApplication.id, otp.trim(), domainContactEmail.trim().toLowerCase());
+      setStep("SUCCESS");
+      if (onCollegeCreated) {
+        onCollegeCreated(createdApplication);
+      }
+    } catch (err) {
+      console.error("Failed to verify OTP:", err);
+      setGeneralError(err.response?.data?.message || "Invalid or expired verification code.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="add-college-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) {
-          onClose();
-        }
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden transform transition-all text-left"
+        className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/60">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-              <Building2 className="w-4 h-4" aria-hidden="true" />
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 bg-slate-50/70 flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+              <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="add-college-title" className="text-base font-semibold text-slate-900">
-                Add New College
+              <h2 className="text-lg font-bold text-slate-900">
+                Register New Institution
               </h2>
-              <p className="text-xs text-slate-500">
-                Register an unlisted institution
+              <p className="text-xs text-slate-500 mt-0.5">
+                Every institution undergoes verification before being available for selection.
               </p>
             </div>
           </div>
@@ -155,133 +263,351 @@ export default function AddCollegeModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Close dialog"
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
+            className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" aria-hidden="true" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <form
-          onSubmit={handleSubmit}
-          noValidate
-          className="p-6 space-y-4"
-        >
+        {/* Content based on Step */}
+        <div className="p-6 overflow-y-auto space-y-5">
           {generalError && (
-            <div
-              role="alert"
-              className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2"
-            >
-              <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" aria-hidden="true" />
-              <div className="flex-1 font-medium">{generalError}</div>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-xs text-red-700">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{generalError}</span>
             </div>
           )}
 
-          {/* College Name Field */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="modal-college-name"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
-            >
-              College Name <span className="text-rose-500">*</span>
-            </label>
-            <input
-              ref={nameInputRef}
-              id="modal-college-name"
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
-              }}
-              placeholder="e.g. Panipat Institute of Engineering and Technology"
-              disabled={isSubmitting}
-              className={`
-                block w-full px-3.5 py-2 rounded-lg border text-sm transition-colors
-                placeholder:text-slate-400 focus:outline-none focus:ring-2
-                ${isSubmitting ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white text-slate-900"}
-                ${
-                  fieldErrors.name
-                    ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
-                    : "border-slate-300 focus:border-indigo-600 focus:ring-indigo-600/20"
-                }
-              `}
-            />
-            {fieldErrors.name && (
-              <p className="text-xs text-rose-600 font-medium mt-1">{fieldErrors.name}</p>
-            )}
-          </div>
+          {step === "FORM" && (
+            <form onSubmit={handleSubmitForm} className="space-y-4">
+              {/* Institution Name & Code */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Institution Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Stanford University"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                  {fieldErrors.name && (
+                    <p className="text-[11px] text-red-600 mt-1">{fieldErrors.name}</p>
+                  )}
+                </div>
 
-          {/* College Code Field */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <label
-                htmlFor="modal-college-code"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
-              >
-                College Code <span className="text-rose-500">*</span>
-              </label>
-              <span className="text-xs text-slate-400">Unique identifier</span>
-            </div>
-            <input
-              ref={codeInputRef}
-              id="modal-college-code"
-              type="text"
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value.toUpperCase());
-                if (fieldErrors.code) setFieldErrors((prev) => ({ ...prev, code: "" }));
-              }}
-              placeholder="e.g. PIET001"
-              disabled={isSubmitting}
-              className={`
-                block w-full px-3.5 py-2 rounded-lg border text-sm font-mono transition-colors
-                placeholder:text-slate-400 placeholder:font-sans focus:outline-none focus:ring-2
-                ${isSubmitting ? "bg-slate-100 text-slate-500 cursor-not-allowed" : "bg-white text-slate-900"}
-                ${
-                  fieldErrors.code
-                    ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20"
-                    : "border-slate-300 focus:border-indigo-600 focus:ring-indigo-600/20"
-                }
-              `}
-            />
-            {fieldErrors.code && (
-              <p className="text-xs text-rose-600 font-medium mt-1">{fieldErrors.code}</p>
-            )}
-          </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Short Code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. STAN"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
+                  />
+                  {fieldErrors.code && (
+                    <p className="text-[11px] text-red-600 mt-1">{fieldErrors.code}</p>
+                  )}
+                </div>
+              </div>
 
-          {/* Modal Footer / Actions */}
-          <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shadow-xs transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-                  <span>Adding College...</span>
-                </>
+              {/* Website & Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Official Website
+                  </label>
+                  <div className="relative">
+                    <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="url"
+                      placeholder="https://stanford.edu"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Location / Address
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="City, State / Country"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Verification Mode Choice */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Verification Mode
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setVerificationMode("OFFICIAL_DOMAIN")}
+                    className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      verificationMode === "OFFICIAL_DOMAIN"
+                        ? "border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <span>Official Domain (Fast)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Verify ownership via OTP sent to your official college email domain.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setVerificationMode("MANUAL_DOCUMENTS")}
+                    className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      verificationMode === "MANUAL_DOCUMENTS"
+                        ? "border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
+                      <FileText className="w-4 h-4 text-indigo-600" />
+                      <span>Manual Documents</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      For institutions without a domain. Supporting documents reviewed by Super Admin.
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional Fields for Domain Mode */}
+              {verificationMode === "OFFICIAL_DOMAIN" ? (
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Domain Ownership Challenge</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Official Domain <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. stanford.edu"
+                        value={proposedDomain}
+                        onChange={(e) => setProposedDomain(e.target.value.toLowerCase())}
+                        className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
+                      />
+                      {fieldErrors.proposedDomain && (
+                        <p className="text-[11px] text-red-600 mt-1">{fieldErrors.proposedDomain}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Domain Contact Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="admin@stanford.edu"
+                        value={domainContactEmail}
+                        onChange={(e) => setDomainContactEmail(e.target.value.toLowerCase())}
+                        className="w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                      {fieldErrors.domainContactEmail && (
+                        <p className="text-[11px] text-red-600 mt-1">{fieldErrors.domainContactEmail}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <span>Add College</span>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <UploadCloud className="w-4 h-4 text-indigo-600" />
+                    <span>Supporting Documentation</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Your application will be submitted for manual administrative review. You can provide authorization letters or government accreditation documents.
+                  </p>
+                </div>
               )}
-            </button>
-          </div>
-        </form>
+
+              {/* Proposed College Admin */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Proposed Initial College Admin Email (Optional)
+                </label>
+                <input
+                  type="email"
+                  placeholder="admin-contact@college.edu"
+                  value={initialAdminEmail}
+                  onChange={(e) => setInitialAdminEmail(e.target.value.toLowerCase())}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  If approved, the Super Admin will send a College Admin invitation to this address.
+                </p>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isSendingOtp}
+                  className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg cursor-pointer transition-colors shadow-sm"
+                >
+                  {isSubmitting || isSendingOtp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === "OTP" && (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="p-4 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-2 text-left">
+                <div className="flex items-center gap-2 text-indigo-900 font-bold text-sm">
+                  <KeyRound className="w-4 h-4 text-indigo-600" />
+                  <span>Verify Domain Ownership</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  We sent a 6-digit verification code to{" "}
+                  <strong className="text-indigo-900 font-mono">{domainContactEmail}</strong>.
+                  Enter it below to prove ownership of the <strong className="text-slate-900">{proposedDomain}</strong> domain.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  6-Digit Verification Code
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  className="w-full text-center tracking-[0.5em] text-2xl font-mono font-bold py-3 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  Code expires in 10 minutes
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={cooldown > 0 || isSendingOtp}
+                  className="text-indigo-600 hover:text-indigo-800 font-semibold disabled:text-slate-400 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep("FORM")}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg cursor-pointer transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || otp.length !== 6}
+                  className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 rounded-lg cursor-pointer transition-colors shadow-sm"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Verify Domain</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {step === "SUCCESS" && (
+            <div className="text-center py-6 space-y-4">
+              <div className="w-14 h-14 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center text-emerald-600 mx-auto">
+                <CheckCircle2 className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900">
+                  Institution Application Submitted!
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                  {verificationMode === "OFFICIAL_DOMAIN"
+                    ? "Domain ownership has been successfully verified via OTP. Your institution application is now PENDING_VERIFICATION for Super Admin review."
+                    : "Your application and supporting documents have been received and are pending Super Admin review."}
+                </p>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 max-w-sm mx-auto text-left text-xs space-y-1 font-mono">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Institution:</span>
+                  <span className="font-bold text-slate-800">{name} ({code})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className="font-semibold text-amber-600">Pending Review</span>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-6 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer transition-colors shadow-sm"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
-
-  return typeof document !== "undefined"
-    ? createPortal(modalContent, document.body)
-    : modalContent;
 }
