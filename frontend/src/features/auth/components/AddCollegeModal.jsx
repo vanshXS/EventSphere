@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   submitCollegeApplication,
+  submitManualCollegeApplication,
   sendCollegeDomainOTP,
   verifyCollegeDomainOTP
 } from "../authApi";
@@ -39,6 +40,7 @@ export default function AddCollegeModal({
   const [proposedDomain, setProposedDomain] = useState("");
   const [domainContactEmail, setDomainContactEmail] = useState("");
   const [initialAdminEmail, setInitialAdminEmail] = useState("");
+  const [supportingDocuments, setSupportingDocuments] = useState([]);
 
   // OTP Verification state
   const [createdApplication, setCreatedApplication] = useState(null);
@@ -63,6 +65,7 @@ export default function AddCollegeModal({
       setProposedDomain("");
       setDomainContactEmail("");
       setInitialAdminEmail("");
+      setSupportingDocuments([]);
       setCreatedApplication(null);
       setOtp("");
       setCooldown(0);
@@ -126,6 +129,9 @@ export default function AddCollegeModal({
         errors.domainContactEmail = `Email must belong to @${cleanDomain || "the proposed domain"}`;
       }
     }
+    if (verificationMode === "MANUAL_DOCUMENTS" && supportingDocuments.length === 0) {
+      errors.supportingDocuments = "Upload at least one institutional document.";
+    }
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -151,7 +157,9 @@ export default function AddCollegeModal({
         initialAdminEmail: initialAdminEmail.trim().toLowerCase() || null
       };
 
-      const application = await submitCollegeApplication(payload);
+      const application = verificationMode === "MANUAL_DOCUMENTS"
+        ? await submitManualCollegeApplication({ ...payload, documents: supportingDocuments })
+        : await submitCollegeApplication(payload);
       setCreatedApplication(application);
 
       if (verificationMode === "OFFICIAL_DOMAIN") {
@@ -445,6 +453,18 @@ export default function AddCollegeModal({
                   <p className="text-[11px] text-slate-500">
                     Your application will be submitted for manual administrative review. You can provide authorization letters or government accreditation documents.
                   </p>
+                  <label className="block text-[11px] font-semibold text-slate-700 pt-1">
+                    Institutional documents (PDF, JPG, PNG) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={(e) => setSupportingDocuments(Array.from(e.target.files || []))}
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700 file:font-semibold file:rounded-md"
+                  />
+                  {supportingDocuments.length > 0 && <p className="text-[11px] text-emerald-700">{supportingDocuments.length} document(s) ready to upload.</p>}
+                  {fieldErrors.supportingDocuments && <p className="text-[11px] text-red-600">{fieldErrors.supportingDocuments}</p>}
                 </div>
               )}
 

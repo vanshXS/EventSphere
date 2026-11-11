@@ -35,6 +35,22 @@ export const registerParticipant = async (data) => {
     return response.data;
 };
 
+export const verifyRegistrationEmail = async (data) => {
+    const response = await api.post(
+        "/api/auth/register/verify-email",
+        data
+    );
+    return response.data;
+};
+
+export const resendRegistrationOTP = async (data) => {
+    const response = await api.post(
+        "/api/auth/register/resend-otp",
+        data
+    );
+    return response.data;
+};
+
 export const refreshAccessToken = async () => {
 
     const response = await api.post(
@@ -167,5 +183,53 @@ export const downloadAffiliationDocument = async (requestId) => {
 
 export const getMyAffiliationStatus = async () => {
     const response = await api.get('/api/colleges/participant/college-affiliation/me');
+    return response.data;
+};
+
+export const acceptCollegeAdminInvitation = async (data) => {
+    const response = await api.post('/api/auth/college-admin/accept-invitation', data);
+    return response.data;
+};
+
+export const submitInitialAdminNomination = async (applicationId, data) => {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    formData.append('email', data.email);
+    formData.append('contactNumber', data.contactNumber);
+    formData.append('designation', data.designation);
+    formData.append('authorizationDocument', data.authorizationDocument);
+    const response = await api.post(`/api/colleges/applications/${applicationId}/nominee`, formData);
+    return response.data;
+};
+
+export const submitOrganizerAffiliationRequest = async (data) => {
+    const formData = new FormData();
+    formData.append('staffIdentifier', data.staffIdentifier);
+    if (data.department) formData.append('department', data.department);
+    if (data.designation) formData.append('designation', data.designation);
+    formData.append('document', data.document);
+    const response = await api.post('/api/colleges/organizer/college-affiliation/requests', formData);
+    return response.data;
+};
+
+export const getOrganizerAffiliationRequests = async (collegeId) => {
+    const response = await api.get('/api/colleges/college-admin/organizer-affiliation-requests', { params: { collegeId } });
+    return response.data;
+};
+
+export const reviewOrganizerAffiliationRequest = async (requestId, approved, reason) => {
+    const action = approved ? 'approve' : 'reject';
+    const response = await api.post(`/api/colleges/college-admin/organizer-affiliation-requests/${requestId}/${action}`, null,
+        approved ? undefined : { params: { reason } });
+    return response.data;
+};
+
+export const submitManualCollegeApplication = async (data) => {
+    const formData = new FormData();
+    ["name", "code", "officialWebsite", "address", "initialAdminEmail"].forEach((key) => {
+        if (data[key]) formData.append(key, data[key]);
+    });
+    data.documents.forEach((file) => formData.append("documents", file));
+    const response = await api.post('/api/colleges/applications/manual', formData);
     return response.data;
 };

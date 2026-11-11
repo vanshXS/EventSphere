@@ -4,8 +4,9 @@ import { registerParticipant } from "../authApi";
 import { parseAuthError } from "../utils/errorMapper";
 import AuthLayout from "../../../components/common/AuthLayout";
 import FormField from "../../../components/common/FormField";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import CollegeSelector from "../components/CollegeSelector";
+import RegistrationOtpModal from "../components/RegistrationOtpModal";
 import { useToast } from "../../../components/common/ToastContext";
 
 export default function ParticipantRegisterPage() {
@@ -19,6 +20,9 @@ export default function ParticipantRegisterPage() {
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [registrationComplete, setRegistrationComplete] = useState(false);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [selectedCollege, setSelectedCollege] = useState(null);
   const setGeneralError = (message) => {
     if (message) addToast(message, "error");
   };
@@ -60,6 +64,16 @@ export default function ParticipantRegisterPage() {
       errors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       errors.email = "Please enter a valid email address";
+    } else if (
+      selectedCollege?.verificationMode === "OFFICIAL_DOMAIN" &&
+      selectedCollege?.verifiedDomains &&
+      selectedCollege.verifiedDomains.length > 0
+    ) {
+      const emailDomain = formData.email.trim().toLowerCase().split("@")[1];
+      const allowedDomains = selectedCollege.verifiedDomains.map((d) => d.toLowerCase());
+      if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+        errors.email = `Must use an official college email (@${allowedDomains.join(", @")})`;
+      }
     }
 
     if (!formData.password) {
@@ -94,11 +108,11 @@ export default function ParticipantRegisterPage() {
         collegeCode: formData.collegeCode.trim()
       });
 
-      setSuccessMessage("Participant account registered successfully! Redirecting to login...");
-
-      setTimeout(() => {
-        navigate("/login");
-      }, 1800);
+      const email = formData.email.trim();
+      setRegisteredEmail(email);
+      setRegistrationComplete(true);
+      setIsOtpModalOpen(true);
+      addToast("Account registered! Please verify your email OTP.", "info");
     } catch (err) {
       const { fieldErrors: apiFieldErrors, generalError: apiGeneralError } = parseAuthError(err);
       setFieldErrors(apiFieldErrors);
@@ -160,6 +174,7 @@ export default function ParticipantRegisterPage() {
         <CollegeSelector
           id="participant-college"
           onSelect={(college) => {
+            setSelectedCollege(college);
             setFormData((prev) => ({
               ...prev,
               collegeCode: college?.code?.trim() || ""
@@ -181,6 +196,16 @@ export default function ParticipantRegisterPage() {
           required
         />
 
+        {selectedCollege?.verificationMode === "OFFICIAL_DOMAIN" && selectedCollege?.verifiedDomains?.length > 0 && (
+          <div className="mt-2.5 mb-2 px-3 py-2 bg-indigo-50/80 border border-indigo-200/80 rounded-lg flex items-start gap-2 text-xs text-indigo-900 animate-in fade-in">
+            <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="leading-snug">
+              <span className="font-semibold">Official Domain Required:</span> Your email must end with{" "}
+              <span className="font-mono font-bold text-indigo-950">@{selectedCollege.verifiedDomains.join(", @")}</span>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={isSubmitting || registrationComplete}
@@ -196,6 +221,22 @@ export default function ParticipantRegisterPage() {
           )}
         </button>
       </form>
+
+      <RegistrationOtpModal
+        isOpen={isOtpModalOpen}
+        email={registeredEmail}
+        userRole="Participant"
+        onClose={() => {
+          setIsOtpModalOpen(false);
+          addToast("Please verify your email before logging in.", "info");
+          navigate("/login");
+        }}
+        onVerified={() => {
+          setIsOtpModalOpen(false);
+          addToast("Email verified successfully! You can now log in.", "success");
+          navigate("/login");
+        }}
+      />
 
       <div className="mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-600 space-y-2">
         <div>

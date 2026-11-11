@@ -46,7 +46,7 @@ public class SecurityConfig {
                                 .requestMatchers("/api/colleges/super-admin/**")
                                 .hasRole("SUPER_ADMIN")
                                 .requestMatchers("/api/colleges/college-admin/**")
-                                .hasAnyRole("ORGANIZER", "PARTICIPANT", "JUDGE", "VOLUNTEER")
+                                .hasRole("COLLEGE_ADMIN")
                                 .requestMatchers("/api/colleges/participant/**")
                                 .hasRole("PARTICIPANT")
                                 .requestMatchers("/api/organizer/**")

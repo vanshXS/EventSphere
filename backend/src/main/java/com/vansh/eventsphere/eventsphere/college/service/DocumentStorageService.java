@@ -12,7 +12,7 @@ import java.util.UUID;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StreamUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.vansh.eventsphere.eventsphere.college.model.StoredDocument;
@@ -26,12 +26,15 @@ public class DocumentStorageService {
 
     private final Path storageRoot;
 
-    public DocumentStorageService() {
+    private final long maxFileSize;
+
+    public DocumentStorageService(@Value("${app.documents.max-size-bytes:10485760}") long maxFileSize) {
         String configured = System.getenv("DOCUMENT_STORAGE_DIR");
         if (configured == null || configured.trim().isEmpty()) {
             configured = System.getProperty("java.io.tmpdir") + "/eventsphere-documents";
         }
         this.storageRoot = Paths.get(configured).toAbsolutePath().normalize();
+        this.maxFileSize = maxFileSize;
     }
 
     @PostConstruct
@@ -101,8 +104,8 @@ public class DocumentStorageService {
             throw new IllegalArgumentException("File is empty");
         }
 
-        if (size > 10 * 1024 * 1024) {
-            throw new IllegalArgumentException("File size exceeds 10MB limit");
+        if (size > maxFileSize) {
+            throw new IllegalArgumentException("File size exceeds the configured upload limit");
         }
 
         String ext = extension(originalName).toLowerCase();
@@ -114,6 +117,17 @@ public class DocumentStorageService {
             throw new IllegalArgumentException(
                     "Unsupported file type. Allowed: PDF, JPG, PNG"
             );
+        }
+
+        String expectedMime = switch (ext) {
+            case ".pdf" -> "application/pdf";
+            case ".jpg", ".jpeg" -> "image/jpeg";
+            case ".png" -> "image/png";
+            default -> null;
+        };
+        String suppliedMime = file.getContentType();
+        if (suppliedMime == null || !expectedMime.equalsIgnoreCase(suppliedMime)) {
+            throw new IllegalArgumentException("File MIME type does not match the declared file type");
         }
 
         try (InputStream inputStream = file.getInputStream()) {

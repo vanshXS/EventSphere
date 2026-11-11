@@ -3,6 +3,10 @@ package com.vansh.eventsphere.eventsphere.college.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import com.vansh.eventsphere.eventsphere.college.model.*;
 import org.springframework.data.domain.Page;
@@ -17,6 +21,8 @@ import com.vansh.eventsphere.eventsphere.college.repository.CollegeAdminAssignme
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeAffiliationRequestRepository;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeApplicationRepository;
 import com.vansh.eventsphere.eventsphere.college.repository.CollegeRepository;
+import com.vansh.eventsphere.eventsphere.college.repository.OrganizerAffiliationRequestRepository;
+import com.vansh.eventsphere.eventsphere.college.repository.CollegeAdminInvitationRepository;
 import com.vansh.eventsphere.eventsphere.exception.BadRequestException;
 import com.vansh.eventsphere.eventsphere.exception.ResourceNotFoundException;
 import com.vansh.eventsphere.eventsphere.user.model.Role;
@@ -35,17 +41,26 @@ public class CollegeVerificationService {
     private final CollegeRepository collegeRepository;
     private final CollegeAdminAssignmentRepository collegeAdminAssignmentRepository;
     private final CollegeAffiliationRequestRepository collegeAffiliationRequestRepository;
+    private final OrganizerAffiliationRequestRepository organizerAffiliationRequestRepository;
+    private final CollegeAdminInvitationRepository collegeAdminInvitationRepository;
     private final UserRepository userRepository;
     private final OTPService otpService;
     private final EmailService emailService;
     private final DocumentStorageService documentStorageService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     private static final String OTP_PURPOSE_COLLEGE_DOMAIN = "COLLEGE_DOMAIN_VERIFICATION";
     private static final String OTP_PURPOSE_STUDENT_AFFILIATION = "STUDENT_AFFILIATION_VERIFICATION";
+    private static final SecureRandom INVITATION_RANDOM = new SecureRandom();
 
     // Public: Submit college application
     @Transactional
     public CollegeApplicationResponse submitApplication(CollegeApplicationRequest request) {
+        return submitApplication(request, List.of());
+    }
+
+    @Transactional
+    public CollegeApplicationResponse submitApplication(CollegeApplicationRequest request, List<StoredDocument> supportingDocuments) {
         validateApplication(request);
 
         String normalizedCode = request.getCode().trim().toUpperCase();
@@ -71,6 +86,10 @@ public class CollegeVerificationService {
                 throw new BadRequestException("Official contact email must belong to the proposed domain");
             }
         }
+        if (request.getVerificationMode() == CollegeVerificationMode.MANUAL_DOCUMENTS
+                && (supportingDocuments == null || supportingDocuments.isEmpty())) {
+            throw new BadRequestException("At least one institutional supporting document is required");
+        }
 
         CollegeApplication application = CollegeApplication.builder()
                 .name(request.getName().trim())
@@ -87,6 +106,7 @@ public class CollegeVerificationService {
                 .initialAdminEmail(request.getInitialAdminEmail() != null
                         ? request.getInitialAdminEmail().trim().toLowerCase()
                         : null)
+                .supportingDocuments(supportingDocuments == null ? List.of() : List.copyOf(supportingDocuments))
                 .verificationStatus(CollegeVerificationStatus.PENDING_VERIFICATION)
                 .submittedAt(LocalDateTime.now())
                 .submittedByEmail(request.getVerificationMode() == CollegeVerificationMode.OFFICIAL_DOMAIN
@@ -265,6 +285,59 @@ public class CollegeVerificationService {
         return toResponse(application);
     }
 
+    public StoredDocument getInstitutionDocument(String applicationId, String documentId) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+        if (application.getSupportingDocuments() == null) throw new ResourceNotFoundException("Institutional document not found");
+        return application.getSupportingDocuments().stream()
+                .filter(document -> document.getStoragePath() != null && document.getStoragePath().equals(documentId))
+                .findFirst().orElseThrow(() -> new ResourceNotFoundException("Institutional document not found"));
+    }
+
+    public StoredDocument getNomineeAuthorizationDocument(String applicationId) {
+        CollegeApplication application = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+        if (application.getNomineeAuthorizationDocument() == null) throw new ResourceNotFoundException("Nominee authorization document not found");
+        return application.getNomineeAuthorizationDocument();
+    }
+
+    @Transactional
+    public CollegeApplicationResponse nominateInitialAdmin(String applicationId, String name, String email, String phone,
+            String designation, StoredDocument document) {
+        CollegeApplication app = collegeApplicationRepository.findById(applicationId).orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+        if (app.getVerificationStatus() != CollegeVerificationStatus.PENDING_VERIFICATION) throw new BadRequestException("Application is not pending");
+        if (name == null || name.isBlank() || designation == null || designation.isBlank() || document == null) throw new BadRequestException("Nominee name, designation and authorization document are required");
+        if (email == null || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) throw new BadRequestException("A valid nominee email is required");
+        if (phone == null || !phone.replaceAll("[\\s()+-]", "").matches("^[0-9]{7,15}$")) throw new BadRequestException("A valid nominee contact number is required");
+        app.setNomineeName(name.trim()); app.setInitialAdminEmail(email.trim().toLowerCase()); app.setNomineeContactNumber(phone.trim());
+        app.setNomineeDesignation(designation.trim()); app.setNomineeAuthorizationDocument(document); app.setNomineeStatus("PENDING");
+        app.setNomineeRejectionReason(null); app.setUpdatedAt(LocalDateTime.now());
+        return toResponse(collegeApplicationRepository.save(app));
+    }
+
+    @Transactional
+    public CollegeApplicationResponse rejectNominee(String applicationId, String adminId, String reason) {
+        CollegeApplication app = collegeApplicationRepository.findById(applicationId).orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+        if (reason == null || reason.isBlank()) throw new BadRequestException("Rejection reason is required");
+        app.setNomineeStatus("REJECTED"); app.setNomineeReviewedBy(adminId); app.setNomineeReviewedAt(LocalDateTime.now()); app.setNomineeRejectionReason(reason.trim());
+        return toResponse(collegeApplicationRepository.save(app));
+    }
+
+    @Transactional
+    public void acceptCollegeAdminInvitation(String rawToken, String password) {
+        CollegeAdminInvitation invitation = collegeAdminInvitationRepository.findByTokenHash(hashInvitation(rawToken))
+                .orElseThrow(() -> new BadRequestException("Invalid invitation"));
+        if (invitation.getAcceptedAt() != null || invitation.getExpiresAt().isBefore(LocalDateTime.now())) throw new BadRequestException("Invitation is expired or already used");
+        if (userRepository.existsByEmail(invitation.getNomineeEmail())) throw new BadRequestException("An account already exists for this invitation email; contact Super Admin");
+        User admin = User.builder().name("College Admin").email(invitation.getNomineeEmail()).password(passwordEncoder.encode(password))
+                .role(Role.COLLEGE_ADMIN).collegeId(invitation.getCollegeId()).active(true).emailVerified(true).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+        User saved = userRepository.save(admin);
+        collegeAdminAssignmentRepository.save(CollegeAdminAssignment.builder().userId(saved.getUserId()).collegeId(invitation.getCollegeId())
+                .permissions(List.of("REVIEW_STUDENT_AFFILIATION", "REVIEW_ORGANIZER_AFFILIATION", "VIEW_AFFILIATION_DOCUMENTS"))
+                .status(CollegeAdminAssignmentStatus.ACTIVE.name()).assignedAt(LocalDateTime.now()).build());
+        invitation.setAcceptedAt(LocalDateTime.now()); collegeAdminInvitationRepository.save(invitation);
+    }
+
     // Super Admin: Approve application
     @Transactional
     public CollegeApplicationResponse approveApplication(String applicationId, String superAdminId) {
@@ -283,6 +356,9 @@ public class CollegeVerificationService {
             if (collegeRepository.existsByVerifiedDomainsContaining(normalizedDomain)) {
                 throw new BadRequestException("Domain already verified for another college");
             }
+        }
+        if (application.getNomineeStatus() != null && !"PENDING".equals(application.getNomineeStatus())) {
+            throw new BadRequestException("The nominated administrator is not eligible for approval");
         }
 
         // Create College entity
@@ -309,6 +385,25 @@ public class CollegeVerificationService {
         College savedCollege = collegeRepository.save(college);
 
         application.setVerificationStatus(CollegeVerificationStatus.VERIFIED);
+        if (application.getNomineeStatus() != null) {
+            application.setNomineeStatus("APPROVED");
+            application.setNomineeReviewedBy(superAdminId);
+            application.setNomineeReviewedAt(LocalDateTime.now());
+            String invitationToken = newInvitationToken();
+            collegeAdminInvitationRepository.save(CollegeAdminInvitation.builder()
+                    .applicationId(application.getId()).collegeId(savedCollege.getId())
+                    .nomineeEmail(application.getInitialAdminEmail()).tokenHash(hashInvitation(invitationToken))
+                    .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(7)).build());
+            String frontendUrl = System.getenv("FRONTEND_URL");
+            if (frontendUrl != null && !frontendUrl.isBlank()) {
+                try {
+                    emailService.sendCollegeAdminInvitation(application.getInitialAdminEmail(), savedCollege.getName(),
+                            frontendUrl + "/college-admin/accept?token=" + invitationToken);
+                } catch (Exception ex) {
+                    log.warn("Invitation email failed for college application {}", applicationId);
+                }
+            }
+        }
         application.setReviewedBy(superAdminId);
         application.setReviewedAt(LocalDateTime.now());
         application.setUpdatedAt(LocalDateTime.now());
@@ -373,7 +468,8 @@ public class CollegeVerificationService {
         CollegeAdminAssignment assignment = CollegeAdminAssignment.builder()
                 .userId(user.getUserId())
                 .collegeId(collegeId)
-                .permissions(request.getPermissions() != null ? request.getPermissions() : List.of("REVIEW_STUDENT_AFFILIATION", "VIEW_AFFILIATION_DOCUMENTS"))
+                .permissions(request.getPermissions() != null ? request.getPermissions() : List.of(
+                        "REVIEW_STUDENT_AFFILIATION", "REVIEW_ORGANIZER_AFFILIATION", "VIEW_AFFILIATION_DOCUMENTS"))
                 .status(CollegeAdminAssignmentStatus.ACTIVE.name())
                 .assignedBy(superAdminId)
                 .assignedAt(LocalDateTime.now())
@@ -625,6 +721,9 @@ public class CollegeVerificationService {
                                                                     String course, String department, StoredDocument document) {
         User participant = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (participant.getRole() != Role.PARTICIPANT) {
+            throw new BadRequestException("Only participants can submit student affiliation requests");
+        }
 
 
         if (participant.getCollegeId() == null) {
@@ -712,6 +811,82 @@ public class CollegeVerificationService {
                 .stream()
                 .findFirst()
                 .orElse(null);
+    }
+
+    @Transactional
+    public OrganizerAffiliationRequest submitOrganizerAffiliationRequest(String userId, String staffIdentifier,
+            String department, String designation, StoredDocument document) {
+        User organizer = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (organizer.getRole() != Role.ORGANIZER) throw new BadRequestException("Only organizers can submit staff affiliation requests");
+        if (organizer.getCollegeId() == null) throw new BadRequestException("No college selected");
+        College college = collegeRepository.findById(organizer.getCollegeId())
+                .orElseThrow(() -> new ResourceNotFoundException("College not found"));
+        if (college.getVerificationMode() != CollegeVerificationMode.MANUAL_DOCUMENTS) {
+            throw new BadRequestException("This college uses official-domain organizer verification");
+        }
+        if (staffIdentifier == null || staffIdentifier.isBlank()) throw new BadRequestException("Staff or employee identifier is required");
+        if (document == null || document.getStoragePath() == null || document.getStoragePath().isBlank()) {
+            throw new BadRequestException("Supporting staff document is required");
+        }
+        if (organizerAffiliationRequestRepository.countByOrganizerIdAndCollegeIdAndStatusIn(userId, organizer.getCollegeId(), List.of("PENDING", "VERIFIED")) > 0) {
+            throw new BadRequestException("You already have a pending or verified organizer affiliation request");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        OrganizerAffiliationRequest request = OrganizerAffiliationRequest.builder()
+                .organizerId(userId).collegeId(organizer.getCollegeId()).staffIdentifier(staffIdentifier.trim())
+                .department(trimToNull(department)).designation(trimToNull(designation)).supportingDocument(document)
+                .status("PENDING").submittedAt(now).updatedAt(now).build();
+        OrganizerAffiliationRequest saved = organizerAffiliationRequestRepository.save(request);
+        organizer.setOrganizerAffiliationStatus("PENDING"); organizer.setUpdatedAt(now); userRepository.save(organizer);
+        return saved;
+    }
+
+    public List<OrganizerAffiliationRequest> getOrganizerAffiliationRequests(String collegeId, String adminId) {
+        verifyCollegeAdminPermission(adminId, collegeId, "REVIEW_ORGANIZER_AFFILIATION");
+        return organizerAffiliationRequestRepository.findByCollegeId(collegeId);
+    }
+
+    @Transactional
+    public OrganizerAffiliationRequest reviewOrganizerAffiliationRequest(String requestId, String adminId, boolean approved, String reason) {
+        OrganizerAffiliationRequest request = organizerAffiliationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organizer affiliation request not found"));
+        verifyCollegeAdminPermission(adminId, request.getCollegeId(), "REVIEW_ORGANIZER_AFFILIATION");
+        if (!"PENDING".equals(request.getStatus())) throw new BadRequestException("Request is not pending");
+        if (!approved && (reason == null || reason.isBlank())) throw new BadRequestException("Rejection reason is required");
+        LocalDateTime now = LocalDateTime.now();
+        request.setStatus(approved ? "VERIFIED" : "REJECTED"); request.setReviewedBy(adminId); request.setReviewedAt(now);
+        request.setRejectionReason(approved ? null : reason.trim()); request.setUpdatedAt(now);
+        OrganizerAffiliationRequest saved = organizerAffiliationRequestRepository.save(request);
+        User organizer = userRepository.findById(request.getOrganizerId()).orElseThrow(() -> new ResourceNotFoundException("Organizer not found"));
+        organizer.setOrganizerAffiliationStatus(saved.getStatus()); organizer.setOrganizerAffiliationVerifiedAt(approved ? now : null);
+        organizer.setOrganizerAffiliationVerifiedBy(approved ? adminId : null); organizer.setUpdatedAt(now); userRepository.save(organizer);
+        return saved;
+    }
+
+    public OrganizerAffiliationRequest getOrganizerAffiliationRequestForDocument(String requestId, String adminId) {
+        OrganizerAffiliationRequest request = organizerAffiliationRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organizer affiliation request not found"));
+        verifyCollegeAdminPermission(adminId, request.getCollegeId(), "VIEW_AFFILIATION_DOCUMENTS");
+        if (request.getSupportingDocument() == null) throw new ResourceNotFoundException("Supporting document not found");
+        return request;
+    }
+
+    private String trimToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    private String hashInvitation(String token) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(digest);
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to hash invitation", e);
+        }
+    }
+
+    private String newInvitationToken() {
+        byte[] bytes = new byte[32];
+        INVITATION_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     // Helper methods
@@ -804,6 +979,13 @@ public class CollegeVerificationService {
         response.setProposedDomain(application.getProposedDomain());
         response.setDomainContactEmail(application.getDomainContactEmail());
         response.setInitialAdminEmail(application.getInitialAdminEmail());
+        response.setNomineeName(application.getNomineeName());
+        response.setNomineeContactNumber(application.getNomineeContactNumber());
+        response.setNomineeDesignation(application.getNomineeDesignation());
+        response.setNomineeAuthorizationDocument(application.getNomineeAuthorizationDocument());
+        response.setNomineeStatus(application.getNomineeStatus());
+        response.setNomineeRejectionReason(application.getNomineeRejectionReason());
+        response.setSupportingDocuments(application.getSupportingDocuments());
         response.setVerificationStatus(application.getVerificationStatus());
         response.setSubmittedByEmail(application.getSubmittedByEmail());
         response.setDomainOwnershipVerified(application.getDomainOwnershipVerifiedAt() != null);

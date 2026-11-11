@@ -1,3 +1,5 @@
+
+
 package com.vansh.eventsphere.eventsphere.college.service;
 
 import com.vansh.eventsphere.eventsphere.college.dto.CollegeSummaryResponse;
@@ -52,13 +54,27 @@ public class CollegeService {
     }
 
     private CollegeSummaryResponse toSummary(College college) {
+        List<String> domains = college.getVerifiedDomains();
+        if ((domains == null || domains.isEmpty()) && college.getProposedDomain() != null && !college.getProposedDomain().isBlank()) {
+            domains = List.of(college.getProposedDomain().trim().toLowerCase());
+        } else if (domains == null) {
+            domains = List.of();
+        } else {
+            domains = domains.stream()
+                    .filter(d -> d != null && !d.isBlank())
+                    .map(String::trim)
+                    .map(String::toLowerCase)
+                    .distinct()
+                    .toList();
+        }
+
         return new CollegeSummaryResponse(
                 college.getId(),
                 college.getName(),
                 college.getCode(),
                 college.getVerificationMode(),
                 college.getVerificationStatus(),
-                college.getVerifiedDomains() != null ? college.getVerifiedDomains() : java.util.List.of()
+                domains
         );
     }
 }

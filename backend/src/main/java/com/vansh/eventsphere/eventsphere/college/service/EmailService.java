@@ -38,6 +38,12 @@ public class EmailService {
         sendHtml(to, subject, html);
     }
 
+    public void sendRegistrationOTP(String to, String otp) {
+        String subject = "EventSphere - Account Registration OTP";
+        String html = buildRegistrationOTPEmail(otp);
+        sendHtml(to, subject, html);
+    }
+
     public void sendCollegeAdminInvitation(String to, String collegeName, String invitationLink) {
         String subject = "EventSphere - College Admin Invitation";
         String html = buildCollegeAdminInvitationEmail(collegeName, invitationLink);
@@ -149,5 +155,34 @@ public class EmailService {
                 </body>
                 </html>
                 """.formatted(collegeName, invitationLink);
+    }
+
+    private String buildRegistrationOTPEmail(String otp) {
+        return """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>EventSphere - Account Registration Verification</title>
+                </head>
+                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #4f46e5 0%%, #7c3aed 100%%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+                        <h1 style="color: white; margin: 0; font-size: 24px;">EventSphere</h1>
+                        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0;">Account Registration Verification</p>
+                    </div>
+                    <div style="background: #fafafa; padding: 30px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 12px 12px;">
+                        <p style="font-size: 16px; margin-top: 0;">Thank you for registering on EventSphere. Please verify your email address to complete your registration.</p>
+                        <p>Your one-time verification code is:</p>
+                        <div style="background: white; border: 2px dashed #4f46e5; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+                            <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #4f46e5; font-family: monospace;">%s</span>
+                        </div>
+                        <p style="color: #666; font-size: 14px;">This code will expire in <strong>10 minutes</strong>. Do not share this code with anyone.</p>
+                        <p style="color: #666; font-size: 14px;">If you did not create an account on EventSphere, please ignore this email.</p>
+                        <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;">
+                        <p style="color: #999; font-size: 12px; text-align: center;">EventSphere - Event Management Platform</p>
+                    </div>
+                </body>
+                </html>
+                """.formatted(otp);
     }
 }

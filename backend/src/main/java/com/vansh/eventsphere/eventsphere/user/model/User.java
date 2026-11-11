@@ -27,4 +27,11 @@ public class User {
     private String collegeVerificationStatus;
     private LocalDateTime collegeVerifiedAt;
     private String collegeVerifiedBy;
+
+    // Kept separate from student affiliation: organizers are staff, not students.
+    private String organizerAffiliationStatus;
+    private LocalDateTime organizerAffiliationVerifiedAt;
+    private String organizerAffiliationVerifiedBy;
+
+    private Boolean emailVerified;
 }

@@ -5,7 +5,8 @@ import { useAuth } from "../AuthContext";
 import { parseAuthError } from "../utils/errorMapper";
 import AuthLayout from "../../../components/common/AuthLayout";
 import FormField from "../../../components/common/FormField";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import RegistrationOtpModal from "../components/RegistrationOtpModal";
 import { useToast } from "../../../components/common/ToastContext";
 
 export default function LoginPage() {
@@ -15,6 +16,8 @@ export default function LoginPage() {
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const addToast = useToast();
   const setGeneralError = (message) => {
     if (message) addToast(message, "error");
@@ -101,6 +104,14 @@ export default function LoginPage() {
       const { fieldErrors: apiFieldErrors, generalError: apiGeneralError } = parseAuthError(err);
       setFieldErrors(apiFieldErrors);
       setGeneralError(apiGeneralError);
+      if (
+        apiGeneralError &&
+        (apiGeneralError.toLowerCase().includes("verify your email") ||
+         apiGeneralError.toLowerCase().includes("unverified") ||
+         apiGeneralError.toLowerCase().includes("disabled"))
+      ) {
+        setShowVerifyPrompt(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -111,6 +122,22 @@ export default function LoginPage() {
       title="Welcome back"
       subtitle="Sign in to your EventSphere account"
     >
+      {showVerifyPrompt && (
+        <div className="mb-4 p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Account email needs verification?</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsOtpModalOpen(true)}
+            className="font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+          >
+            Enter OTP
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} noValidate>
         <FormField
           id="login-email"
@@ -185,6 +212,18 @@ export default function LoginPage() {
           </Link>
         </div>
       </div>
+
+      <RegistrationOtpModal
+        isOpen={isOtpModalOpen}
+        email={formData.email}
+        userRole="Account"
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={() => {
+          setIsOtpModalOpen(false);
+          setShowVerifyPrompt(false);
+          addToast("Email verified successfully! You can now sign in.", "success");
+        }}
+      />
     </AuthLayout>
   );
 }

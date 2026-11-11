@@ -10,6 +10,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 
 import com.vansh.eventsphere.eventsphere.auth.service.AuthService;
+import com.vansh.eventsphere.eventsphere.college.service.CollegeVerificationService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,23 +21,38 @@ import lombok.RequiredArgsConstructor;
 public class AuthController {
 
     private final AuthService authService;
+    private final CollegeVerificationService collegeVerificationService;
 
     @PostMapping("/register/organizer")
     @ResponseStatus(HttpStatus.CREATED)
-    public void registerOrganizer(
+    public RegistrationResponse registerOrganizer(
         @Valid @RequestBody OrganizerRegisterRequest registerRequest
     ){
-
-        authService.registerOrganizer(registerRequest);
+        return authService.registerOrganizer(registerRequest);
     }
 
     @PostMapping("/register/participant")
     @ResponseStatus(HttpStatus.CREATED)
-    public void registerParticipant(
+    public RegistrationResponse registerParticipant(
         @Valid @RequestBody ParticipantRegisterRequest registerRequest
     ) {
-        
-        authService.registerParticipant(registerRequest);
+        return authService.registerParticipant(registerRequest);
+    }
+
+    @PostMapping("/register/verify-email")
+    public void verifyRegistrationEmail(@Valid @RequestBody VerifyRegistrationEmailRequest request) {
+        authService.verifyRegistrationEmail(request);
+    }
+
+    @PostMapping("/register/resend-otp")
+    public void resendRegistrationOTP(@Valid @RequestBody ResendRegistrationOtpRequest request) {
+        authService.resendRegistrationOTP(request);
+    }
+
+    @PostMapping("/college-admin/accept-invitation")
+    public void acceptCollegeAdminInvitation(@Valid @RequestBody AcceptCollegeAdminInvitationRequest request) {
+        // Delegated to the verification service so token hashing and assignment are atomic.
+        collegeVerificationService.acceptCollegeAdminInvitation(request.getToken(), request.getPassword());
     }
 
     @PostMapping("/login")
