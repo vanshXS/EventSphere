@@ -32,10 +32,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
                         auth -> auth
+                                .requestMatchers("/api/colleges/applications/*/nominee").hasRole("SUPER_ADMIN")
                                 .requestMatchers(
                                         "/api/auth/register/**",
                                         "/api/auth/login",
                                         "/api/auth/refresh",
+                                        "/api/auth/college-admin/accept-invitation",
                                         "/api/colleges/search",
                                         "/api/colleges/applications/**",
                                         "/api/staff/invitations/**",

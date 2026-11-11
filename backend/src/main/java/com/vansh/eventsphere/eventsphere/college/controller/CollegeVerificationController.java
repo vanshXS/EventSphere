@@ -62,19 +62,29 @@ public class CollegeVerificationController {
     public CollegeApplicationResponse submitManualApplication(
             @RequestParam String name, @RequestParam String code,
             @RequestParam(required = false) String officialWebsite, @RequestParam(required = false) String address,
-            @RequestParam(required = false) String initialAdminEmail,
+            @RequestParam String nomineeName, @RequestParam String nomineeEmail,
+            @RequestParam String nomineeContactNumber, @RequestParam String nomineeDesignation,
+            @RequestParam MultipartFile nomineeAuthorizationDocument,
             @RequestParam("documents") List<MultipartFile> documents) {
         if (documents == null || documents.isEmpty()) throw new BadRequestException("At least one institutional document is required");
         CollegeApplicationRequest request = new CollegeApplicationRequest();
         request.setName(name); request.setCode(code); request.setOfficialWebsite(officialWebsite); request.setAddress(address);
-        request.setInitialAdminEmail(initialAdminEmail);
+        request.setInitialAdminEmail(nomineeEmail);
         request.setVerificationMode(com.vansh.eventsphere.eventsphere.college.model.CollegeVerificationMode.MANUAL_DOCUMENTS);
         List<StoredDocument> stored = new ArrayList<>();
-        for (MultipartFile document : documents) {
-            if (document == null || document.isEmpty()) throw new BadRequestException("Institutional documents cannot be empty");
-            stored.add(documentStorageService.store(document));
+        try {
+            for (MultipartFile document : documents) {
+                if (document == null || document.isEmpty()) throw new BadRequestException("Institutional documents cannot be empty");
+                stored.add(documentStorageService.store(document));
+            }
+            StoredDocument authorization = documentStorageService.store(nomineeAuthorizationDocument);
+            stored.add(authorization);
+            return collegeVerificationService.submitManualApplication(request, stored.subList(0, stored.size() - 1),
+                    nomineeName, nomineeEmail, nomineeContactNumber, nomineeDesignation, authorization);
+        } catch (RuntimeException ex) {
+            stored.forEach(documentStorageService::delete);
+            throw ex;
         }
-        return collegeVerificationService.submitApplication(request, stored);
     }
 
     // Public: Send domain OTP for college application
@@ -98,8 +108,9 @@ public class CollegeVerificationController {
             @RequestParam String name, @RequestParam String email, @RequestParam String contactNumber,
             @RequestParam String designation, @RequestParam MultipartFile authorizationDocument) {
         if (authorizationDocument == null || authorizationDocument.isEmpty()) throw new BadRequestException("Authorization document is required");
-        return collegeVerificationService.nominateInitialAdmin(applicationId, name, email, contactNumber, designation,
-                documentStorageService.store(authorizationDocument));
+        StoredDocument document = documentStorageService.store(authorizationDocument);
+        try { return collegeVerificationService.nominateInitialAdmin(applicationId, name, email, contactNumber, designation, document); }
+        catch (RuntimeException ex) { documentStorageService.delete(document); throw ex; }
     }
 
     // Super Admin: List pending applications
@@ -107,6 +118,18 @@ public class CollegeVerificationController {
     public Page<CollegeApplicationResponse> listPendingApplications(Authentication authentication, Pageable pageable) {
         verifySuperAdmin(authentication);
         return collegeVerificationService.listPendingApplications(pageable);
+    }
+
+    @GetMapping("/super-admin/applications/approved")
+    public Page<CollegeApplicationResponse> listApprovedApplications(Authentication authentication, Pageable pageable) {
+        verifySuperAdmin(authentication);
+        return collegeVerificationService.listApprovedApplications(pageable);
+    }
+
+    @PostMapping("/super-admin/applications/{applicationId}/resend-admin-invitation")
+    public void resendAdminInvitation(@PathVariable String applicationId, Authentication authentication) {
+        verifySuperAdmin(authentication);
+        collegeVerificationService.resendCollegeAdminInvitation(applicationId);
     }
 
     // Super Admin: Get application details
@@ -262,7 +285,8 @@ public class CollegeVerificationController {
 
         StoredDocument storedDocument = documentStorageService.store(document);
 
-        return collegeVerificationService.submitManualAffiliationRequest(userId, studentIdentifier, course, department, storedDocument);
+        try { return collegeVerificationService.submitManualAffiliationRequest(userId, studentIdentifier, course, department, storedDocument); }
+        catch (RuntimeException ex) { documentStorageService.delete(storedDocument); throw ex; }
     }
 
     @PostMapping("/super-admin/applications/{applicationId}/nominee/reject")
@@ -284,8 +308,14 @@ public class CollegeVerificationController {
             @RequestParam(required = false) String designation, @RequestParam MultipartFile document,
             Authentication authentication) {
         if (document == null || document.isEmpty()) throw new BadRequestException("Supporting document is required");
-        return collegeVerificationService.submitOrganizerAffiliationRequest(getUserId(authentication), staffIdentifier, department, designation,
-                documentStorageService.store(document));
+        StoredDocument stored = documentStorageService.store(document);
+        try { return collegeVerificationService.submitOrganizerAffiliationRequest(getUserId(authentication), staffIdentifier, department, designation, stored); }
+        catch (RuntimeException ex) { documentStorageService.delete(stored); throw ex; }
+    }
+
+    @GetMapping("/organizer/college-affiliation/me")
+    public com.vansh.eventsphere.eventsphere.college.model.OrganizerAffiliationRequest getMyOrganizerAffiliation(Authentication authentication) {
+        return collegeVerificationService.getMyOrganizerAffiliationRequest(getUserId(authentication));
     }
 
     @GetMapping("/college-admin/organizer-affiliation-requests")

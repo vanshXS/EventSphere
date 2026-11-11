@@ -45,6 +45,9 @@ class ActivityLifecycleServiceTest {
         @Mock
         private TransactionRunner transactionRunner;
 
+        @Mock
+        private OrganizerAffiliationPolicy organizerAffiliationPolicy;
+
         private ActivityValidator activityValidator;
         private ActivityMapper activityMapper;
         private ActivityService activityService;
@@ -87,7 +90,8 @@ class ActivityLifecycleServiceTest {
                                 transactionRunner,
                                 activityRegistrationRepository,
                                 eventRegistrationRepository,
-                                attendanceRepository);
+                                attendanceRepository,
+                                organizerAffiliationPolicy);
 
                 eventStatusSchedular = new EventStatusSchedular(
                                 eventRepository,

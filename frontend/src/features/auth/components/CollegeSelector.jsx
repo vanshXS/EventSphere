@@ -196,14 +196,12 @@ export default function CollegeSelector({
     setIsAddModalOpen(true);
   };
 
-  const handleCollegeCreated = (newCollege) => {
-    const collegeObj = {
-      id: newCollege.id || newCollege._id || String(Date.now()),
-      name: newCollege.name,
-      code: newCollege.code
-    };
-    setColleges((prev) => [collegeObj, ...prev.filter((c) => c.id && c.id !== collegeObj.id && c.code !== collegeObj.code)]);
-    handleSelectCollege(collegeObj);
+  // An application is not a verified college and cannot be used to register.
+  const handleCollegeCreated = () => {
+    setInternalSelected(null);
+    onSelect(null);
+    setColleges([]);
+    setShowDropdown(false);
   };
 
   const displayError = error || errorState;

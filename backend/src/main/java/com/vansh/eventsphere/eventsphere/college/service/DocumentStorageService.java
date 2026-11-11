@@ -25,15 +25,18 @@ import lombok.extern.slf4j.Slf4j;
 public class DocumentStorageService {
 
     private final Path storageRoot;
+    private final Path legacyStorageRoot;
 
     private final long maxFileSize;
 
     public DocumentStorageService(@Value("${app.documents.max-size-bytes:10485760}") long maxFileSize) {
         String configured = System.getenv("DOCUMENT_STORAGE_DIR");
         if (configured == null || configured.trim().isEmpty()) {
-            configured = System.getProperty("java.io.tmpdir") + "/eventsphere-documents";
+            configured = "./data/eventsphere-documents";
         }
         this.storageRoot = Paths.get(configured).toAbsolutePath().normalize();
+        this.legacyStorageRoot = System.getenv("DOCUMENT_STORAGE_DIR") == null || System.getenv("DOCUMENT_STORAGE_DIR").isBlank()
+                ? Paths.get(System.getProperty("java.io.tmpdir"), "eventsphere-documents").toAbsolutePath().normalize() : null;
         this.maxFileSize = maxFileSize;
     }
 
@@ -79,11 +82,23 @@ public class DocumentStorageService {
         return doc;
     }
 
+    public void delete(StoredDocument document) {
+        if (document == null || document.getStoragePath() == null) return;
+        Path target = storageRoot.resolve(document.getStoragePath()).normalize();
+        if (!target.startsWith(storageRoot)) return;
+        try { Files.deleteIfExists(target); }
+        catch (IOException e) { log.warn("Could not clean up failed document upload", e); }
+    }
+
     public Resource load(String storedName) {
         Path target = storageRoot.resolve(storedName).normalize();
-        if (!target.startsWith(storageRoot) || !Files.exists(target)) {
-            throw new IllegalArgumentException("Document not found");
+        if (!target.startsWith(storageRoot)) throw new IllegalArgumentException("Document not found");
+        // Preserve read access to uploads made before the persistent default was introduced.
+        if (!Files.exists(target) && legacyStorageRoot != null) {
+            Path legacy = legacyStorageRoot.resolve(storedName).normalize();
+            if (legacy.startsWith(legacyStorageRoot) && Files.exists(legacy)) target = legacy;
         }
+        if (!Files.exists(target)) throw new IllegalArgumentException("Document not found");
         try {
             return new UrlResource(target.toUri());
         } catch (Exception e) {

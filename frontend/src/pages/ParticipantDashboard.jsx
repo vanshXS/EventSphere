@@ -102,9 +102,6 @@ export default function ParticipantDashboard() {
       .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData]) => {
         if (ignore) return;
 
-        if (affiliationData && affiliationData.status && updateUser) {
-          updateUser({ collegeVerificationStatus: affiliationData.status });
-        }
 
         const sortByNewest = (list) =>
           (Array.isArray(list) ? list : []).slice().sort((a, b) => {

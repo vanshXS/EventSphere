@@ -31,6 +31,8 @@ export default function LoginPage() {
     if (user) {
       if (user.role === "SUPER_ADMIN") {
         navigate("/super-admin/colleges", { replace: true });
+      } else if (user.role === "COLLEGE_ADMIN") {
+        navigate("/college-admin", { replace: true });
       } else if (user.role === "ORGANIZER") {
         navigate("/organizer", { replace: true });
       } else if (user.role === "PARTICIPANT") {
@@ -85,10 +87,12 @@ export default function LoginPage() {
 
     try {
       const user = await login(formData);
-      loginUser(user);
+      await loginUser(user);
 
       if (user?.role === "SUPER_ADMIN") {
         navigate("/super-admin/colleges");
+      } else if (user?.role === "COLLEGE_ADMIN") {
+        navigate("/college-admin");
       } else if (user?.role === "ORGANIZER") {
         navigate("/organizer");
       } else if (user?.role === "PARTICIPANT") {

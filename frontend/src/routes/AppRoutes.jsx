@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import LoginPage from "../features/auth/pages/LoginPage";
+import CollegeAdminAcceptPage from "../features/auth/pages/CollegeAdminAcceptPage";
 import OrganizerRegisterPage from "../features/auth/pages/OrganizerRegisterPage";
 import ParticipantRegisterPage from "../features/auth/pages/ParticipantRegisterPage";
 import EventsPage from "../features/events/pages/EventsPage";
@@ -48,6 +49,7 @@ export default function AppRoutes() {
         
         {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/college-admin/accept" element={<CollegeAdminAcceptPage />} />
         <Route path="/register/organizer" element={<OrganizerRegisterPage />} />
         <Route path="/register/participant" element={<ParticipantRegisterPage />} />
 
@@ -246,7 +248,7 @@ export default function AppRoutes() {
         <Route
           path="/college-admin"
           element={
-            <ProtectedRoutes allowedRole={["ORGANIZER", "PARTICIPANT", "JUDGE", "VOLUNTEER", "SUPER_ADMIN"]}>
+            <ProtectedRoutes allowedRole={["COLLEGE_ADMIN"]}>
               <CollegeAdminAffiliationsPage />
             </ProtectedRoutes>
           }

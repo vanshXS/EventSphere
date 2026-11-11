@@ -39,6 +39,7 @@ public class ActivityService {
         private final ActivityRegistrationRepository activityRegistrationRepository;
         private final EventRegistrationRepository eventRegistrationRepository;
         private final AttendanceRepository attendanceRepository;
+        private final OrganizerAffiliationPolicy organizerAffiliationPolicy;
 
         private static final List<RegistrationStatus> CAPACITY_STATUSES = List.of(
                         RegistrationStatus.PENDING,
@@ -58,6 +59,9 @@ public class ActivityService {
                         transactionRunner.guard(Event.class, eventId);
 
                         Event event = getOwnedEvent(eventId, organizerId);
+                        if (event.getEventStatus() == EventStatus.PUBLISHED || event.getEventStatus() == EventStatus.ONGOING) {
+                                organizerAffiliationPolicy.verifyCampusPublishing(organizerId, event.getVisibility());
+                        }
 
                         if (eventRegistrationRepository.existsByEventIdAndStatusIn(
                                         eventId,
@@ -193,6 +197,9 @@ public class ActivityService {
                 applyUpdate(
                                 activity,
                                 request);
+                if (activity.getEventId() == null && (activity.getStatus() == EventStatus.PUBLISHED || activity.getStatus() == EventStatus.ONGOING)) {
+                        organizerAffiliationPolicy.verifyCampusPublishing(organizerId, activity.getVisibility());
+                }
 
                 return activityMapper.mapToResponse(
                                 activityRepository.save(activity));
@@ -239,6 +246,9 @@ public class ActivityService {
                 applyPatch(
                                 activity,
                                 request);
+                if (activity.getEventId() == null && (activity.getStatus() == EventStatus.PUBLISHED || activity.getStatus() == EventStatus.ONGOING)) {
+                        organizerAffiliationPolicy.verifyCampusPublishing(organizerId, activity.getVisibility());
+                }
 
                 activityValidator.validate(
                                 activity,
@@ -350,6 +360,7 @@ public class ActivityService {
                 if (!activity.getStartDateTime().isAfter(LocalDateTime.now())) {
                         throw new BadRequestException("Activity start time must be in the future before publishing.");
                 }
+                organizerAffiliationPolicy.verifyCampusPublishing(organizerId, activity.getVisibility());
                 activity.setStatus(EventStatus.PUBLISHED);
                 activity.setUpdatedAt(LocalDateTime.now());
                 return activityMapper.mapToResponse(activityRepository.save(activity));

@@ -49,6 +49,9 @@ public class CollegeVerificationService {
     private final DocumentStorageService documentStorageService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
+    private String frontendUrl;
+
     private static final String OTP_PURPOSE_COLLEGE_DOMAIN = "COLLEGE_DOMAIN_VERIFICATION";
     private static final String OTP_PURPOSE_STUDENT_AFFILIATION = "STUDENT_AFFILIATION_VERIFICATION";
     private static final SecureRandom INVITATION_RANDOM = new SecureRandom();
@@ -119,6 +122,14 @@ public class CollegeVerificationService {
         CollegeApplication saved = collegeApplicationRepository.save(application);
         log.info("College application submitted: {} ({})", saved.getName(), saved.getCode());
         return toResponse(saved);
+    }
+
+    // Keep application and nominee creation in the same MongoDB transaction.
+    @Transactional
+    public CollegeApplicationResponse submitManualApplication(CollegeApplicationRequest request, List<StoredDocument> documents,
+            String name, String email, String phone, String designation, StoredDocument authorization) {
+        CollegeApplicationResponse application = submitApplication(request, documents);
+        return nominateInitialAdmin(application.getId(), name, email, phone, designation, authorization);
     }
 
     // Public: Search verified colleges only
@@ -278,6 +289,30 @@ public class CollegeVerificationService {
                 .map(this::toResponse);
     }
 
+    public Page<CollegeApplicationResponse> listApprovedApplications(Pageable pageable) {
+        return collegeApplicationRepository.findByVerificationStatus(CollegeVerificationStatus.VERIFIED, pageable).map(this::toResponse);
+    }
+
+    @Transactional
+    public void resendCollegeAdminInvitation(String applicationId) {
+        CollegeApplication app = collegeApplicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("College application not found"));
+        if (app.getVerificationStatus() != CollegeVerificationStatus.VERIFIED || !"APPROVED".equals(app.getNomineeStatus()))
+            throw new BadRequestException("No approved administrator invitation for this application");
+        if (userRepository.existsByEmail(app.getInitialAdminEmail()))
+            throw new BadRequestException("An account already exists for this nominee");
+        College college = collegeRepository.findByCode(app.getCode()).orElseThrow(() -> new ResourceNotFoundException("College not found"));
+        if (frontendUrl == null || frontendUrl.isBlank()) throw new BadRequestException("Frontend URL is not configured");
+        collegeAdminInvitationRepository.deleteByApplicationIdAndAcceptedAtIsNull(applicationId);
+        String token = newInvitationToken();
+        collegeAdminInvitationRepository.save(CollegeAdminInvitation.builder().applicationId(applicationId)
+                .collegeId(college.getId()).nomineeEmail(app.getInitialAdminEmail()).tokenHash(hashInvitation(token))
+                .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(7)).build());
+        try { emailService.sendCollegeAdminInvitation(app.getInitialAdminEmail(), college.getName(),
+                frontendUrl.replaceAll("/+$", "") + "/college-admin/accept?token=" + token); }
+        catch (Exception ex) { throw new BadRequestException("Could not send invitation. Check mail configuration and retry."); }
+    }
+
     // Super Admin: Get application details
     public CollegeApplicationResponse getApplicationDetails(String applicationId) {
         CollegeApplication application = collegeApplicationRepository.findById(applicationId)
@@ -329,7 +364,9 @@ public class CollegeVerificationService {
                 .orElseThrow(() -> new BadRequestException("Invalid invitation"));
         if (invitation.getAcceptedAt() != null || invitation.getExpiresAt().isBefore(LocalDateTime.now())) throw new BadRequestException("Invitation is expired or already used");
         if (userRepository.existsByEmail(invitation.getNomineeEmail())) throw new BadRequestException("An account already exists for this invitation email; contact Super Admin");
-        User admin = User.builder().name("College Admin").email(invitation.getNomineeEmail()).password(passwordEncoder.encode(password))
+        CollegeApplication application = collegeApplicationRepository.findById(invitation.getApplicationId())
+                .orElseThrow(() -> new BadRequestException("Invitation application not found"));
+        User admin = User.builder().name(application.getNomineeName() == null ? "College Admin" : application.getNomineeName()).email(invitation.getNomineeEmail()).password(passwordEncoder.encode(password))
                 .role(Role.COLLEGE_ADMIN).collegeId(invitation.getCollegeId()).active(true).emailVerified(true).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
         User saved = userRepository.save(admin);
         collegeAdminAssignmentRepository.save(CollegeAdminAssignment.builder().userId(saved.getUserId()).collegeId(invitation.getCollegeId())
@@ -355,6 +392,14 @@ public class CollegeVerificationService {
             String normalizedDomain = normalizeDomain(application.getProposedDomain());
             if (collegeRepository.existsByVerifiedDomainsContaining(normalizedDomain)) {
                 throw new BadRequestException("Domain already verified for another college");
+            }
+        }
+        if (application.getVerificationMode() == CollegeVerificationMode.MANUAL_DOCUMENTS) {
+            if (application.getSupportingDocuments() == null || application.getSupportingDocuments().isEmpty()) {
+                throw new BadRequestException("Institution supporting documents are required for manual approval");
+            }
+            if (!"PENDING".equals(application.getNomineeStatus()) || application.getNomineeAuthorizationDocument() == null) {
+                throw new BadRequestException("A pending administrator nomination with authorization is required for manual applications");
             }
         }
         if (application.getNomineeStatus() != null && !"PENDING".equals(application.getNomineeStatus())) {
@@ -386,6 +431,9 @@ public class CollegeVerificationService {
 
         application.setVerificationStatus(CollegeVerificationStatus.VERIFIED);
         if (application.getNomineeStatus() != null) {
+            if (userRepository.existsByEmail(application.getInitialAdminEmail())) {
+                throw new BadRequestException("The nominee email already has an account; use a different admin email.");
+            }
             application.setNomineeStatus("APPROVED");
             application.setNomineeReviewedBy(superAdminId);
             application.setNomineeReviewedAt(LocalDateTime.now());
@@ -394,14 +442,13 @@ public class CollegeVerificationService {
                     .applicationId(application.getId()).collegeId(savedCollege.getId())
                     .nomineeEmail(application.getInitialAdminEmail()).tokenHash(hashInvitation(invitationToken))
                     .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(7)).build());
-            String frontendUrl = System.getenv("FRONTEND_URL");
-            if (frontendUrl != null && !frontendUrl.isBlank()) {
-                try {
-                    emailService.sendCollegeAdminInvitation(application.getInitialAdminEmail(), savedCollege.getName(),
-                            frontendUrl + "/college-admin/accept?token=" + invitationToken);
-                } catch (Exception ex) {
-                    log.warn("Invitation email failed for college application {}", applicationId);
-                }
+            if (frontendUrl == null || frontendUrl.isBlank()) throw new BadRequestException("Frontend URL is not configured");
+            try {
+                emailService.sendCollegeAdminInvitation(application.getInitialAdminEmail(), savedCollege.getName(),
+                        frontendUrl.replaceAll("/+$", "") + "/college-admin/accept?token=" + invitationToken);
+            } catch (Exception ex) {
+                log.warn("Invitation email failed for college application {}", applicationId, ex);
+                throw new BadRequestException("Could not send the administrator invitation. Check mail configuration and retry approval.");
             }
         }
         application.setReviewedBy(superAdminId);
@@ -457,6 +504,10 @@ public class CollegeVerificationService {
         User user = userRepository.findByEmail(adminEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + adminEmail));
 
+        if (user.getRole() != Role.COLLEGE_ADMIN || !collegeId.equals(user.getCollegeId())) {
+            throw new BadRequestException("An existing College Admin account for this college is required; use the nomination invitation for new administrators");
+        }
+
         // Check existing assignment
         Optional<CollegeAdminAssignment> existing = collegeAdminAssignmentRepository
                 .findByUserIdAndCollegeIdAndStatus(user.getUserId(), collegeId, CollegeAdminAssignmentStatus.ACTIVE);
@@ -481,17 +532,6 @@ public class CollegeVerificationService {
         college.setInitialAdminEmail(adminEmail);
         college.setUpdatedAt(LocalDateTime.now());
         collegeRepository.save(college);
-
-        // Send invitation email
-        String frontendUrl = System.getenv("FRONTEND_URL");
-        if (frontendUrl != null && !frontendUrl.isEmpty()) {
-            String invitationLink = frontendUrl + "/college-admin/invitation/" + saved.getId();
-            try {
-                emailService.sendCollegeAdminInvitation(adminEmail, college.getName(), invitationLink);
-            } catch (Exception e) {
-                log.warn("Failed to send invitation email: {}", e.getMessage());
-            }
-        }
 
         log.info("Assigned College Admin: {} for college: {}", user.getEmail(), college.getName());
         return saved;
@@ -807,9 +847,11 @@ public class CollegeVerificationService {
 
     // Participant: Get own affiliation status
     public CollegeAffiliationRequest getMyAffiliationRequest(String userId) {
-        return collegeAffiliationRequestRepository.findByParticipantId(userId)
-                .stream()
-                .findFirst()
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getCollegeId() == null) return null;
+        return collegeAffiliationRequestRepository
+                .findFirstByParticipantIdAndCollegeIdOrderBySubmittedAtDesc(userId, user.getCollegeId())
                 .orElse(null);
     }
 
@@ -840,6 +882,12 @@ public class CollegeVerificationService {
         OrganizerAffiliationRequest saved = organizerAffiliationRequestRepository.save(request);
         organizer.setOrganizerAffiliationStatus("PENDING"); organizer.setUpdatedAt(now); userRepository.save(organizer);
         return saved;
+    }
+
+    public OrganizerAffiliationRequest getMyOrganizerAffiliationRequest(String userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getRole() != Role.ORGANIZER || user.getCollegeId() == null) return null;
+        return organizerAffiliationRequestRepository.findFirstByOrganizerIdAndCollegeIdOrderBySubmittedAtDesc(userId, user.getCollegeId()).orElse(null);
     }
 
     public List<OrganizerAffiliationRequest> getOrganizerAffiliationRequests(String collegeId, String adminId) {

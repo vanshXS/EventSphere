@@ -48,7 +48,7 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
 
   // Determine college mode: default to user's college mode or OFFICIAL_DOMAIN
   const collegeMode = user?.collegeVerificationMode || affiliationData?.verificationMode || "OFFICIAL_DOMAIN";
-  const currentStatus = user?.collegeVerificationStatus || affiliationData?.status || "UNVERIFIED";
+  const currentStatus = user?.collegeVerificationStatus || "UNVERIFIED";
 
   // Fetch status on open
   useEffect(() => {
@@ -65,9 +65,6 @@ export default function StudentAffiliationModal({ isOpen, onClose }) {
       .then((data) => {
         if (!isMounted) return;
         setAffiliationData(data);
-        if (data && data.status) {
-          updateUser({ collegeVerificationStatus: data.status });
-        }
       })
       .catch((err) => {
         // Not found or no request yet is normal for unverified users

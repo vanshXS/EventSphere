@@ -104,6 +104,14 @@ export const getPendingCollegeApplications = async (page = 0, size = 20) => {
     return response.data;
 };
 
+export const getApprovedCollegeApplications = async (page = 0, size = 20) => {
+    const response = await api.get('/api/colleges/super-admin/applications/approved', { params: { page, size } });
+    return response.data;
+};
+export const resendCollegeAdminInvitation = async (applicationId) => {
+    await api.post(`/api/colleges/super-admin/applications/${applicationId}/resend-admin-invitation`);
+};
+
 export const getCollegeApplicationDetails = async (applicationId) => {
     const response = await api.get(`/api/colleges/super-admin/applications/${applicationId}`);
     return response.data;
@@ -212,6 +220,23 @@ export const submitOrganizerAffiliationRequest = async (data) => {
     return response.data;
 };
 
+export const getMyOrganizerAffiliation = async () => {
+    const response = await api.get('/api/colleges/organizer/college-affiliation/me');
+    return response.data;
+};
+
+export const downloadOrganizerAffiliationDocument = async (requestId) => {
+    return api.get(`/api/colleges/college-admin/organizer-affiliation-requests/${requestId}/documents`, { responseType: 'blob' });
+};
+
+export const downloadInstitutionDocument = async (applicationId, documentId) => {
+    return api.get(`/api/colleges/super-admin/applications/${applicationId}/documents/${encodeURIComponent(documentId)}`, { responseType: 'blob' });
+};
+
+export const downloadNomineeDocument = async (applicationId) => {
+    return api.get(`/api/colleges/super-admin/applications/${applicationId}/nominee-document`, { responseType: 'blob' });
+};
+
 export const getOrganizerAffiliationRequests = async (collegeId) => {
     const response = await api.get('/api/colleges/college-admin/organizer-affiliation-requests', { params: { collegeId } });
     return response.data;
@@ -230,6 +255,7 @@ export const submitManualCollegeApplication = async (data) => {
         if (data[key]) formData.append(key, data[key]);
     });
     data.documents.forEach((file) => formData.append("documents", file));
+    ["nomineeName", "nomineeEmail", "nomineeContactNumber", "nomineeDesignation", "nomineeAuthorizationDocument"].forEach((key) => formData.append(key, data[key]));
     const response = await api.post('/api/colleges/applications/manual', formData);
     return response.data;
 };

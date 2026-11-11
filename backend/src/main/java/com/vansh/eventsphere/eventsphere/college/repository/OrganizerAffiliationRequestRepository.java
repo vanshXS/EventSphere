@@ -7,5 +7,6 @@ import com.vansh.eventsphere.eventsphere.college.model.OrganizerAffiliationReque
 public interface OrganizerAffiliationRequestRepository extends MongoRepository<OrganizerAffiliationRequest, String> {
     List<OrganizerAffiliationRequest> findByCollegeId(String collegeId);
     List<OrganizerAffiliationRequest> findByOrganizerId(String organizerId);
+    java.util.Optional<OrganizerAffiliationRequest> findFirstByOrganizerIdAndCollegeIdOrderBySubmittedAtDesc(String organizerId, String collegeId);
     long countByOrganizerIdAndCollegeIdAndStatusIn(String organizerId, String collegeId, List<String> statuses);
 }

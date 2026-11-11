@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import OrganizerAffiliationPanel from "../../auth/components/OrganizerAffiliationPanel";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getMyEvent, publishEvent, deleteEvent } from "../eventApi";
@@ -309,6 +310,7 @@ export default function EventsPage() {
 
       {/* Main Content Area */}
       <main className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {user?.collegeVerificationMode === "MANUAL_DOCUMENTS" && <OrganizerAffiliationPanel />}
         {/* Page Title Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
