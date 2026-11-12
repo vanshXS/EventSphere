@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>Certificate</title>
+
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 12mm;
+        }
+
+        body {
+            margin: 0;
+            font-family: Helvetica, sans-serif;
+            color: #17233d;
+        }
+
+        .certificate {
+            border: 2px solid #4f46e5;
+            padding: 14mm 18mm;
+            text-align: center;
+        }
+
+        .brand {
+            color: #4f46e5;
+            font-size: 16pt;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .heading {
+            margin-top: 14mm;
+            font-size: 26pt;
+            font-weight: bold;
+        }
+
+        .label {
+            margin-top: 10mm;
+            color: #53627c;
+            font-size: 12pt;
+        }
+
+        .recipient {
+            margin-top: 4mm;
+            font-size: 30pt;
+            font-weight: bold;
+            color: #272064;
+        }
+
+        .description {
+            margin-top: 8mm;
+            font-size: 13pt;
+        }
+
+        .scope-name {
+            margin-top: 3mm;
+            font-size: 20pt;
+            font-weight: bold;
+        }
+
+        .team {
+            margin-top: 4mm;
+            font-size: 12pt;
+        }
+
+        .footer {
+            margin-top: 16mm;
+            color: #53627c;
+            font-size: 10pt;
+        }
+    </style>
+</head>
+
+<body>
+<div class="certificate">
+    <div class="brand">EVENTSPHERE</div>
+
+    <div class="heading"
+         th:text="${isWinner} ? 'CERTIFICATE OF ACHIEVEMENT' : 'CERTIFICATE OF PARTICIPATION'">
+        CERTIFICATE OF PARTICIPATION
+    </div>
+
+    <div class="label">This certificate is presented to</div>
+
+    <div class="recipient" th:text="${recipientName}">
+        Participant Name
+    </div>
+
+    <div class="description" th:if="${!isWinner}">
+        For participating in
+    </div>
+
+    <div class="description" th:if="${isWinner}"
+         th:text="'For achieving rank ' + ${rank} + ' in'">
+        For achieving rank 1 in
+    </div>
+
+    <div class="scope-name" th:text="${scopeName}">
+        Event or Activity Name
+    </div>
+
+    <div class="team"
+         th:if="${teamName != null and !#strings.isEmpty(teamName)}"
+         th:text="'Team: ' + ${teamName}">
+        Team: Example
+    </div>
+
+    <div class="footer">
+        <div th:text="'Issued: ' + ${issueDate}">Issued: 2026-11-11</div>
+        <div th:text="'Certificate number: ' + ${certificateNumber}">
+            Certificate number: Example
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -495,6 +495,7 @@ export default function AddCollegeModal({
                 </p>
               </div>
 
+
               {verificationMode === "MANUAL_DOCUMENTS" && (
                 <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
                   <div><p className="text-sm font-bold text-slate-800">Initial administrator</p><p className="mt-1 text-xs leading-5 text-slate-600">The super admin will review this nomination and its authorization document before sending an invitation.</p></div>
