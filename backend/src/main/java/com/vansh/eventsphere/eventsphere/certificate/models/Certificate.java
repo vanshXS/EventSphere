@@ -59,4 +59,9 @@ public class Certificate {
     private String scopeNameSnapshot;
     private LocalDate certificateDate;
     private String pdfTemplateVersion;
+
+    // A short-lived lease prevents concurrent workers from publishing the same PDF.
+    private String generationToken;
+    private Instant generationLeaseUntil;
+    private String failureMessage;
 }

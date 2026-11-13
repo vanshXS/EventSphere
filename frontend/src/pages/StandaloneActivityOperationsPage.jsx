@@ -39,6 +39,7 @@ import {
   getActivityTypeBadgeStyle
 } from "../features/activities/utils/activityHelpers";
 import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
+import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
 import { useToast } from "../components/common/ToastContext";
 
 export default function StandaloneActivityOperationsPage() {
@@ -405,7 +406,7 @@ export default function StandaloneActivityOperationsPage() {
 
         {/* Tabs */}
         <div className="border-b border-slate-200">
-          <nav className="flex space-x-6">
+          <nav className="flex space-x-6 overflow-x-auto">
             <button
               type="button"
               onClick={() => {
@@ -457,6 +458,8 @@ export default function StandaloneActivityOperationsPage() {
               </span>
             </button>
 
+            <button type="button" onClick={() => setTab("certificates")} className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 shrink-0 ${activeTab === "certificates" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}><Trophy className="h-4 w-4" />Certificates</button>
+
             <button
               type="button"
               onClick={() => setTab("details")}
@@ -474,6 +477,8 @@ export default function StandaloneActivityOperationsPage() {
         {/* ══════════════════════════════════════════════════════════
             TAB: REGISTRATIONS & APPROVALS
             ══════════════════════════════════════════════════════════ */}
+        {activeTab === "certificates" && <OrganizerCertificates activityId={activityId} />}
+
         {activeTab === "registrations" && activity && (
           <ActivityRegistrationsModal
             isOpen={true}

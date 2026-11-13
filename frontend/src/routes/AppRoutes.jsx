@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import VerifyCertificatePage from "../features/certificates/VerifyCertificatePage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import CollegeAdminAcceptPage from "../features/auth/pages/CollegeAdminAcceptPage";
 import OrganizerRegisterPage from "../features/auth/pages/OrganizerRegisterPage";
@@ -48,6 +49,7 @@ export default function AppRoutes() {
         <Route path="/" element={<LoginPage />} />
         
         {/* Auth Routes */}
+        <Route path="/verify-certificate" element={<VerifyCertificatePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/college-admin/accept" element={<CollegeAdminAcceptPage />} />
         <Route path="/register/organizer" element={<OrganizerRegisterPage />} />

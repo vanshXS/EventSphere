@@ -54,6 +54,7 @@ import {
   isEnded
 } from "../features/activities/utils/activityHelpers";
 import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
+import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
 import { useToast } from "../components/common/ToastContext";
 
 export default function EventOperationsPage() {
@@ -573,6 +574,8 @@ export default function EventOperationsPage() {
               </span>
             </button>
 
+            <button type="button" onClick={() => setTab("certificates")} className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 shrink-0 ${activeTab === "certificates" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}><Trophy className="w-4 h-4" />Certificates</button>
+
             <button
               type="button"
               onClick={() => setTab("overview")}
@@ -591,6 +594,8 @@ export default function EventOperationsPage() {
         {/* ══════════════════════════════════════════════════════════
             TAB 0: ACTIVITIES DASHBOARD
             ══════════════════════════════════════════════════════════ */}
+        {activeTab === "certificates" && <OrganizerCertificates eventId={eventId} activities={activities} />}
+
         {activeTab === "activities" && (
           <div className="space-y-4">
             {selectedActivityForRegistrations ? (

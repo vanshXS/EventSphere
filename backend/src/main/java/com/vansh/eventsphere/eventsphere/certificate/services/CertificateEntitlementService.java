@@ -1,6 +1,6 @@
 package com.vansh.eventsphere.eventsphere.certificate.services;
 
-import com.mongodb.DuplicateKeyException;
+import org.springframework.dao.DuplicateKeyException;
 import com.vansh.eventsphere.eventsphere.certificate.dto.ReservationResult;
 import com.vansh.eventsphere.eventsphere.certificate.models.CertificateEntitlement;
 import com.vansh.eventsphere.eventsphere.certificate.models.CertificateScope;
@@ -12,6 +12,11 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Legacy standalone reservation helper. Do not use for issuance: it does not
+ * atomically create a certificate. The workflow reserves both in one transaction.
+ */
+@Deprecated
 @Service
 @RequiredArgsConstructor
 public class CertificateEntitlementService {

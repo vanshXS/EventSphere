@@ -8,7 +8,9 @@ import java.util.Locale;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
@@ -21,6 +23,9 @@ public class CertificatePdfService {
 
     private final TemplateEngine templateEngine;
 
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl = "http://localhost:5173";
+
     public CertificatePdfService() {
         ClassLoaderTemplateResolver resolver =
                 new ClassLoaderTemplateResolver();
@@ -30,7 +35,7 @@ public class CertificatePdfService {
         resolver.setTemplateMode(TemplateMode.XML);
         resolver.setCharacterEncoding("UTF-8");
 
-        this.templateEngine = new TemplateEngine();
+        this.templateEngine = new SpringTemplateEngine();
         this.templateEngine.setTemplateResolver(resolver);
     }
 
@@ -49,6 +54,9 @@ public class CertificatePdfService {
         context.setVariable("teamName", data.teamName());
         context.setVariable("issueDate", data.issueDate().toString());
         context.setVariable("certificateNumber", data.certificateNumber());
+        String verifyUrl = frontendUrl.replaceAll("/+$", "") + "/verify-certificate?number=" + data.certificateNumber();
+        requireSupportedText(verifyUrl, "Verification URL", 240);
+        context.setVariable("verifyUrl", verifyUrl);
 
         // 2. Fill templates/certificate.html with those values.
         String html = templateEngine.process("certificate", context);

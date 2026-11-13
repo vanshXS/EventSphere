@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, BookmarkCheck, Users, ShieldCheck, Trophy } from "lucide-react";
+import { Calendar, BookmarkCheck, Users, ShieldCheck, Trophy, Award } from "lucide-react";
 import AppHeader from "../../../components/common/AppHeader";
 
 export default function ParticipantHeader({
@@ -30,6 +30,7 @@ export default function ParticipantHeader({
       icon: Users,
       badge: teamsCount > 0 ? teamsCount : null
     },
+    { id: "CERTIFICATES", label: "Certificates", icon: Award },
     {
       id: "RESULTS",
       label: "Results",

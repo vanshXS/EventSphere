@@ -1,9 +1,11 @@
 package com.vansh.eventsphere.eventsphere.certificate.repository;
 
-import java.security.cert.Certificate;
+
+import java.util.List;
 import java.util.Optional;
 
-import org.springframework.boot.data.autoconfigure.web.DataWebProperties.Pageable;
+import com.vansh.eventsphere.eventsphere.certificate.models.Certificate;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;

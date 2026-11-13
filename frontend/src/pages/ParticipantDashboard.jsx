@@ -33,6 +33,7 @@ import {
 
 import { getMyTeams } from "../features/teams/teamApi";
 
+import MyCertificates from "../features/certificates/MyCertificates";
 import ParticipantHeader from "../features/registration/components/ParticipantHeader";
 import ParticipantEventTable from "../features/registration/components/ParticipantEventTable";
 import MyRegistrationsTable from "../features/registration/components/MyRegistrationsTable";
@@ -458,6 +459,8 @@ export default function ParticipantDashboard() {
                 />
               </section>
             )}
+
+            {activeTab === "CERTIFICATES" && <MyCertificates />}
 
             {activeTab === "RESULTS" && (
               <ParticipantLeaderboard

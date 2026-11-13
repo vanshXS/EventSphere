@@ -44,6 +44,7 @@ public class SecurityConfig {
                                         "/api/judge/invitations/**"
                                 )
                                 .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/public/certificates/*/verify").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/colleges").denyAll()
                                 .requestMatchers("/api/colleges/super-admin/**")
                                 .hasRole("SUPER_ADMIN")

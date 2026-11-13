@@ -39,3 +39,5 @@ application-dev.properties
 
 # Private generated certificates
 /data/certificates/
+# Private college and affiliation documents
+/data/eventsphere-documents/
