@@ -1,5 +1,4 @@
-import React from "react";
-import { Calendar, BookmarkCheck, Users, ShieldCheck, Trophy, Award } from "lucide-react";
+import {  BookmarkCheck, Calendar, ShieldCheck, Users } from "lucide-react";
 import AppHeader from "../../../components/common/AppHeader";
 
 export default function ParticipantHeader({
@@ -30,12 +29,7 @@ export default function ParticipantHeader({
       icon: Users,
       badge: teamsCount > 0 ? teamsCount : null
     },
-    { id: "CERTIFICATES", label: "Certificates", icon: Award },
-    {
-      id: "RESULTS",
-      label: "Results",
-      icon: Trophy
-    }
+   
   ];
 
   // Conditionally add volunteer link
@@ -48,28 +42,28 @@ export default function ParticipantHeader({
     });
   }
 
-  const affiliationAction = onOpenAffiliationModal ? (
-    <button
-      type="button"
-      onClick={onOpenAffiliationModal}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border shadow-2xs ${
-        user?.collegeVerificationStatus === "VERIFIED"
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-          : user?.collegeVerificationStatus === "PENDING"
-          ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-          : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-      }`}
-    >
-      <ShieldCheck className="w-3.5 h-3.5" />
-      <span>
-        {user?.collegeVerificationStatus === "VERIFIED"
-          ? "Verified Student"
-          : user?.collegeVerificationStatus === "PENDING"
-          ? "Verification Pending"
-          : "Verify College Affiliation"}
-      </span>
-    </button>
-  ) : null;
+   // Only show the action button if the participant needs to take action (Pending or Unverified)
+  const isVerified = user?.collegeVerificationStatus === "VERIFIED";
+
+  const affiliationAction =
+    onOpenAffiliationModal && !isVerified ? (
+      <button
+        type="button"
+        onClick={onOpenAffiliationModal}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors border shadow-2xs ${
+          user?.collegeVerificationStatus === "PENDING"
+            ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+            : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+        }`}
+      >
+        <ShieldCheck className="w-3.5 h-3.5" />
+        <span>
+          {user?.collegeVerificationStatus === "PENDING"
+            ? "Verification Pending"
+            : "Verify College Affiliation"}
+        </span>
+      </button>
+    ) : null;
 
   return (
     <AppHeader

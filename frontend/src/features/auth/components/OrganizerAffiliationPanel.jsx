@@ -52,6 +52,10 @@ export default function OrganizerAffiliationPanel() {
   const StatusIcon = display.icon;
   const canSubmit = status === "UNVERIFIED" || status === "REJECTED";
 
+  if(status === "VERIFIED") {
+    return null;
+  }
+
   async function submit(event) {
     event.preventDefault();
     setError("");

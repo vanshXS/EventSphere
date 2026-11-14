@@ -42,7 +42,6 @@ public class CertificateIndexConfig {
                                     "scopeId"
 
                             )
-
                     ),
 
                     new IndexOptions().name("uq_certificate_entitlement")

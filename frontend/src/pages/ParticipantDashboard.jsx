@@ -9,7 +9,8 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  X
 } from "lucide-react";
 
 import { useAuth } from "../features/auth/AuthContext";
@@ -33,7 +34,6 @@ import {
 
 import { getMyTeams } from "../features/teams/teamApi";
 
-import MyCertificates from "../features/certificates/MyCertificates";
 import ParticipantHeader from "../features/registration/components/ParticipantHeader";
 import ParticipantEventTable from "../features/registration/components/ParticipantEventTable";
 import MyRegistrationsTable from "../features/registration/components/MyRegistrationsTable";
@@ -46,6 +46,8 @@ import MyTeamsList from "../features/teams/components/MyTeamsList";
 import CreateTeamModal from "../features/teams/components/CreateTeamModal";
 import ParticipantLeaderboard from "../features/judging/components/ParticipantLeaderboard";
 import { useToast } from "../components/common/ToastContext";
+import { getMyCertificates } from "../features/certificates/certificateApi";
+import { getParticipantLeaderboardResults } from "../features/judging/api/judgingApi";
 
 export default function ParticipantDashboard() {
   const { user, updateUser, logoutUser } = useAuth();
@@ -60,6 +62,12 @@ export default function ParticipantDashboard() {
   const [myRegistrations, setMyRegistrations] = useState([]);
   const [myTeams, setMyTeams] = useState([]);
   const [volunteerAssignments, setVolunteerAssignments] = useState([]);
+
+  const [myCertificates, setMyCertificates] = useState([]);
+  const [publishedResults, setPublishedResults] = useState([]);
+
+  const [resultsModalActivityId, setResultsModalActivityId] = useState(null);
+
 
   const [loading, setLoading] = useState(true);
   const [loadVersion, setLoadVersion] = useState(0);
@@ -92,17 +100,18 @@ export default function ParticipantDashboard() {
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([
+        Promise.all([
       getVisibleEvents(),
       getVisibleStandaloneActivities(),
       getMyRegistrations(),
       getMyTeams(),
       getMyVolunteerAssignments(),
-      getMyAffiliationStatus().catch(() => null)
+      getMyAffiliationStatus().catch(() => null),
+      getMyCertificates().catch(() => ({ content: [] })),
+      getParticipantLeaderboardResults().catch(() => [])
     ])
-      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData]) => {
+      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData, certsData, resultsData]) => {
         if (ignore) return;
-
 
         const sortByNewest = (list) =>
           (Array.isArray(list) ? list : []).slice().sort((a, b) => {
@@ -123,6 +132,8 @@ export default function ParticipantDashboard() {
         setMyRegistrations(sortRegistrationsByNewest(registrationsData));
         setMyTeams(teamsData);
         setVolunteerAssignments(assignmentsData);
+        setMyCertificates(Array.isArray(certsData?.content) ? certsData.content : Array.isArray(certsData) ? certsData : []);
+        setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
       })
       .catch((err) => {
         if (!ignore) {
@@ -214,7 +225,11 @@ export default function ParticipantDashboard() {
     setRefreshingRegistrations(true);
 
     try {
-      const registrations = await getMyRegistrations();
+      const [registrations, certsData, resultsData] = await Promise.all([
+        getMyRegistrations(),
+        getMyCertificates().catch(() => ({ content: [] })),
+        getParticipantLeaderboardResults().catch(() => [])
+      ]);
       const sortRegistrationsByNewest = (list) =>
         (Array.isArray(list) ? list : []).slice().sort((a, b) => {
           const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
@@ -222,6 +237,8 @@ export default function ParticipantDashboard() {
           return timeB - timeA;
         });
       setMyRegistrations(sortRegistrationsByNewest(registrations));
+      setMyCertificates(Array.isArray(certsData?.content) ? certsData.content : Array.isArray(certsData) ? certsData : []);
+      setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
       setSuccessMessage("Registration statuses updated.");
     } catch (err) {
       setError(
@@ -299,9 +316,9 @@ export default function ParticipantDashboard() {
     setActiveTab("MY_REGISTRATIONS");
   };
 
+  
   const handleViewResults = (activityId) => {
-    setSelectedResultActivityId(activityId || null);
-    setActiveTab("RESULTS");
+    setResultsModalActivityId(activityId || null);
   };
 
   const activeRegistrationsCount = myRegistrations.filter(
@@ -420,6 +437,8 @@ export default function ParticipantDashboard() {
                   standaloneActivities={standaloneActivities}
                   myTeams={myTeams}
                   cancellingId={cancellingId}
+                  publishedResults={publishedResults}
+                  certificates={myCertificates}
                   currentUser={user}
                   onCancelRegistration={handleCancelRegistration}
                   onBrowseEvents={() => setActiveTab("EXPLORE")}
@@ -460,16 +479,6 @@ export default function ParticipantDashboard() {
               </section>
             )}
 
-            {activeTab === "CERTIFICATES" && <MyCertificates />}
-
-            {activeTab === "RESULTS" && (
-              <ParticipantLeaderboard
-                myRegistrations={myRegistrations}
-                selectedActivityId={selectedResultActivityId}
-                onBrowseEvents={() => setActiveTab("EXPLORE")}
-                onClearSelectedActivity={() => setSelectedResultActivityId(null)}
-              />
-            )}
           </>
         )}
       </main>
@@ -513,6 +522,35 @@ export default function ParticipantDashboard() {
         isOpen={isAffiliationModalOpen}
         onClose={() => setIsAffiliationModalOpen(false)}
       />
+
+      {resultsModalActivityId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          onClick={(e) =>  {
+            if(e.target === e.currentTarget)
+              setResultsModalActivityId(null);
+          }}    
+        >
+          <div className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white shadow-2xl overflow-auto p-6">
+            <button
+            type="button"
+            onClick={() => setResultsModalActivityId(null)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+                  <X/>
+            </button>
+
+            <ParticipantLeaderboard
+                 myRegistrations={myRegistrations}
+                 selectedActivityId={resultsModalActivityId}
+                 onBrowseEvents={() => {
+                  setResultsModalActivityId(null);
+                  setActiveTab("EXPLORE");
+                 }}
+                 onClearSelectedActivity={() => setResultsModalActivityId(null)}
+            />
+            </div>
+          </div>
+      )}
     </div>
   );
 }

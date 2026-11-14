@@ -21,6 +21,7 @@ public class CertificateController {
     private final CertificateWorkflowService workflow;
     private final CertificateRepository certificates;
     private final CertificateStorageService storage;
+
     @GetMapping("/organizer/events/{id}/certificates/eligibility")
     public Preview eventPreview(@PathVariable String id, Authentication auth) { return workflow.previewEvent(id, auth.getName()); }
     @PostMapping("/organizer/events/{id}/certificates/generate")

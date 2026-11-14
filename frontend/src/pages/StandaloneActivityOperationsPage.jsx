@@ -40,6 +40,7 @@ import {
 } from "../features/activities/utils/activityHelpers";
 import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
 import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
+import JudgeAssignmentManager from "../features/judging/components/JudgeAssignmentManager";
 import { useToast } from "../components/common/ToastContext";
 
 export default function StandaloneActivityOperationsPage() {
@@ -315,14 +316,6 @@ export default function StandaloneActivityOperationsPage() {
                 <span>Complete Competition</span>
               </button>
             )}
-
-            <Link
-              to={`/organizer/activities/${activityId}/judging`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
-            >
-              <ClipboardCheck className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Configure judging</span>
-            </Link>
 
             <button
               type="button"
@@ -615,19 +608,10 @@ export default function StandaloneActivityOperationsPage() {
             </div>
 
             {staffSubTab === "judges" ? (
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-5">
-                <h3 className="text-sm font-bold text-slate-900">Configure competition judging</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Set up rounds and scoring criteria, manage judge assignments, and publish results.
-                </p>
-                <Link
-                  to={`/organizer/activities/${activityId}/judging`}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
-                >
-                  <ClipboardCheck className="h-4 w-4" />
-                  Open judging setup
-                </Link>
-              </div>
+              <JudgeAssignmentManager
+                activities={activity ? [activity] : []}
+                selectedActivityId={activityId}
+              />
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                 {/* Left: Invite Form */}

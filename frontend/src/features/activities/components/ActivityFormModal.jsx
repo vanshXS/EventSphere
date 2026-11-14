@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, AlertCircle, Loader2, Plus } from "lucide-react";
+import { X, AlertCircle, Loader2, Plus, Info, Calendar, Award, ArrowRight, ArrowLeft } from "lucide-react";
 
 import {
   ACTIVITY_TYPES,
@@ -10,6 +10,8 @@ import {
 
 import { toInputDateTime } from "../../events/utils/eventHelpers";
 import { createActivity, updateActivity } from "../activityApi";
+import { setupActivityJudging, getCompetition, getJudgingRounds } from "../../judging/api/judgingApi";
+import JudgingRoundConfigSection from "../../judging/components/JudgingRoundConfigSection";
 import ApprovalSetting from "./ApprovalSetting";
 
 const inputClassName = (hasError) =>
@@ -85,9 +87,17 @@ export default function ActivityFormModal({
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [activeFormTab, setActiveFormTab] = useState("details");
+  const [judgingConfig, setJudgingConfig] = useState({
+    enabled: false,
+    mode: "SINGLE_STAGE",
+    rounds: []
+  });
 
   useEffect(() => {
     if (!isOpen) return;
+
+    setActiveFormTab("details");
 
     if (editingActivity) {
       setFormData({
@@ -129,6 +139,29 @@ export default function ActivityFormModal({
         visibility: editingActivity.visibility || ""
       });
 
+      if (editingActivity.judgingConfig) {
+        setJudgingConfig(editingActivity.judgingConfig);
+      } else if (editingActivity.id) {
+        Promise.all([
+          getCompetition(editingActivity.id).catch(() => null),
+          getJudgingRounds(editingActivity.id).catch(() => [])
+        ]).then(([comp, rList]) => {
+          if (comp?.judgingEnabled) {
+            setJudgingConfig({
+              enabled: true,
+              mode: comp.competitionMode || "SINGLE_STAGE",
+              rounds: (rList || []).map((r) => ({
+                name: r.name,
+                description: r.description || "",
+                criteria: r.criteria || []
+              }))
+            });
+          }
+        });
+      } else {
+        setJudgingConfig({ enabled: false, mode: "SINGLE_STAGE", rounds: [] });
+      }
+
       setSameVenue(
         Boolean(
           parentEvent?.venue &&
@@ -163,6 +196,7 @@ export default function ActivityFormModal({
         endDateTime
       });
 
+      setJudgingConfig({ enabled: false, mode: "SINGLE_STAGE", rounds: [] });
       setSameVenue(Boolean(parentEvent?.venue));
       setSameSchedule(Boolean(startDateTime && endDateTime));
     }
@@ -283,11 +317,36 @@ export default function ActivityFormModal({
     const errors = validateActivityForm(formData, parentEvent);
     setFieldErrors(errors);
 
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      if (errors.name || errors.type || errors.location || errors.description || errors.visibility) {
+        setActiveFormTab("details");
+      } else {
+        setActiveFormTab("schedule");
+      }
+      return;
+    }
+
+    if (judgingConfig.enabled && Array.isArray(judgingConfig.rounds)) {
+      for (let i = 0; i < judgingConfig.rounds.length; i++) {
+        const round = judgingConfig.rounds[i];
+        const criteria = round.criteria || [];
+        const totalWeight = criteria.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          setActiveFormTab("judging");
+          setServerError(`Round "${round.name || i + 1}": criterion weights must total 100% (currently ${totalWeight}%).`);
+          return;
+        }
+      }
+    }
+
+    const payload = {
+      ...formData,
+      judgingConfig
+    };
 
     // New event: the parent page saves these after creating the event.
     if (!eventId && onActivityAdded) {
-      onActivityAdded(formData, editingIndex);
+      onActivityAdded(payload, editingIndex);
       onClose();
       return;
     }
@@ -298,6 +357,14 @@ export default function ActivityFormModal({
       const saved = editingActivity
         ? await updateActivity(eventId, editingActivity.id, formData)
         : await createActivity(eventId, formData);
+
+      if (judgingConfig.enabled) {
+        try {
+          await setupActivityJudging(saved.id, judgingConfig, formData.registrationType);
+        } catch (jErr) {
+          console.error("Could not setup judging rounds:", jErr);
+        }
+      }
 
       onActivityCreated?.(saved);
       onClose();
@@ -382,6 +449,53 @@ export default function ActivityFormModal({
           </button>
         </header>
 
+        {/* Step-by-Step Sub-Navbar */}
+        <nav className="flex border-b border-slate-200 bg-slate-50/80 px-4 sm:px-6 overflow-x-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveFormTab("details")}
+            className={`flex items-center gap-1.5 border-b-2 py-3 px-3 text-xs font-semibold transition shrink-0 cursor-pointer ${
+              activeFormTab === "details"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Info className="h-3.5 w-3.5" />
+            <span>1. Basic Details</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFormTab("schedule")}
+            className={`flex items-center gap-1.5 border-b-2 py-3 px-3 text-xs font-semibold transition shrink-0 cursor-pointer ${
+              activeFormTab === "schedule"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Calendar className="h-3.5 w-3.5" />
+            <span>2. Schedule & Limits</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFormTab("judging")}
+            className={`flex items-center gap-1.5 border-b-2 py-3 px-3 text-xs font-semibold transition shrink-0 cursor-pointer ${
+              activeFormTab === "judging"
+                ? "border-indigo-600 text-indigo-600"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Award className="h-3.5 w-3.5" />
+            <span>3. Judging Setup</span>
+            {judgingConfig.enabled && (
+              <span className="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.2 text-[9px] font-bold text-indigo-700">
+                On
+              </span>
+            )}
+          </button>
+        </nav>
+
         <form
           onSubmit={handleSubmit}
           noValidate
@@ -397,372 +511,436 @@ export default function ActivityFormModal({
             </div>
           )}
 
-          <Field
-            id="activity-name"
-            label="Activity name"
-            required
-            error={fieldErrors.name}
-          >
-            <input
-              id="activity-name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="e.g. Code Storm Hackathon"
-              disabled={isSubmitting}
-              className={inputClassName(fieldErrors.name)}
-            />
-          </Field>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field
-              id="activity-type"
-              label="Activity type"
-              required
-              error={fieldErrors.type}
-            >
-              <select
-                id="activity-type"
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                disabled={isSubmitting}
-                className={inputClassName(fieldErrors.type)}
-              >
-                <option value="">Select activity type</option>
-
-                {ACTIVITY_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <div className="space-y-2">
+          {/* TAB 1: BASIC DETAILS */}
+          {activeFormTab === "details" && (
+            <div className="space-y-4">
               <Field
-                id="activity-location"
-                label="Sub-venue / room"
-                error={fieldErrors.location}
+                id="activity-name"
+                label="Activity name"
+                required
+                error={fieldErrors.name}
               >
                 <input
-                  id="activity-location"
-                  name="location"
-                  value={formData.location}
-                  onChange={(event) => {
-                    setSameVenue(false);
-                    handleChange(event);
-                  }}
-                  placeholder="e.g. Computer Lab 2"
+                  id="activity-name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="e.g. Code Storm Hackathon"
                   disabled={isSubmitting}
-                  className={inputClassName(fieldErrors.location)}
+                  className={inputClassName(fieldErrors.name)}
                 />
               </Field>
 
-              {parentEvent?.venue && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-indigo-700">
-                  <input
-                    type="checkbox"
-                    checked={sameVenue}
-                    onChange={handleToggleSameVenue}
-                    disabled={isSubmitting}
-                    className="accent-indigo-600"
-                  />
-                  Same venue as event
-                </label>
-              )}
-            </div>
-          </div>
-
-          {!parentEvent && (
-            <Field
-              id="activity-visibility"
-              label="Visibility"
-              required
-              error={fieldErrors.visibility}
-            >
-              <select
-                id="activity-visibility"
-                name="visibility"
-                value={formData.visibility}
-                onChange={handleChange}
-                disabled={isSubmitting}
-                className={inputClassName(fieldErrors.visibility)}
-              >
-                <option value="">Select visibility</option>
-                <option value="COLLEGE_ONLY">College Only</option>
-                <option value="OPEN_TO_ALL">Open to All</option>
-              </select>
-            </Field>
-          )}
-
-          <Field
-            id="activity-description"
-            label="Description"
-            required
-            error={fieldErrors.description}
-            hint={`${formData.description.length}/2000 characters`}
-          >
-            <textarea
-              id="activity-description"
-              name="description"
-              rows={3}
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="What will participants do in this activity?"
-              disabled={isSubmitting}
-              className={inputClassName(fieldErrors.description)}
-            />
-          </Field>
-
-          <section className="space-y-4 border-t border-slate-100 pt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-                Schedule & timeline
-              </h3>
-
-              {parentEvent?.startDateTime && parentEvent?.endDateTime && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-indigo-700">
-                  <input
-                    type="checkbox"
-                    checked={sameSchedule}
-                    onChange={handleToggleSameSchedule}
-                    disabled={isSubmitting}
-                    className="accent-indigo-600"
-                  />
-                  Same as event dates
-                </label>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {scheduleFields.map(({ name, id, label }) => (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field
-                  key={name}
-                  id={id}
-                  label={label}
+                  id="activity-type"
+                  label="Activity type"
                   required
-                  error={fieldErrors[name]}
-                  hint={
-                    name === "registrationDeadline"
-                      ? "Must be before the activity starts."
-                      : undefined
-                  }
+                  error={fieldErrors.type}
                 >
-                  <input
-                    id={id}
-                    name={name}
-                    type="datetime-local"
-                    value={formData[name]}
-                    onChange={(event) => {
-                      if (name !== "registrationDeadline") {
-                        setSameSchedule(false);
-                      }
-                      handleChange(event);
-                    }}
-                    max={
-                      name === "registrationDeadline"
-                        ? formData.startDateTime || undefined
-                        : undefined
-                    }
+                  <select
+                    id="activity-type"
+                    name="type"
+                    value={formData.type}
+                    onChange={handleChange}
                     disabled={isSubmitting}
-                    className={inputClassName(fieldErrors[name])}
-                  />
+                    className={inputClassName(fieldErrors.type)}
+                  >
+                    <option value="">Select activity type</option>
+
+                    {ACTIVITY_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
-              ))}
-            </div>
-            <Field
-              id="activity-check-in-window"
-              label="Activity check-in opens before start"
-            >
-              <select
-                id="activity-check-in-window"
-                name="checkInOpensMinutesBeforeStart"
-                value={formData.checkInOpensMinutesBeforeStart}
-                onChange={handleChange}
-                disabled={isSubmitting}
-                className={inputClassName(false)}
-              >
-                <option value="0">At start time</option>
-                <option value="15">15 minutes before</option>
-                <option value="30">30 minutes before</option>
-                <option value="60">60 minutes before</option>
-                <option value="120">120 minutes before</option>
-              </select>
-            </Field>
-          </section>
 
-          <section className="space-y-4 border-t border-slate-100 pt-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
-              Registration & capacity
-            </h3>
-
-            <Field
-              id="activity-registration-type"
-              label="Registration type"
-              required
-              error={fieldErrors.registrationType}
-              hint={
-                formData.registrationType === "BOTH"
-                  ? "Participants can enter individually or as a team."
-                  : undefined
-              }
-            >
-              <select
-                id="activity-registration-type"
-                name="registrationType"
-                value={formData.registrationType}
-                onChange={handleRegistrationTypeChange}
-                disabled={isSubmitting}
-                className={inputClassName(fieldErrors.registrationType)}
-              >
-                {ACTIVITY_REGISTRATION_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <fieldset className="space-y-3">
-              <legend className="mb-2 text-xs font-semibold text-slate-700">
-                Registration limit
-              </legend>
-
-              <div className="flex gap-4 text-sm text-slate-700">
-                {[
-                  ["UNLIMITED", "No limit"],
-                  ["LIMITED", "Limited"]
-                ].map(([value, label]) => (
-                  <label
-                    key={value}
-                    className="inline-flex cursor-pointer items-center gap-2"
+                <div className="space-y-2">
+                  <Field
+                    id="activity-location"
+                    label="Sub-venue / room"
+                    error={fieldErrors.location}
                   >
                     <input
-                      type="radio"
-                      name="registrationLimit"
-                      value={value}
-                      checked={formData.registrationLimit === value}
-                      onChange={handleChange}
+                      id="activity-location"
+                      name="location"
+                      value={formData.location}
+                      onChange={(event) => {
+                        setSameVenue(false);
+                        handleChange(event);
+                      }}
+                      placeholder="e.g. Computer Lab 2"
                       disabled={isSubmitting}
-                      className="accent-indigo-600"
+                      className={inputClassName(fieldErrors.location)}
                     />
-                    {label}
-                  </label>
-                ))}
+                  </Field>
+
+                  {parentEvent?.venue && (
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-indigo-700">
+                      <input
+                        type="checkbox"
+                        checked={sameVenue}
+                        onChange={handleToggleSameVenue}
+                        disabled={isSubmitting}
+                        className="accent-indigo-600"
+                      />
+                      Same venue as event
+                    </label>
+                  )}
+                </div>
               </div>
 
-              {formData.registrationLimit === "LIMITED" ? (
+              {!parentEvent && (
                 <Field
-                  id="activity-capacity"
-                  label="Maximum entries"
+                  id="activity-visibility"
+                  label="Visibility"
                   required
-                  error={fieldErrors.capacity}
-                  hint="One individual or one team counts as one entry."
+                  error={fieldErrors.visibility}
                 >
-                  <input
-                    id="activity-capacity"
-                    name="capacity"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={formData.capacity}
+                  <select
+                    id="activity-visibility"
+                    name="visibility"
+                    value={formData.visibility}
                     onChange={handleChange}
-                    placeholder="e.g. 50"
                     disabled={isSubmitting}
-                    className={inputClassName(fieldErrors.capacity)}
-                  />
+                    className={inputClassName(fieldErrors.visibility)}
+                  >
+                    <option value="">Select visibility</option>
+                    <option value="COLLEGE_ONLY">College Only</option>
+                    <option value="OPEN_TO_ALL">Open to All</option>
+                  </select>
                 </Field>
-              ) : (
-                <p className="text-xs text-slate-500">
-                  No entry limit until the registration deadline.
-                </p>
               )}
-            </fieldset>
 
-            <ApprovalSetting
-              checked={formData.requiresApproval}
-              onChange={(checked) =>
-                setFormData((previous) => ({
-                  ...previous,
-                  requiresApproval: checked
-                }))
-              }
-              disabled={isSubmitting}
-              editing={Boolean(editingActivity)}
-            />
+              <Field
+                id="activity-description"
+                label="Description"
+                required
+                error={fieldErrors.description}
+                hint={`${formData.description.length}/2000 characters`}
+              >
+                <textarea
+                  id="activity-description"
+                  name="description"
+                  rows={3}
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="What will participants do in this activity?"
+                  disabled={isSubmitting}
+                  className={inputClassName(fieldErrors.description)}
+                />
+              </Field>
 
-            {isTeamRegistration && (
-              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <div>
-                  <h4 className="text-xs font-semibold text-slate-800">
-                    Team size
-                  </h4>
+              <div className="flex justify-end pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setActiveFormTab("schedule")}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+                >
+                  <span>Next: Schedule & Limits</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
 
-                  {formData.registrationType === "BOTH" && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      These limits apply only to team entries.
-                    </p>
+          {/* TAB 2: SCHEDULE & ENTRY */}
+          {activeFormTab === "schedule" && (
+            <div className="space-y-4">
+              <section className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                    Schedule & timeline
+                  </h3>
+
+                  {parentEvent?.startDateTime && parentEvent?.endDateTime && (
+                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-indigo-700">
+                      <input
+                        type="checkbox"
+                        checked={sameSchedule}
+                        onChange={handleToggleSameSchedule}
+                        disabled={isSubmitting}
+                        className="accent-indigo-600"
+                      />
+                      Same as event dates
+                    </label>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {[
-                    ["minTeamSize", "Minimum members"],
-                    ["maxTeamSize", "Maximum members"]
-                  ].map(([name, label]) => (
+                  {scheduleFields.map(({ name, id, label }) => (
                     <Field
                       key={name}
-                      id={`activity-${name}`}
+                      id={id}
                       label={label}
                       required
                       error={fieldErrors[name]}
+                      hint={
+                        name === "registrationDeadline"
+                          ? "Must be before the activity starts."
+                          : undefined
+                      }
                     >
                       <input
-                        id={`activity-${name}`}
+                        id={id}
                         name={name}
-                        type="number"
-                        min="1"
-                        step="1"
+                        type="datetime-local"
                         value={formData[name]}
-                        onChange={handleChange}
+                        onChange={(event) => {
+                          if (name !== "registrationDeadline") {
+                            setSameSchedule(false);
+                          }
+                          handleChange(event);
+                        }}
+                        max={
+                          name === "registrationDeadline"
+                            ? formData.startDateTime || undefined
+                            : undefined
+                        }
                         disabled={isSubmitting}
                         className={inputClassName(fieldErrors[name])}
                       />
                     </Field>
                   ))}
                 </div>
+                <Field
+                  id="activity-check-in-window"
+                  label="Activity check-in opens before start"
+                >
+                  <select
+                    id="activity-check-in-window"
+                    name="checkInOpensMinutesBeforeStart"
+                    value={formData.checkInOpensMinutesBeforeStart}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                    className={inputClassName(false)}
+                  >
+                    <option value="0">At start time</option>
+                    <option value="15">15 minutes before</option>
+                    <option value="30">30 minutes before</option>
+                    <option value="60">60 minutes before</option>
+                    <option value="120">120 minutes before</option>
+                  </select>
+                </Field>
+              </section>
+
+              <section className="space-y-4 border-t border-slate-100 pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  Registration & capacity
+                </h3>
+
+                <Field
+                  id="activity-registration-type"
+                  label="Registration type"
+                  required
+                  error={fieldErrors.registrationType}
+                  hint={
+                    formData.registrationType === "BOTH"
+                      ? "Participants can enter individually or as a team."
+                      : undefined
+                  }
+                >
+                  <select
+                    id="activity-registration-type"
+                    name="registrationType"
+                    value={formData.registrationType}
+                    onChange={handleRegistrationTypeChange}
+                    disabled={isSubmitting}
+                    className={inputClassName(fieldErrors.registrationType)}
+                  >
+                    {ACTIVITY_REGISTRATION_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <fieldset className="space-y-3">
+                  <legend className="mb-2 text-xs font-semibold text-slate-700">
+                    Registration limit
+                  </legend>
+
+                  <div className="flex gap-4 text-sm text-slate-700">
+                    {[
+                      ["UNLIMITED", "No limit"],
+                      ["LIMITED", "Limited"]
+                    ].map(([value, label]) => (
+                      <label
+                        key={value}
+                        className="inline-flex cursor-pointer items-center gap-2"
+                      >
+                        <input
+                          type="radio"
+                          name="registrationLimit"
+                          value={value}
+                          checked={formData.registrationLimit === value}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          className="accent-indigo-600"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+
+                  {formData.registrationLimit === "LIMITED" ? (
+                    <Field
+                      id="activity-capacity"
+                      label="Maximum entries"
+                      required
+                      error={fieldErrors.capacity}
+                      hint="One individual or one team counts as one entry."
+                    >
+                      <input
+                        id="activity-capacity"
+                        name="capacity"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={formData.capacity}
+                        onChange={handleChange}
+                        placeholder="e.g. 50"
+                        disabled={isSubmitting}
+                        className={inputClassName(fieldErrors.capacity)}
+                      />
+                    </Field>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      No entry limit until the registration deadline.
+                    </p>
+                  )}
+                </fieldset>
+
+                <ApprovalSetting
+                  checked={formData.requiresApproval}
+                  onChange={(checked) =>
+                    setFormData((previous) => ({
+                      ...previous,
+                      requiresApproval: checked
+                    }))
+                  }
+                  disabled={isSubmitting}
+                  editing={Boolean(editingActivity)}
+                />
+
+                {isTeamRegistration && (
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div>
+                      <h4 className="text-xs font-semibold text-slate-800">
+                        Team size
+                      </h4>
+
+                      {formData.registrationType === "BOTH" && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          These limits apply only to team entries.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {[
+                        ["minTeamSize", "Minimum members"],
+                        ["maxTeamSize", "Maximum members"]
+                      ].map(([name, label]) => (
+                        <Field
+                          key={name}
+                          id={`activity-${name}`}
+                          label={label}
+                          required
+                          error={fieldErrors[name]}
+                        >
+                          <input
+                            id={`activity-${name}`}
+                            name={name}
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={formData[name]}
+                            onChange={handleChange}
+                            disabled={isSubmitting}
+                            className={inputClassName(fieldErrors[name])}
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <section className="border-t border-slate-100 pt-4">
+                <Field
+                  id="activity-rules"
+                  label="Rules & guidelines"
+                  required
+                  error={fieldErrors.rules}
+                  hint={`${formData.rules.length}/5000 characters`}
+                >
+                  <textarea
+                    id="activity-rules"
+                    name="rules"
+                    rows={3}
+                    value={formData.rules}
+                    onChange={handleChange}
+                    placeholder="Add eligibility, participation and submission rules."
+                    disabled={isSubmitting}
+                    className={inputClassName(fieldErrors.rules)}
+                  />
+                </Field>
+              </section>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setActiveFormTab("details")}
+                  className="inline-flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Details</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFormTab("judging")}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+                >
+                  <span>Next: Judging Setup</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </button>
               </div>
-            )}
-          </section>
+            </div>
+          )}
 
-          <section className="border-t border-slate-100 pt-4">
-            <Field
-              id="activity-rules"
-              label="Rules & guidelines"
-              required
-              error={fieldErrors.rules}
-              hint={`${formData.rules.length}/5000 characters`}
-            >
-              <textarea
-                id="activity-rules"
-                name="rules"
-                rows={4}
-                value={formData.rules}
-                onChange={handleChange}
-                placeholder="Add eligibility, participation and submission rules."
+          {/* TAB 3: JUDGING & ROUNDS CONFIG */}
+          {activeFormTab === "judging" && (
+            <div className="space-y-4">
+              <JudgingRoundConfigSection
+                config={judgingConfig}
+                onChange={setJudgingConfig}
+                activityType={formData.type}
                 disabled={isSubmitting}
-                className={inputClassName(fieldErrors.rules)}
               />
-            </Field>
-          </section>
 
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setActiveFormTab("schedule")}
+                  className="inline-flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Schedule</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Footer Controls */}
           <footer className="flex justify-end gap-3 border-t border-slate-100 pt-4">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
             >
               Cancel
             </button>
@@ -770,7 +948,7 @@ export default function ActivityFormModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 shadow-xs cursor-pointer"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

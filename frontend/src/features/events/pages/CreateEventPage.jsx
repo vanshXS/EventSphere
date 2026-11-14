@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { createEvent } from "../eventApi";
 import { createActivity, createStandaloneActivity } from "../../activities/activityApi";
+import { setupActivityJudging } from "../../judging/api/judgingApi";
 import ActivityFormModal from "../../activities/components/ActivityFormModal";
 import CompetitionForm from "../components/CompetitionForm";
 import { 
@@ -169,7 +170,15 @@ export default function CreateEventPage() {
 
       for (const act of activitiesToCreate) {
         try {
-          await createActivity(createdEvent.id, act);
+          const createdAct = await createActivity(createdEvent.id, act);
+
+          if (act.judgingConfig?.enabled) {
+            try {
+              await setupActivityJudging(createdAct.id, act.judgingConfig, act.registrationType);
+            } catch (jErr) {
+              console.error(`Failed to setup judging for "${act.name}":`, jErr);
+            }
+          }
         } catch (actErr) {
           console.error(`Failed to add activity "${act.name}":`, actErr);
           failedActivities.push({
@@ -215,6 +224,15 @@ export default function CreateEventPage() {
 
     try {
       const activity = await createStandaloneActivity(activityData);
+
+      if (activityData.judgingConfig?.enabled) {
+        try {
+          await setupActivityJudging(activity.id, activityData.judgingConfig, activityData.registrationType);
+        } catch (jErr) {
+          console.error("Failed to setup judging for standalone competition:", jErr);
+        }
+      }
+
       navigate("/organizer", {
         state: {
           flashMessage: `Competition "${activity.name}" created successfully.`,

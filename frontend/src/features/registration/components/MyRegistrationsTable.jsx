@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   CheckCircle2,
   Clock,
+  Award,
   Ban,
   Users,
   User,
@@ -68,6 +69,8 @@ export default function MyRegistrationsTable({
   events = [],
   standaloneActivities = [],
   myTeams = [],
+  certificates = [],
+  publishedResults = [],
   cancellingId,
   onCancelRegistration,
   onBrowseEvents,
@@ -88,6 +91,20 @@ export default function MyRegistrationsTable({
   const [modalTicket, setModalTicket] = useState(null);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState("");
+
+  const [downloadingCertId, setDownloadingCertId] = useState(null);
+
+  const handleDownloadCertificate = async (cert) => {
+    if (!cert?.id) return;
+    try {
+      setDownloadingCertId(cert.id);
+      await downloadCertificate(cert.id, cert.certificateNumber || "Certificate");
+    } catch {
+      alert("Could not download certificate. Please try again.");
+    } finally {
+      setDownloadingCertId(null);
+    }
+  };
 
   const handleOpenTicketModal = async (registration) => {
     setTicketModalReg(registration);
@@ -141,22 +158,60 @@ export default function MyRegistrationsTable({
       const eventEnded =
         event &&
         (event.eventStatus === "COMPLETED" ||
+          event.status === "COMPLETED" ||
           (event.endDateTime &&
             new Date(event.endDateTime).getTime() <= Date.now()));
       const registrationEnded =
         registration.endDateTime &&
         new Date(registration.endDateTime).getTime() <= Date.now();
 
-      const ended = Boolean(activityEnded || eventEnded || registrationEnded);
+      const isActivityCompleted =
+        activity?.status === "COMPLETED" ||
+        event?.eventStatus === "COMPLETED" ||
+        event?.status === "COMPLETED" ||
+        Boolean(activity?.actualEndDateTime);
+
+      const isRegCompleted =
+        registration.status === "COMPLETED" ||
+        normalizeRegistrationStatus(registration.status) === "COMPLETED";
+
+      const isCompleted = Boolean(
+        isActivityCompleted || isRegCompleted || activityEnded || eventEnded || registrationEnded
+      );
 
       const isActivityCancelled =
-        activity?.status === "CANCELLED" || event?.eventStatus === "CANCELLED";
+        activity?.status === "CANCELLED" ||
+        event?.eventStatus === "CANCELLED" ||
+        event?.status === "CANCELLED";
+
       const isRegCancelled =
         registration.status === "CANCELLED" ||
         normalizeRegistrationStatus(registration.status) === "CANCELLED";
+
       const isRegRejected =
         registration.status === "REJECTED" ||
         normalizeRegistrationStatus(registration.status) === "REJECTED";
+
+      const isCancelled = Boolean(isActivityCancelled || isRegCancelled);
+
+      // Find matching certificate (only if published/issued)
+      const matchingCert = certificates.find((c) => {
+        if (c.registrationId && c.registrationId === registration.id) return true;
+        if (registration.activityId && c.activityId && c.activityId === registration.activityId) return true;
+        if (registration.eventId && c.eventId && c.eventId === registration.eventId) return true;
+        const regActName = (registration.activityName || activity?.name || "").trim().toLowerCase();
+        const regEvtName = (registration.eventName || event?.title || "").trim().toLowerCase();
+        const certScope = (c.scopeName || "").trim().toLowerCase();
+        if (certScope && regActName && certScope === regActName) return true;
+        if (certScope && regEvtName && certScope === regEvtName) return true;
+        return false;
+      });
+
+      // Check if competition results are published
+      const hasPublishedResults = Boolean(
+        registration.activityId &&
+        publishedResults.some((r) => r.activityId === registration.activityId)
+      );
 
       const isCompetition =
         activity?.type === "HACKATHON" ||
@@ -169,10 +224,13 @@ export default function MyRegistrationsTable({
         ...registration,
         activity,
         event,
-        isEnded: ended,
+        isEnded: isCompleted,
+        isCompleted,
         isEventCancelled: isActivityCancelled,
-        isCancelled: isRegCancelled,
+        isCancelled,
         isRejected: isRegRejected,
+        matchingCert,
+        hasPublishedResults,
         isCompetition,
         activityName:
           registration.activityName ||
@@ -195,14 +253,20 @@ export default function MyRegistrationsTable({
           registration.location || activity?.location || event?.venue
       };
     });
-  }, [registrations, standaloneActivities, events, myTeams]);
+  }, [registrations, standaloneActivities, events, myTeams, certificates, publishedResults]);
 
-  // Robust permission checks
+  // Robust permission checks - strictly disallow cancel if completed, cancelled, ended, or rejected
   const canCancelRegistration = (registration) => {
     if (!registration) return false;
-    if (registration.isCancelled || registration.isRejected) return false;
-    if (registration.isEnded) return false;
-    if (registration.isEventCancelled) return false;
+    if (
+      registration.isCompleted ||
+      registration.isCancelled ||
+      registration.isRejected ||
+      registration.isEnded ||
+      registration.isEventCancelled
+    ) {
+      return false;
+    }
 
     // Must be in active state (PENDING or APPROVED)
     if (!isActiveRegistration(registration)) return false;
@@ -563,12 +627,12 @@ export default function MyRegistrationsTable({
                                   </button>
                                 )}
 
-                                {/* Results button (takes participant directly to Results tab for this activity) */}
-                                {onViewResults && registration.activityId && (
+                                {/* Results button (shown only if results are published) */}
+                                {registration.hasPublishedResults && onViewResults && (
                                   <button
                                     type="button"
                                     onClick={() => onViewResults(registration.activityId)}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 hover:border-amber-300 transition-colors cursor-pointer"
                                     title="View Competition Results"
                                   >
                                     <Trophy className="h-3.5 w-3.5 text-amber-600" />
@@ -576,7 +640,25 @@ export default function MyRegistrationsTable({
                                   </button>
                                 )}
 
-                                {/* Cancel Registration button */}
+                                {/* Certificate button (shown only if certificate is published/issued) */}
+                                {registration.matchingCert && (
+                                  <button
+                                    type="button"
+                                    disabled={downloadingCertId === registration.matchingCert.id}
+                                    onClick={() => handleDownloadCertificate(registration.matchingCert)}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                                    title="Download Issued Certificate"
+                                  >
+                                    {downloadingCertId === registration.matchingCert.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                                    ) : (
+                                      <Award className="h-3.5 w-3.5 text-emerald-600" />
+                                    )}
+                                    Certificate
+                                  </button>
+                                )}
+
+                                {/* Cancel Registration button (strictly hidden if completed or cancelled) */}
                                 {canCancel ? (
                                   <button
                                     type="button"
@@ -594,8 +676,10 @@ export default function MyRegistrationsTable({
                                     )}
                                     Cancel
                                   </button>
-                                ) : !registration.isCancelled &&
+                                ) : !registration.isCompleted &&
+                                  !registration.isCancelled &&
                                   !registration.isEnded &&
+                                  !registration.isEventCancelled &&
                                   registration.registrationType === "TEAM" &&
                                   registration.teamLeaderId !== currentUserId ? (
                                   <span
@@ -720,18 +804,34 @@ export default function MyRegistrationsTable({
                           </button>
                         )}
 
-                        {onViewResults && registration.activityId && (
+                        {registration.hasPublishedResults && onViewResults && (
                           <button
                             type="button"
                             onClick={() => onViewResults(registration.activityId)}
-                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 transition-colors cursor-pointer"
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 shadow-xs hover:bg-amber-100 transition-colors cursor-pointer"
                           >
                             <Trophy className="h-3.5 w-3.5 text-amber-600" />
                             Results
                           </button>
                         )}
 
-                        {canCancel && (
+                        {registration.matchingCert && (
+                          <button
+                            type="button"
+                            disabled={downloadingCertId === registration.matchingCert.id}
+                            onClick={() => handleDownloadCertificate(registration.matchingCert)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100 transition-colors cursor-pointer"
+                          >
+                            {downloadingCertId === registration.matchingCert.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                            ) : (
+                              <Award className="h-3.5 w-3.5 text-emerald-600" />
+                            )}
+                            Certificate
+                          </button>
+                        )}
+
+                                                {canCancel && (
                           <button
                             type="button"
                             disabled={Boolean(cancellingId)}
@@ -749,6 +849,8 @@ export default function MyRegistrationsTable({
                             Cancel
                           </button>
                         )}
+
+                       
                       </div>
                     </div>
                   );

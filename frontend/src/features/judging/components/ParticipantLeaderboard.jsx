@@ -354,7 +354,7 @@ export default function ParticipantLeaderboard({
   );
 }
 
-function RoundResultsModal({ result, myRegistrationIdSet, onClose }) {
+export function RoundResultsModal({ result, myRegistrationIdSet, onClose }) {
   const rankingPolicy = result.rankingPolicy || "COMBINED_ALL_ENTRIES";
   const entries = Array.isArray(result.entries) ? result.entries : [];
   const isSeparate = rankingPolicy === "SEPARATE_BY_ENTRY_TYPE";

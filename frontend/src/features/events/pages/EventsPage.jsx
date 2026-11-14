@@ -200,6 +200,7 @@ export default function EventsPage() {
     }
   };
 
+  
   const handleCompleteActivity = async (activityId) => {
     try {
       setCompletingActivityIds((previous) => new Set(previous).add(activityId));
