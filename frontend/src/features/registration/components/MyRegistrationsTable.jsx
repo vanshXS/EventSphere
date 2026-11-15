@@ -164,8 +164,8 @@ export default function MyRegistrationsTable({
 
   return (
     <>
-      <section className="space-y-6">
-        <div className="flex w-full items-center gap-2.5 overflow-x-auto pb-1" aria-label="Registration status filters">
+      <section className="flex flex-col gap-6">
+        <div className="order-2 flex w-full items-center gap-2.5 overflow-x-auto pb-1 md:order-1" aria-label="Registration status filters">
           {filters.map(([value,label]) => {
             const count = enrichedRegistrations.filter(reg => matchesStatus(reg,value)).length;
             const active = statusFilter === value;
@@ -175,7 +175,7 @@ export default function MyRegistrationsTable({
           })}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="order-1 flex flex-wrap items-center justify-between gap-3 md:order-2">
           <div className="relative w-full max-w-xl flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} aria-label="Search registrations" placeholder="Search by activity, event, team or location..." className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-800 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"/>
