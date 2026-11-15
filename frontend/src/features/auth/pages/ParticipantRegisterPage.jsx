@@ -127,7 +127,7 @@ export default function ParticipantRegisterPage() {
       title="Participant Registration"
       subtitle="Join EventSphere to participate in college events"
     >
-      <form onSubmit={handleSubmit} noValidate>
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <FormField
           id="participant-name"
           name="name"
@@ -238,7 +238,7 @@ export default function ParticipantRegisterPage() {
         }}
       />
 
-      <div className="mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-600 space-y-2">
+      <div className="auth-footer-links mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-600 space-y-2">
         <div>
           Already have an account?{" "}
           <Link
