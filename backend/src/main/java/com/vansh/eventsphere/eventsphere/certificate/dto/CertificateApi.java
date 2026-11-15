@@ -16,12 +16,12 @@ public final class CertificateApi {
                           int missingTeamSnapshots, List<Candidate> candidates) {}
     public record CertificateView(String id, String certificateNumber, CertificateType type,
                                   CertificateScope scope, CertificateStatus status,
-                                  String scopeName, String teamName, Integer rank,
+                                  String recipientName, String scopeName, String teamName, Integer rank,
                                   Instant issuedAt, String sourceRoundId,
                                   String registrationId, String activityId, String eventId) {
         public static CertificateView of(Certificate c) {
             return new CertificateView(c.getId(), c.getCertificateNumber(), c.getType(), c.getScope(),
-                    c.getStatus(), c.getScopeNameSnapshot(), c.getTeamName(), c.getRank(),
+                    c.getStatus(), c.getRecipientName(), c.getScopeNameSnapshot(), c.getTeamName(), c.getRank(),
                     c.getIssuedAt(), c.getSourceRoundId(),
                     c.getRegistrationId(), c.getActivityId(), c.getEventId());
         }
