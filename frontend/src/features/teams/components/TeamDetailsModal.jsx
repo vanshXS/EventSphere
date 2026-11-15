@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   X,
   Users,
@@ -8,8 +8,7 @@ import {
   Trash2,
   Copy,
   Check,
-  Calendar,
-  AlertTriangle
+  Calendar
 } from "lucide-react";
 import { formatDateTime } from "../../events/utils/eventHelpers";
 
