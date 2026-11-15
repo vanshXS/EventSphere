@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../features/auth/AuthContext";
-import { getMyAffiliationStatus } from "../features/auth/authApi";
 import StudentAffiliationModal from "../features/auth/components/StudentAffiliationModal";
 
 import {
@@ -51,12 +50,11 @@ import { useNavigate } from "react-router-dom";
 import "../styles/participant-experience.css";
 
 export default function ParticipantDashboard() {
-  const { user, updateUser, logoutUser } = useAuth();
+  const { user, logoutUser } = useAuth();
   const navigate = useNavigate();
   const addToast = useToast();
 
   const [activeTab, setActiveTab] = useState(() => { const requestedTab = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab"); return ["EXPLORE", "MY_REGISTRATIONS", "MY_TEAMS"].includes(requestedTab) ? requestedTab : "EXPLORE"; });
-  const [selectedResultActivityId, setSelectedResultActivityId] = useState(null);
   const [isAffiliationModalOpen, setIsAffiliationModalOpen] = useState(false);
 
   const [events, setEvents] = useState([]);
@@ -72,6 +70,7 @@ export default function ParticipantDashboard() {
 
 
   const [loading, setLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState([]);
   const [loadVersion, setLoadVersion] = useState(0);
   const setError = (message) => {
     if (message) addToast(message, "error");
@@ -102,52 +101,88 @@ export default function ParticipantDashboard() {
   useEffect(() => {
     let ignore = false;
 
-        Promise.all([
-      getVisibleEvents(),
-      getVisibleStandaloneActivities(),
-      getMyRegistrations(),
-      getMyTeams(),
-      getMyVolunteerAssignments().catch(() => []),
-      getMyAffiliationStatus().catch(() => null),
-      getAllMyCertificates().catch(() => []),
-      getParticipantLeaderboardResults().catch(() => [])
-    ])
-      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData, certsData, resultsData]) => {
-        if (ignore) return;
+    const loadDashboard = async () => {
+      setLoading(true);
+      setLoadErrors([]);
 
-        const sortByNewest = (list) =>
-          (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-            const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
-            const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
-            return timeB - timeA;
-          });
+      const tasks = [
+        ["events", getVisibleEvents],
+        ["activities", getVisibleStandaloneActivities],
+        ["registrations", getMyRegistrations],
+        ["teams", getMyTeams],
+        ["volunteer assignments", getMyVolunteerAssignments],
+        ["certificates", getAllMyCertificates],
+        ["competition results", getParticipantLeaderboardResults]
+      ];
 
-        const sortRegistrationsByNewest = (list) =>
-          (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-            const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
-            const timeB = Date.parse(b.registeredAt || b.createdAt || 0);
-            return timeB - timeA;
-          });
+      const outcomes = await Promise.allSettled(
+        tasks.map(([, load]) => load())
+      );
 
-        setEvents(sortByNewest(eventsData));
-        setStandaloneActivities(sortByNewest(activitiesData));
-        setMyRegistrations(sortRegistrationsByNewest(registrationsData));
-        setMyTeams(teamsData);
-        setVolunteerAssignments(assignmentsData);
-        setMyCertificates(Array.isArray(certsData) ? certsData : []);
-        setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
-      })
+      if (ignore) return;
+
+      const failures = [];
+      const valueAt = (index) => {
+        const outcome = outcomes[index];
+        if (outcome.status === "fulfilled") return outcome.value;
+        failures.push(tasks[index][0]);
+        return null;
+      };
+
+      const sortByNewest = (list) =>
+        (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+          const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
+          const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+          return timeB - timeA;
+        });
+
+      const sortRegistrationsByNewest = (list) =>
+        (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+          const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
+          const timeB = Date.parse(b.registeredAt || b.createdAt || 0);
+          return timeB - timeA;
+        });
+
+      const eventsData = valueAt(0);
+      const activitiesData = valueAt(1);
+      const registrationsData = valueAt(2);
+      const teamsData = valueAt(3);
+      const assignmentsData = valueAt(4);
+      const certificatesData = valueAt(5);
+      const resultsData = valueAt(6);
+
+      if (eventsData !== null) setEvents(sortByNewest(eventsData));
+      if (activitiesData !== null) setStandaloneActivities(sortByNewest(activitiesData));
+      if (registrationsData !== null) setMyRegistrations(sortRegistrationsByNewest(registrationsData));
+      if (teamsData !== null) setMyTeams(Array.isArray(teamsData) ? teamsData : []);
+      if (assignmentsData !== null) setVolunteerAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
+      if (certificatesData !== null) setMyCertificates(Array.isArray(certificatesData) ? certificatesData : []);
+      if (resultsData !== null) setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
+
+      setLoadErrors(failures);
+      if (failures.length > 0) {
+        addToast(
+          `Some participant data could not load: ${failures.join(", ")}.`,
+          "error",
+          {
+            actionLabel: "Retry",
+            onAction: () => setLoadVersion((previous) => previous + 1)
+          }
+        );
+      }
+    };
+
+    loadDashboard()
       .catch((err) => {
         if (!ignore) {
-          const message = err.response?.data?.message ||
-            "Could not load your dashboard. Please try again.";
-          addToast(message, "error", {
-            actionLabel: "Reload dashboard",
-            onAction: () => {
-              setLoading(true);
-              setLoadVersion((previous) => previous + 1);
+          addToast(
+            err.response?.data?.message || "Could not load your participant workspace.",
+            "error",
+            {
+              actionLabel: "Retry",
+              onAction: () => setLoadVersion((previous) => previous + 1)
             }
-          });
+          );
         }
       })
       .finally(() => {
@@ -363,6 +398,21 @@ export default function ParticipantDashboard() {
       )}
 
       <main className="participant-main mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        {loadErrors.length > 0 && (
+          <div role="alert" className="mb-6 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <span>Some content is temporarily unavailable: {loadErrors.join(", ")}.</span>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setLoadVersion((previous) => previous + 1);
+              }}
+              className="shrink-0 font-semibold text-indigo-700 hover:text-indigo-900"
+            >
+              Retry loading
+            </button>
+          </div>
+        )}
         {/* College Affiliation Status Alert Banner */}
         {user?.collegeVerificationStatus !== "VERIFIED" && (
           <div className="participant-affiliation-alert mb-6 hidden rounded-xl border p-4 md:flex md:flex-row md:items-center md:justify-between md:gap-3">
