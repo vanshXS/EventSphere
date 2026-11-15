@@ -414,8 +414,6 @@ export default function ParticipantDashboard() {
                   myRegistrations={myRegistrations}
                   onSelectEvent={setSelectedEventForDetails}
                   onSelectActivity={setSelectedActivityForDetails}
-                  onRegisterActivity={setSelectedActivityForReg}
-                  onViewMyRegistrations={showMyRegistrations}
                 />
               </section>
             )}
