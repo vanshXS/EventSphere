@@ -53,7 +53,7 @@ export default function ParticipantDashboard() {
   const { user, updateUser, logoutUser } = useAuth();
   const addToast = useToast();
 
-  const [activeTab, setActiveTab] = useState("EXPLORE");
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab") === "MY_REGISTRATIONS" ? "MY_REGISTRATIONS" : "EXPLORE");
   const [selectedResultActivityId, setSelectedResultActivityId] = useState(null);
   const [isAffiliationModalOpen, setIsAffiliationModalOpen] = useState(false);
 
