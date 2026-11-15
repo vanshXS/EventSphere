@@ -31,6 +31,18 @@ function entryLabel(registration) {
   return "Individual";
 }
 
+function registrationCategoryLabel(registration) {
+  return registration.registrationKind === "EVENT" || (!registration.activityId && registration.eventId)
+    ? "EVENT"
+    : getActivityTypeLabel(registration.activityType);
+}
+
+function registrationCategoryStyle(registration) {
+  return registration.registrationKind === "EVENT" || (!registration.activityId && registration.eventId)
+    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+    : getActivityTypeBadgeStyle(registration.activityType);
+}
+
 export default function MyRegistrationsTable({
   registrations = [], events = [], standaloneActivities = [], myTeams = [], certificates = [],
   publishedResults = [], cancellingId, onCancelRegistration, onBrowseEvents, onViewResults, currentUser
@@ -74,7 +86,7 @@ export default function MyRegistrationsTable({
         matchingCertificates, participationCertificate, winnerCertificate,
         hasPublishedResults: Boolean(reg.activityId && publishedResults.some(item => item.activityId === reg.activityId)),
         activityName: reg.activityName || activity?.name || event?.title || "Registration",
-        activityType: reg.activityType || activity?.activityType || activity?.type || "OTHER",
+        activityType: reg.activityId ? (reg.activityType || activity?.activityType || activity?.type || "OTHER") : "EVENT",
         eventName: reg.eventName || event?.title || null,
         teamName: reg.teamName || team?.name || null,
         teamMemberIds: reg.teamMemberIds || null,
@@ -153,7 +165,7 @@ export default function MyRegistrationsTable({
 
   return (
     <>
-      <section className="flex flex-col gap-6">
+      <section className="participant-registration-list flex flex-col gap-6">
         <div className="order-2 flex w-full items-center gap-2.5 overflow-x-auto pb-1 md:order-1" aria-label="Registration status filters">
           {filters.map(([value,label]) => {
             const count = enrichedRegistrations.filter(reg => matchesStatus(reg,value)).length;
@@ -164,7 +176,7 @@ export default function MyRegistrationsTable({
           })}
         </div>
 
-        <div className="order-1 flex flex-wrap items-center justify-between gap-3 md:order-2">
+        <div className="participant-registrations-toolbar order-1 flex flex-wrap items-center justify-between gap-3 md:order-2">
           <div className="relative w-full max-w-xl flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
             <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} aria-label="Search registrations" placeholder="Search by activity, event, team or location..." className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-800 shadow-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"/>
@@ -175,14 +187,14 @@ export default function MyRegistrationsTable({
           </div>
         </div>
 
-        {filteredRegistrations.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center"><Search className="mx-auto h-7 w-7 text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-700">No matching registrations found</p><p className="mt-1 text-xs text-slate-500">Try another search or status filter.</p></div> : <>
-          <div className={`hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${viewMode === "TABLE" ? "md:block" : "md:hidden"}`}>
+        {filteredRegistrations.length === 0 ? <div className="participant-registrations-empty rounded-xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center"><Search className="mx-auto h-7 w-7 text-slate-300"/><p className="mt-3 text-sm font-semibold text-slate-700">No matching registrations found</p><p className="mt-1 text-xs text-slate-500">Try another search or status filter.</p></div> : <>
+          <div className={`participant-registrations-table hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${viewMode === "TABLE" ? "md:block" : "md:hidden"}`}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] border-collapse text-left text-sm">
                 <thead className="bg-indigo-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-600"><tr><th className="px-5 py-4">Activity / Event</th><th className="px-4 py-4">Entry type</th><th className="px-4 py-4">Schedule &amp; venue</th><th className="px-4 py-4">Status</th><th className="px-5 py-4 text-right">Actions</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredRegistrations.map(reg => <tr key={reg.id} className="transition-colors hover:bg-slate-50/60">
-                    <td className="max-w-[270px] px-5 py-4"><span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${getActivityTypeBadgeStyle(reg.activityType)}`}>{getActivityTypeLabel(reg.activityType)}</span><p className="mt-2 font-semibold text-slate-900">{reg.activityName}</p>{reg.eventName && <p className="mt-0.5 text-xs text-slate-500">{reg.eventName}</p>}{reg.registrationCode && <p className="mt-1 font-mono text-[10px] text-slate-400">#{reg.registrationCode}</p>}</td>
+                    <td className="max-w-[270px] px-5 py-4"><span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${registrationCategoryStyle(reg)}`}>{registrationCategoryLabel(reg)}</span><p className="mt-2 font-semibold text-slate-900">{reg.activityName}</p>{reg.eventName && <p className="mt-0.5 text-xs text-slate-500">{reg.eventName}</p>}{reg.registrationCode && <p className="mt-1 font-mono text-[10px] text-slate-400">#{reg.registrationCode}</p>}</td>
                     <td className="px-4 py-4"><span className="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700">{reg.registrationType === "TEAM" ? <Users size={14}/> : <UserRound size={14}/>}{entryLabel(reg)}</span>{reg.registrationType === "TEAM" && reg.teamMemberIds?.length > 0 && <p className="mt-1 text-[11px] text-slate-400">{reg.teamMemberIds.length} members</p>}</td>
                     <td className="max-w-[230px] px-4 py-4">{reg.startDateTime && <div className="flex items-start gap-2 text-xs font-medium text-slate-700"><CalendarDays size={15} className="mt-0.5 shrink-0 text-indigo-600"/><span>{formatDateRange(reg.startDateTime,reg.endDateTime)}</span></div>}{reg.location && <div className="mt-1.5 flex items-start gap-2 text-xs text-slate-500"><MapPin size={15} className="mt-0.5 shrink-0 text-slate-400"/><span>{reg.location}</span></div>}</td>
                     <td className="px-4 py-4"><div className="flex flex-wrap items-center gap-1.5"><RegistrationStatusBadge status={reg.status}/>{reg.isEnded && <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600"><Clock3 size={12}/>Ended</span>}{reg.isEventCancelled && <span className="rounded-md bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700">Event cancelled</span>}</div>{reg.reviewNote && <p className="mt-2 max-w-[190px] text-[11px] leading-relaxed text-slate-500">{reg.reviewNote}</p>}</td>
@@ -197,10 +209,10 @@ export default function MyRegistrationsTable({
           {viewMode === "CARDS" && (
             <div className="hidden grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:grid">
               {filteredRegistrations.map(reg => (
-                <article key={`card-${reg.id}`} className="overflow-hidden rounded-xl border border-slate-200 border-t-[3px] border-t-indigo-700 bg-white shadow-sm">
+                <article key={`card-${reg.id}`} className="participant-registration-card overflow-hidden rounded-xl border border-slate-200 border-t-[3px] border-t-indigo-700 bg-white shadow-sm">
                   <div className="space-y-4 p-5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${getActivityTypeBadgeStyle(reg.activityType)}`}>{getActivityTypeLabel(reg.activityType)}</span>
+                      <span className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${registrationCategoryStyle(reg)}`}>{registrationCategoryLabel(reg)}</span>
                       <RegistrationStatusBadge status={reg.status}/>
                     </div>
                     <div>
@@ -221,8 +233,8 @@ export default function MyRegistrationsTable({
           )}
 
           <div className="grid grid-cols-1 gap-4 md:hidden">
-            {filteredRegistrations.map(reg => <article key={`mobile-${reg.id}`} className="overflow-hidden rounded-xl border border-slate-200 border-t-[3px] border-t-indigo-700 bg-white shadow-sm"><div className="space-y-4 p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2"><span className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${getActivityTypeBadgeStyle(reg.activityType)}`}>{getActivityTypeLabel(reg.activityType)}</span><div className="flex flex-wrap items-center gap-1.5"><RegistrationStatusBadge status={reg.status}/>{reg.isEnded && <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600"><Clock3 size={12}/>Ended</span>}</div></div>
+            {filteredRegistrations.map(reg => <article key={`mobile-${reg.id}`} className="participant-registration-card overflow-hidden rounded-xl border border-slate-200 border-t-[3px] border-t-indigo-700 bg-white shadow-sm"><div className="space-y-4 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2"><span className={`rounded-md px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${registrationCategoryStyle(reg)}`}>{registrationCategoryLabel(reg)}</span><div className="flex flex-wrap items-center gap-1.5"><RegistrationStatusBadge status={reg.status}/>{reg.isEnded && <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600"><Clock3 size={12}/>Ended</span>}</div></div>
               <div><h2 className="text-lg font-semibold tracking-tight text-slate-900">{reg.activityName}</h2>{reg.eventName && <p className="mt-1 text-xs text-slate-500">{reg.eventName}</p>}<p className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700">{reg.registrationType === "TEAM" ? <Users size={15}/> : <UserRound size={15}/>}{entryLabel(reg)}</p></div>
               <div className="space-y-2 rounded-lg bg-indigo-50/60 p-3.5">{reg.startDateTime && <div className="flex items-start gap-2.5 text-sm text-slate-800"><CalendarDays size={17} className="mt-0.5 shrink-0 text-slate-500"/><span>{formatDateRange(reg.startDateTime,reg.endDateTime)}</span></div>}{reg.location && <div className="flex items-start gap-2.5 text-sm text-slate-600"><MapPin size={17} className="mt-0.5 shrink-0 text-slate-500"/><span>{reg.location}</span></div>}</div>
               {reg.reviewNote && <p className="rounded-lg border border-amber-100 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-900"><strong>Organizer note: </strong>{reg.reviewNote}</p>}
