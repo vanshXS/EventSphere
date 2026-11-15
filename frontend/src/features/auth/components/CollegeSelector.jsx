@@ -209,7 +209,7 @@ export default function CollegeSelector({
 
   return (
     <>
-      <div ref={containerRef} className="space-y-1.5 text-left mb-4 relative">
+      <div ref={containerRef} className="college-selector-field space-y-1.5 text-left mb-4 relative">
         <div className="flex justify-between items-center">
           <label htmlFor={id} className="block text-sm font-medium text-slate-700">
             {label}
@@ -235,7 +235,7 @@ export default function CollegeSelector({
 
         {activeCollege ? (
           // Selected College Display Card
-          <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 transition-colors">
+          <div className="college-selector-selected flex items-center justify-between p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 transition-colors">
             <div className="flex items-start gap-2.5 min-w-0 pr-2">
               <div className="mt-0.5 w-7 h-7 rounded-md bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-4 h-4 text-emerald-700" aria-hidden="true" />
@@ -335,7 +335,7 @@ export default function CollegeSelector({
 
         {/* Dropdown Options / States */}
         {!activeCollege && showDropdown && (
-          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden text-sm">
+          <div className="college-selector-dropdown absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden text-sm">
             {loading && (
               <div className="px-4 py-3 text-xs text-slate-600 flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-indigo-600 shrink-0" aria-hidden="true" />
