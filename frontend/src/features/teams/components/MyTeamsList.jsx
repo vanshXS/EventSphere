@@ -246,6 +246,7 @@ export default function MyTeamsList({
   };
 
   return (
+    <>
     <div className="space-y-7">
       <div className="flex flex-col justify-between gap-5 pb-1 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
@@ -373,7 +374,7 @@ export default function MyTeamsList({
         </>
       )}
     </div>
-  );
+
 
       {/* Team Details & Roster Modal */}
       <TeamDetailsModal
@@ -443,6 +444,6 @@ export default function MyTeamsList({
           }
         }}
       />
-    </div>
+    </>
   );
 }
