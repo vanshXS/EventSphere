@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../features/auth/AuthContext";
 import ParticipantHeader from "../features/registration/components/ParticipantHeader";
+import { getMyVolunteerAssignments } from "../features/attendance/attendanceApi";
 import {
   downloadCertificate,
   getCertificatePdfBlob,
@@ -62,6 +63,7 @@ export default function ParticipantCertificatePreviewPage() {
   const [pdfError, setPdfError] = useState("");
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [volunteerAssignmentsCount, setVolunteerAssignmentsCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +148,7 @@ export default function ParticipantCertificatePreviewPage() {
         activeTab="MY_REGISTRATIONS"
         setActiveTab={(tab) => navigate(`/participant?tab=${tab}`)}
         onLogout={logoutUser}
-        volunteerAssignmentsCount={0}
+        volunteerAssignmentsCount={volunteerAssignmentsCount}
       />
 
       <div className="border-b border-indigo-100 bg-indigo-50/70">
