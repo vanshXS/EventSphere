@@ -11,6 +11,7 @@ import ParticipantDashboard from "../pages/ParticipantDashboard";
 import ProtectedRoutes from "../features/auth/ProtectedRoutes";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
 import ParticipantTicketPage from "../pages/ParticipantTicketPage";
+import ParticipantCertificatePreviewPage from "../pages/ParticipantCertificatePreviewPage";
 import VolunteerInvitationPage from "../pages/VolunteerInvitationPage";
 import VolunteerScannerPage from "../pages/VolunteerScannerPage";
 import JudgeInvitationPage from "../pages/JudgeInvitationPage";
@@ -193,6 +194,14 @@ export default function AppRoutes() {
           element={
             <ProtectedRoutes allowedRole={["PARTICIPANT"]}>
               <ParticipantTicketPage />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
+          path="/participant/certificates/:certificateId"
+          element={
+            <ProtectedRoutes allowedRole={["PARTICIPANT"]}>
+              <ParticipantCertificatePreviewPage />
             </ProtectedRoutes>
           }
         />
