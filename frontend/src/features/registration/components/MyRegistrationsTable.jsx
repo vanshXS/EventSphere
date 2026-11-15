@@ -72,12 +72,9 @@ export default function MyRegistrationsTable({
       const eventCancelled = Boolean(activity?.status === "CANCELLED" || event?.eventStatus === "CANCELLED" || event?.status === "CANCELLED");
       const cancelled = eventCancelled || normalizeRegistrationStatus(reg.status) === "CANCELLED";
       const rejected = normalizeRegistrationStatus(reg.status) === "REJECTED";
-      const matchingCertificates = certificates.filter((cert) => {
-        if (cert.registrationId) return cert.registrationId === reg.id;
-        if (reg.activityId) return cert.scope === "ACTIVITY" && cert.activityId === reg.activityId;
-        if (reg.eventId) return cert.scope === "EVENT" && cert.eventId === reg.eventId;
-        return false;
-      }).sort((a, b) => Date.parse(b.issuedAt || 0) - Date.parse(a.issuedAt || 0));
+      const matchingCertificates = certificates
+        .filter((cert) => cert.registrationId === reg.id)
+        .sort((a, b) => Date.parse(b.issuedAt || 0) - Date.parse(a.issuedAt || 0));
       const participationCertificate = matchingCertificates.find((cert) => cert.type === "PARTICIPATION") || null;
       const winnerCertificate = matchingCertificates.find((cert) => cert.type === "WINNER") || null;
       return {
