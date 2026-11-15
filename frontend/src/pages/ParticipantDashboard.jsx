@@ -551,6 +551,7 @@ export default function ParticipantDashboard() {
                  onBrowseEvents={() => {
                   setResultsModalActivityId(null);
                   setActiveTab("EXPLORE");
+                  navigate("/participant", { replace: true });
                  }}
                  onClearSelectedActivity={() => setResultsModalActivityId(null)}
             />
