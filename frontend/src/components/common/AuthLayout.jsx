@@ -1,30 +1,62 @@
-export default function AuthLayout({ title, subtitle, children }) {
-  return (
-    <div className="participant-auth-shell min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-6">
-        <div className="participant-auth-brand-mark mx-auto mb-3">E</div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Event<span className="text-indigo-600">Sphere</span>
-        </h1>
-        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-1">
-          College Event &amp; Competition Management
-        </p>
-      </div>
+import { Link, useLocation } from "react-router-dom";
+import "../styles/auth-experience.css";
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="participant-auth-card bg-white py-8 px-6 shadow-sm border border-slate-200/80 rounded-xl sm:px-10">
-          {(title || subtitle) && (
-            <div className="mb-6 border-b border-slate-100 pb-4">
-              {title && <h2 className="text-xl font-semibold text-slate-900 tracking-tight">{title}</h2>}
-              {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
-            </div>
-          )}
-          {children}
+const AUTH_TABS = [
+  { path: "/login", label: "Sign In" },
+  { path: "/register/participant", label: "Participant" },
+  { path: "/register/organizer", label: "Organizer" }
+];
+
+export default function AuthLayout({ title, subtitle, children }) {
+  const { pathname } = useLocation();
+  const activePath = pathname === "/" ? "/login" : pathname;
+  const showAuthTabs = AUTH_TABS.some((tab) => tab.path === activePath);
+
+  return (
+    <div className="auth-screen">
+      <header className="auth-topbar">
+        <Link to="/login" className="auth-brand" aria-label="EventSphere sign in">
+          <span className="auth-brand-mark">E</span>
+          <span>
+            <span className="auth-brand-name block">EventSphere</span>
+            <span className="auth-brand-caption block">College event &amp; competition management</span>
+          </span>
+        </Link>
+      </header>
+
+      <main className="auth-main">
+        <div className="auth-content">
+          <section className="auth-card" aria-label="EventSphere account access">
+            {showAuthTabs && (
+              <nav className="auth-mode-tabs" aria-label="Choose account access">
+                {AUTH_TABS.map((tab) => (
+                  <Link
+                    key={tab.path}
+                    to={tab.path}
+                    className="auth-mode-tab"
+                    aria-current={activePath === tab.path ? "page" : undefined}
+                  >
+                    {tab.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
+
+            {(title || subtitle) && (
+              <div className="auth-heading">
+                {title && <h1>{title}</h1>}
+                {subtitle && <p>{subtitle}</p>}
+              </div>
+            )}
+
+            {children}
+          </section>
         </div>
-        <p className="mt-8 text-center text-xs text-slate-400">
-          &copy; {new Date().getFullYear()} EventSphere Platform. All rights reserved.
-        </p>
-      </div>
+      </main>
+
+      <footer className="auth-footer">
+        &copy; {new Date().getFullYear()} EventSphere Platform. All rights reserved.
+      </footer>
     </div>
   );
 }
