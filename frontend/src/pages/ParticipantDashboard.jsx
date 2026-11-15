@@ -48,6 +48,7 @@ import ParticipantLeaderboard from "../features/judging/components/ParticipantLe
 import { useToast } from "../components/common/ToastContext";
 import { getMyCertificates } from "../features/certificates/certificateApi";
 import { getParticipantLeaderboardResults } from "../features/judging/api/judgingApi";
+import "../styles/participant-experience.css";
 
 export default function ParticipantDashboard() {
   const { user, updateUser, logoutUser } = useAuth();
@@ -105,7 +106,7 @@ export default function ParticipantDashboard() {
       getVisibleStandaloneActivities(),
       getMyRegistrations(),
       getMyTeams(),
-      getMyVolunteerAssignments(),
+      getMyVolunteerAssignments().catch(() => []),
       getMyAffiliationStatus().catch(() => null),
       getMyCertificates().catch(() => ({ content: [] })),
       getParticipantLeaderboardResults().catch(() => [])
@@ -326,7 +327,7 @@ export default function ParticipantDashboard() {
   ).length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 font-sans">
+    <div className="participant-workspace flex min-h-screen flex-col bg-slate-50 font-sans">
       <ParticipantHeader
         user={user}
         activeTab={activeTab}
@@ -338,10 +339,10 @@ export default function ParticipantDashboard() {
         onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="participant-main mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {/* College Affiliation Status Alert Banner */}
         {user?.collegeVerificationStatus !== "VERIFIED" && (
-          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="participant-affiliation-alert mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-5 h-5" />
