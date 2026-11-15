@@ -68,7 +68,15 @@ export default function MyRegistrationsTable({
       const activity = activities.get(reg.activityId);
       const event = eventMap.get(reg.eventId);
       const team = teams.get(reg.teamId);
-      const completed = Boolean(activity?.status === "COMPLETED" || event?.eventStatus === "COMPLETED" || event?.status === "COMPLETED" || activity?.actualEndDateTime || normalizeRegistrationStatus(reg.status) === "COMPLETED" || isEnded(activity) || (event?.endDateTime && Date.parse(event.endDateTime) <= Date.now()) || (reg.endDateTime && Date.parse(reg.endDateTime) <= Date.now()));
+      const completed = Boolean(
+        activity?.status === "COMPLETED" ||
+        event?.eventStatus === "COMPLETED" ||
+        event?.status === "COMPLETED" ||
+        normalizeRegistrationStatus(reg.status) === "COMPLETED" ||
+        isEnded(activity) ||
+        isEnded(event) ||
+        isEnded(reg)
+      );
       const eventCancelled = Boolean(activity?.status === "CANCELLED" || event?.eventStatus === "CANCELLED" || event?.status === "CANCELLED");
       const cancelled = eventCancelled || normalizeRegistrationStatus(reg.status) === "CANCELLED";
       const rejected = normalizeRegistrationStatus(reg.status) === "REJECTED";
