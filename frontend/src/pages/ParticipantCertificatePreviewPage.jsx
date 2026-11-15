@@ -3,12 +3,10 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Award,
-  CalendarDays,
   Download,
   FileBadge,
   Loader2,
   ShieldCheck,
-  Users
 } from "lucide-react";
 import { useAuth } from "../features/auth/AuthContext";
 import ParticipantHeader from "../features/registration/components/ParticipantHeader";
@@ -64,6 +62,16 @@ export default function ParticipantCertificatePreviewPage() {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
   const [volunteerAssignmentsCount, setVolunteerAssignmentsCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyVolunteerAssignments()
+      .then((assignments) => {
+        if (!cancelled) setVolunteerAssignmentsCount(Array.isArray(assignments) ? assignments.length : 0);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
