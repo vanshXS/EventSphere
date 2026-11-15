@@ -32,7 +32,7 @@ export default function CollegeAdminAcceptPage() {
       <h2 className="mt-3 text-base font-bold text-slate-900">Account activated</h2>
       <p className="mt-1 text-sm text-slate-600">Your administrator account is ready.</p>
       <Link className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" to="/login">Sign in</Link>
-    </div> : <form onSubmit={submit}>
+    </div> : <form className="auth-form" onSubmit={submit}>
       {(!token || error) && <p role="alert" className="mb-4 flex gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />{error || "This invitation link is missing its token. Please use the link from your email."}</p>}
       <FormField id="admin-password" name="password" label="Password" type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" required disabled={busy} />
       <FormField id="admin-password-confirmation" name="confirmation" label="Confirm password" type="password" autoComplete="new-password" value={confirmation} onChange={e => setConfirmation(e.target.value)} placeholder="Re-enter your password" required disabled={busy} />
