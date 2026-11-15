@@ -126,14 +126,14 @@ function EventDetailsContent({
       role="dialog"
       aria-modal="true"
       aria-labelledby="event-details-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
+      className="participant-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
       onClick={(clickEvent) => {
         if (clickEvent.target === clickEvent.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div className="participant-dialog flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5 sm:p-6">
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap gap-2">
