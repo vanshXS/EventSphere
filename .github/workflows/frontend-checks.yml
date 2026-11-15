@@ -66,4 +66,4 @@ jobs:
           cache: maven
 
       - name: Compile backend and run tests
-        run: ./mvnw -B test
+        run: bash mvnw -B test
