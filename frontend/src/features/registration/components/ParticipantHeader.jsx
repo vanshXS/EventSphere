@@ -39,6 +39,7 @@ export default function ParticipantHeader({
       navigate(item.href);
     } else {
       setActiveTab(item.id);
+      navigate(item.id === "EXPLORE" ? "/participant" : `/participant?tab=${item.id}`, { replace: true });
     }
   };
 
@@ -46,7 +47,7 @@ export default function ParticipantHeader({
     <header className="sticky top-0 z-40 h-16 border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-6 px-8 max-md:px-4">
         <div className="flex h-full min-w-0 items-center gap-10 max-md:gap-0">
-          <Link to="/participant" className="group flex shrink-0 items-center gap-2.5" aria-label="EventSphere home">
+          <Link to="/participant" onClick={() => setActiveTab("EXPLORE")} className="group flex shrink-0 items-center gap-2.5" aria-label="EventSphere home">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-indigo-600 text-base font-bold text-white">E</span>
             <span className="text-base font-semibold tracking-tight text-slate-900 transition-colors group-hover:text-indigo-600">EventSphere</span>
           </Link>
