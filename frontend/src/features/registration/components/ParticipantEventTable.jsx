@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
-  Clock3,
   MapPin,
   Search,
   ArrowRight,
@@ -61,8 +60,6 @@ export default function ParticipantEventTable({
   myRegistrations = [],
   onSelectEvent,
   onSelectActivity,
-  onRegisterActivity,
-  onViewMyRegistrations
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
