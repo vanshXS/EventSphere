@@ -34,6 +34,7 @@ export default function ActivityDetailsModal({
   isRegistered = false,
   registration = null,
   onRegisterClick,
+  onViewMyRegistrations,
   onClose
 }) {
   useEffect(() => {
@@ -294,12 +295,26 @@ export default function ActivityDetailsModal({
             Close
           </button>
 
-          {onRegisterClick &&
-            (hasRegistration ? (
+          {hasRegistration ? (
+            <div className="flex flex-wrap items-center justify-end gap-3">
               <p className="max-w-sm text-xs font-medium text-slate-600">
                 {registrationMessage}
               </p>
-            ) : isRegistrationOpen(activity) ? (
+              {onViewMyRegistrations && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onViewMyRegistrations();
+                  }}
+                  className="rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
+                >
+                  View My Registrations
+                </button>
+              )}
+            </div>
+          ) : onRegisterClick ? (
+            isRegistrationOpen(activity) ? (
               <button
                 type="button"
                 onClick={() => {
@@ -316,7 +331,12 @@ export default function ActivityDetailsModal({
                   ? "Activity Ended"
                   : "Registration Closed"}
               </span>
-            ))}
+            ) : (
+              <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
+                {isEnded(activity) ? "Activity Ended" : "Registration Closed"}
+              </span>
+            )
+          ) : null}
         </footer>
       </div>
     </div>,
