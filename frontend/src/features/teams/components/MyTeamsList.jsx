@@ -29,7 +29,7 @@ export default function MyTeamsList({
   onTeamUpdated,
   onTeamDeleted
 }) {
-  const [viewMode, setViewMode] = useState("TABLE"); // "TABLE" | "CARDS"
+  const [viewMode, setViewMode] = useState(() => typeof window !== "undefined" && window.innerWidth < 768 ? "CARDS" : "TABLE"); // responsive default; existing toggle is retained
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL"); // "ALL" | "LEADER" | "MEMBER"
 
@@ -164,7 +164,7 @@ export default function MyTeamsList({
   // Empty state: no teams created at all
   if (!teams || teams.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center space-y-4 shadow-xs">
+      <div className="participant-teams-empty bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center space-y-4 shadow-xs">
         <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mx-auto">
           <Users className="w-7 h-7" />
         </div>
@@ -189,7 +189,7 @@ export default function MyTeamsList({
   return (
     <div className="space-y-4">
       {/* Search, Filter & View Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+      <div className="participant-teams-toolbar flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -309,7 +309,7 @@ export default function MyTeamsList({
         </div>
       ) : viewMode === "TABLE" ? (
         /* TABLE VIEW (Clean, High Density, Fast) */
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+        <div className="participant-teams-table bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
