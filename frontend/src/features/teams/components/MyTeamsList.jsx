@@ -187,7 +187,7 @@ export default function MyTeamsList({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="participant-team-list space-y-4">
       {/* Search, Filter & View Controls */}
       <div className="participant-teams-toolbar flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
         {/* Search */}
