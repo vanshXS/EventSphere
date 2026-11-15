@@ -1,11 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
   Clock3,
   MapPin,
   Search,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { formatDateRange, getVisibilityLabel } from "../../events/utils/eventHelpers";
 import {
@@ -66,6 +68,7 @@ export default function ParticipantEventTable({
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("ANY");
   const [sortOrder, setSortOrder] = useState("UPCOMING");
+  const [currentPage, setCurrentPage] = useState(0);
 
   const allItems = useMemo(() => {
     const eventItems = events.map((event) => ({ ...event, itemKind: "EVENT" }));
@@ -126,6 +129,18 @@ export default function ParticipantEventTable({
     });
     return result;
   }, [allItems, typeFilter, dateFilter, sortOrder, searchQuery]);
+
+  const pageSize = 6;
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
+  const visibleItems = filteredItems.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, typeFilter, dateFilter, sortOrder]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages - 1));
+  }, [totalPages]);
 
   const filterOptions = [
     { value: "ALL", label: "All", count: allItems.length },
@@ -312,8 +327,31 @@ export default function ParticipantEventTable({
 
       {filteredItems.length ? (
         <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 max-md:gap-4" aria-label="Event results">
-          {filteredItems.map(renderItem)}
+          {visibleItems.map(renderItem)}
         </section>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 py-4 text-xs text-slate-500" aria-label="Event result pages">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(0, page - 1))}
+              disabled={currentPage === 0}
+              aria-label="Previous page"
+              className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={15} />
+            </button>
+            <span className="font-medium tabular-nums">{currentPage + 1} / {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, page + 1))}
+              disabled={currentPage >= totalPages - 1}
+              aria-label="Next page"
+              className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
       ) : (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
           <CalendarDays className="mx-auto mb-3 h-8 w-8 text-slate-300" />
