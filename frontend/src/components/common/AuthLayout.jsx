@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import "../styles/auth-experience.css";
+import "../../styles/auth-experience.css";
 
 const AUTH_TABS = [
   { path: "/login", label: "Sign In" },
