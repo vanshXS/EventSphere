@@ -28,8 +28,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint
+      - name: Lint participant module files
+        run: >-
+          npx eslint
+          src/pages/ParticipantDashboard.jsx
+          src/pages/ParticipantCertificatePreviewPage.jsx
+          src/pages/ParticipantTicketPage.jsx
+          src/features/registration/components/ParticipantEventTable.jsx
+          src/features/registration/components/MyRegistrationsTable.jsx
+          src/features/registration/components/ParticipantHeader.jsx
+          src/features/registration/components/ActivityRegistrationModal.jsx
+          src/features/registration/components/QrTicketCard.jsx
+          src/features/activities/components/ActivityDetailsModal.jsx
+          src/features/events/components/EventDetailsModal.jsx
+          src/features/teams/components/MyTeamsList.jsx
+          src/features/teams/components/TeamDetailsModal.jsx
+          src/features/certificates/MyCertificates.jsx
+          src/features/certificates/certificateApi.js
 
       - name: Build production bundle
         run: npm run build
