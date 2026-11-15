@@ -257,7 +257,7 @@ export default function MyTeamsList({
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 max-md:text-2xl">My Teams</h1>
           <p className="max-w-2xl text-sm text-slate-500">Manage your teams and collaborate across campus competitions, hackathons, and group challenges.</p>
         </div>
-        <button type="button" onClick={onCreateTeamClick} className="inline-flex items-center justify-center gap-2 self-start rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700">
+        <button type="button" onClick={onCreateTeamClick} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 md:w-auto">
           <Plus className="h-[18px] w-[18px]"/>Create Team
         </button>
       </div>
@@ -280,7 +280,7 @@ export default function MyTeamsList({
       </div>
 
       <div className="flex flex-col items-stretch justify-between gap-4 rounded-xl bg-white p-2 shadow-sm md:flex-row md:items-center">
-        <div className="flex items-center gap-1.5 overflow-x-auto p-1">
+        <div className="order-2 flex items-center gap-1.5 overflow-x-auto p-1 md:order-1">
           {[
             ["ALL","All",teams.length],
             ["LEADER","Led by me",leaderCount],
@@ -292,7 +292,7 @@ export default function MyTeamsList({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 px-2">
+        <div className="order-1 flex items-center gap-3 px-2 md:order-2">
           <div className="relative min-w-0 flex-1 md:w-80">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
             <input type="search" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search teams by name, member, or ID..." aria-label="Search teams" className="w-full rounded-lg bg-slate-50 py-2 pl-9 pr-4 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-indigo-500"/>
