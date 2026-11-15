@@ -14,9 +14,14 @@ export async function getMyCertificates(page = 0) {
   const response = await api.get("/api/participant/certificates", { params: { page } });
   return response.data;
 }
-export async function downloadCertificate(id, number) {
+export async function getCertificatePdfBlob(id) {
   const response = await api.get(`/api/participant/certificates/${id}/download`, { responseType: "blob" });
-  const url = URL.createObjectURL(response.data);
+  return response.data;
+}
+
+export async function downloadCertificate(id, number) {
+  const blob = await getCertificatePdfBlob(id);
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = `${number}.pdf`;
