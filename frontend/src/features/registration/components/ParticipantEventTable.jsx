@@ -54,6 +54,12 @@ function getItemLocation(item) {
   return item.itemKind === "EVENT" ? item.venue : item.location;
 }
 
+function isCompetition(item) {
+  if (item.itemKind !== "ACTIVITY") return false;
+  const type = item.type || item.activityType;
+  return type === "HACKATHON" || type === "TECHNICAL_COMPETITION";
+}
+
 export default function ParticipantEventTable({
   events = [],
   standaloneActivities = [],
@@ -73,19 +79,6 @@ export default function ParticipantEventTable({
     return [...eventItems, ...activityItems];
   }, [events, standaloneActivities]);
 
-  const activeActivityIds = useMemo(
-    () => new Set(myRegistrations.filter(isActiveRegistration).map((registration) => registration.activityId)),
-    [myRegistrations]
-  );
-  const activeEventIds = useMemo(
-    () => new Set(myRegistrations.filter(isActiveRegistration).map((registration) => registration.eventId).filter(Boolean)),
-    [myRegistrations]
-  );
-
-  const hasActiveEntry = (item) => item.itemKind === "EVENT"
-    ? activeEventIds.has(item.id)
-    : activeActivityIds.has(item.id);
-
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const today = startOfToday();
@@ -94,7 +87,7 @@ export default function ParticipantEventTable({
 
     const result = allItems.filter((item) => {
       if (typeFilter === "EVENTS" && item.itemKind !== "EVENT") return false;
-      if (typeFilter === "ACTIVITIES" && item.itemKind !== "ACTIVITY") return false;
+      if (typeFilter === "COMPETITIONS" && !isCompetition(item)) return false;
 
       const start = Date.parse(item.startDateTime || "") || 0;
       if (dateFilter === "WEEK" && (start < today || start > weekLimit)) return false;
@@ -142,7 +135,7 @@ export default function ParticipantEventTable({
   const filterOptions = [
     { value: "ALL", label: "All", count: allItems.length },
     { value: "EVENTS", label: "Events", count: events.length },
-    { value: "ACTIVITIES", label: "Activities", count: standaloneActivities.length }
+    { value: "COMPETITIONS", label: "Competitions", count: standaloneActivities.filter(isCompetition).length }
   ];
 
   const openDetails = (item) => {
@@ -163,7 +156,6 @@ export default function ParticipantEventTable({
       : Boolean(item.endDateTime && Date.parse(item.endDateTime) <= Date.now()) || ["COMPLETED", "CANCELLED"].includes(item.status || item.eventStatus);
 
     const open = item.itemKind === "ACTIVITY" ? isRegistrationOpen(item) : !ended;
-    const isRegistered = Boolean(registration && isActiveRegistration(registration));
     const accent = item.itemKind === "EVENT" ? "border-t-indigo-600" : activityAccent(activityType);
     const categoryColor = item.itemKind === "EVENT"
       ? "text-indigo-600"
@@ -314,7 +306,7 @@ export default function ParticipantEventTable({
             ))}
           </div>
           <span className="text-sm font-medium text-slate-500 max-md:mt-3 max-md:block max-md:text-xs">
-            {filteredItems.length} {filteredItems.length === 1 ? "result" : "results"}
+            {filteredItems.length} {typeFilter === "EVENTS" ? "events" : typeFilter === "COMPETITIONS" ? "competitions" : "results"}
           </span>
         </div>
       </section>
