@@ -43,6 +43,7 @@ import EventDetailsModal from "../features/events/components/EventDetailsModal";
 import ActivityDetailsModal from "../features/activities/components/ActivityDetailsModal";
 
 import MyTeamsList from "../features/teams/components/MyTeamsList";
+import MyCertificates from "../features/certificates/MyCertificates";
 import CreateTeamModal from "../features/teams/components/CreateTeamModal";
 import ParticipantLeaderboard from "../features/judging/components/ParticipantLeaderboard";
 import { useToast } from "../components/common/ToastContext";
@@ -334,6 +335,7 @@ export default function ParticipantDashboard() {
         setActiveTab={setActiveTab}
         activeRegistrationsCount={activeRegistrationsCount}
         teamsCount={myTeams.length}
+        certificatesCount={myCertificates.length}
         volunteerAssignmentsCount={volunteerAssignments.length}
         onLogout={logoutUser}
         onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
@@ -377,10 +379,11 @@ export default function ParticipantDashboard() {
         ) : (
           <>
             {activeTab === "EXPLORE" && (
-              <section className="space-y-6">
-                <div>
+              <section className="participant-page participant-discover-page space-y-6">
+                <div className="participant-page-heading">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600">Participant</p>
                   <h1 className="text-2xl font-bold text-slate-900">
-                    Explore Events & Competitions
+                    Discover events
                   </h1>
                   <p className="mt-1 text-sm text-slate-500">
                     Browse activities, read the rules and choose how
@@ -401,9 +404,10 @@ export default function ParticipantDashboard() {
             )}
 
             {activeTab === "MY_REGISTRATIONS" && (
-              <section className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <section className="participant-page participant-registrations-page space-y-6">
+                <div className="participant-page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600">Participant hub</p>
                     <h1 className="text-2xl font-bold text-slate-900">
                       My Registrations
                     </h1>
@@ -448,10 +452,22 @@ export default function ParticipantDashboard() {
               </section>
             )}
 
+            {activeTab === "MY_CERTIFICATES" && (
+              <section className="participant-page participant-certificates-page space-y-6">
+                <div className="participant-page-heading">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600">Participant hub</p>
+                  <h1 className="text-2xl font-bold text-slate-900">My Certificates</h1>
+                  <p className="mt-1 text-sm text-slate-500">View and download certificates issued for your participation and achievements.</p>
+                </div>
+                <MyCertificates />
+              </section>
+            )}
+
             {activeTab === "MY_TEAMS" && (
-              <section className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <section className="participant-page participant-teams-page space-y-6">
+                <div className="participant-page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600">Participant hub</p>
                     <h1 className="text-2xl font-bold text-slate-900">
                       My Teams
                     </h1>
