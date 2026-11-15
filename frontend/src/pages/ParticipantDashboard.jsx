@@ -45,12 +45,13 @@ import MyTeamsList from "../features/teams/components/MyTeamsList";
 import CreateTeamModal from "../features/teams/components/CreateTeamModal";
 import ParticipantLeaderboard from "../features/judging/components/ParticipantLeaderboard";
 import { useToast } from "../components/common/ToastContext";
-import { getMyCertificates } from "../features/certificates/certificateApi";
+import { getAllMyCertificates } from "../features/certificates/certificateApi";
 import { getParticipantLeaderboardResults } from "../features/judging/api/judgingApi";
 import "../styles/participant-experience.css";
 
 export default function ParticipantDashboard() {
   const { user, updateUser, logoutUser } = useAuth();
+  const navigate = useNavigate();
   const addToast = useToast();
 
   const [activeTab, setActiveTab] = useState(() => { const requestedTab = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab"); return ["EXPLORE", "MY_REGISTRATIONS", "MY_TEAMS"].includes(requestedTab) ? requestedTab : "EXPLORE"; });
@@ -107,7 +108,7 @@ export default function ParticipantDashboard() {
       getMyTeams(),
       getMyVolunteerAssignments().catch(() => []),
       getMyAffiliationStatus().catch(() => null),
-      getMyCertificates().catch(() => ({ content: [] })),
+      getAllMyCertificates().catch(() => []),
       getParticipantLeaderboardResults().catch(() => [])
     ])
       .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData, certsData, resultsData]) => {
@@ -132,7 +133,7 @@ export default function ParticipantDashboard() {
         setMyRegistrations(sortRegistrationsByNewest(registrationsData));
         setMyTeams(teamsData);
         setVolunteerAssignments(assignmentsData);
-        setMyCertificates(Array.isArray(certsData?.content) ? certsData.content : Array.isArray(certsData) ? certsData : []);
+        setMyCertificates(Array.isArray(certsData) ? certsData : []);
         setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
       })
       .catch((err) => {
@@ -227,7 +228,7 @@ export default function ParticipantDashboard() {
     try {
       const [registrations, certsData, resultsData] = await Promise.all([
         getMyRegistrations(),
-        getMyCertificates().catch(() => ({ content: [] })),
+        getAllMyCertificates().catch(() => []),
         getParticipantLeaderboardResults().catch(() => [])
       ]);
       const sortRegistrationsByNewest = (list) =>
@@ -237,7 +238,7 @@ export default function ParticipantDashboard() {
           return timeB - timeA;
         });
       setMyRegistrations(sortRegistrationsByNewest(registrations));
-      setMyCertificates(Array.isArray(certsData?.content) ? certsData.content : Array.isArray(certsData) ? certsData : []);
+      setMyCertificates(Array.isArray(certsData) ? certsData : []);
       setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
       setSuccessMessage("Registration statuses updated.");
     } catch (err) {
@@ -314,6 +315,7 @@ export default function ParticipantDashboard() {
 
   const showMyRegistrations = () => {
     setActiveTab("MY_REGISTRATIONS");
+    navigate("/participant?tab=MY_REGISTRATIONS", { replace: true });
   };
 
   
@@ -505,6 +507,7 @@ export default function ParticipantDashboard() {
           selectedActivityForDetails?.id
         )}
         onRegisterClick={setSelectedActivityForReg}
+        onViewMyRegistrations={showMyRegistrations}
         onClose={closeActivityDetails}
       />
 
