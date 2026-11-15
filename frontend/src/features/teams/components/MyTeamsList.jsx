@@ -225,7 +225,7 @@ export default function MyTeamsList({
         <div className="mt-4 border-t border-slate-100 pt-3">
           <span className="text-[11px] text-slate-500">Created {createdDate(team.createdAt)}</span>
           <div className="mt-3 grid grid-cols-12 gap-2">
-            <button type="button" onClick={() => setSelectedTeamForDetails(team)} className={`col-span-${isLeader ? "5" : "12"} inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200`}>
+            <button type="button" onClick={() => setSelectedTeamForDetails(team)} className={`${isLeader ? "col-span-5" : "col-span-12"} inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200`}>
               <Users className="h-4 w-4"/>Members ({members.length})
             </button>
             {isLeader && (
