@@ -15,6 +15,7 @@ import {
 
 import { getActivitiesOfVisibleEvent } from "../../registration/registrationApi";
 import { getActivityRegistration } from "../../registration/utils/registrationHelpers";
+import { isEnded } from "../../activities/utils/activityHelpers";
 import ParticipantActivityCard from "../../registration/components/ParticipantActivityCard";
 import RegistrationStatusBadge from "../../registration/components/RegistrationStatusBadge";
 
@@ -121,12 +122,7 @@ function EventDetailsContent({
         registration.status
       )
   );
-  const eventEnded =
-    event.status === "COMPLETED" ||
-    event.status === "CANCELLED" ||
-    event.eventStatus === "COMPLETED" ||
-    event.eventStatus === "CANCELLED" ||
-    Boolean(event.endDateTime && Date.parse(event.endDateTime) <= Date.now());
+  const eventEnded = isEnded(event);
 
   return (
     <div
