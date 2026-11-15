@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Users,
   Plus,
@@ -9,12 +9,9 @@ import {
   Check,
   Trash2,
   Search,
-  Filter,
   LayoutGrid,
   List,
-  Eye,
-  Calendar,
-  AlertCircle
+  Eye
 } from "lucide-react";
 import { formatDateTime } from "../../events/utils/eventHelpers";
 import AddMemberModal from "./AddMemberModal";
