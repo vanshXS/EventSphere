@@ -12,9 +12,9 @@ export default function MyCertificates() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setError("");
     try {
       setData(await getMyCertificates(page));
+      setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Could not load certificates.");
     } finally {
@@ -23,8 +23,26 @@ export default function MyCertificates() {
   }, [page]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+
+    getMyCertificates(page)
+      .then((result) => {
+        if (!cancelled) {
+          setData(result);
+          setError("");
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.response?.data?.message || "Could not load certificates.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [page]);
 
   const handleDownload = async (certificate) => {
     if (!certificate?.id) return;
