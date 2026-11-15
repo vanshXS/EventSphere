@@ -408,3 +408,15 @@
 @media (prefers-reduced-motion: reduce) {
   .participant-event-card { transition: none; }
 }
+
+.participant-page-heading { margin-bottom: 2px; }
+.participant-page-heading > p:not(.text-indigo-600) { max-width: 650px; }
+.participant-certificates-content { min-width: 0; }
+.participant-certificate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.participant-certificate-card { box-shadow: none; }
+.participant-certificate-card:hover { border-color: #c7d2fe; }
+.participant-certificates-page .participant-certificate-grid { margin-top: 4px; }
+@media (max-width: 767px) {
+  .participant-certificate-grid { grid-template-columns: 1fr; }
+  .participant-page-heading { display: block; }
+}
