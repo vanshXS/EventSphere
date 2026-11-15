@@ -336,8 +336,9 @@ export default function ParticipantDashboard() {
         <div className="px-4 pt-4 md:hidden">
           <button
             type="button"
-            onClick={() => user?.collegeVerificationStatus !== "VERIFIED" && setIsAffiliationModalOpen(true)}
-            className="flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-50 px-4 py-3 text-left"
+            onClick={() => setIsAffiliationModalOpen(true)}
+            disabled={user?.collegeVerificationStatus === "VERIFIED"}
+            className="flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-50 px-4 py-3 text-left disabled:cursor-default"
             aria-label="College affiliation status"
           >
             <span className="flex min-w-0 items-center gap-3">
