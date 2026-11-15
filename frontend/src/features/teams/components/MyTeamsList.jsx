@@ -53,11 +53,13 @@ export default function MyTeamsList({
     }
   };
 
+  const currentUserId = user?.userId || user?.id;
+
   const getIsLeader = (team) => {
     return (
-      team.leaderId === user?.userId ||
+      team.leaderId === currentUserId ||
       team.leaderId === user?.email ||
-      team.createdBy === user?.userId
+      team.createdBy === currentUserId
     );
   };
 
@@ -71,7 +73,7 @@ export default function MyTeamsList({
         id === user?.userId
           ? `${user?.name || "You"}`
           : "Participant",
-      email: id === user?.userId ? user?.email : "",
+      email: id === currentUserId ? user?.email : "",
       leader: id === team.leaderId
     }));
   };
