@@ -83,7 +83,7 @@ export default function MyRegistrationsTable({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [viewMode, setViewMode] = useState("TABLE"); // "TABLE" | "CARDS"
+  const [viewMode, setViewMode] = useState(() => typeof window !== "undefined" && window.innerWidth < 768 ? "CARDS" : "TABLE"); // responsive default; both existing views remain available
   const [regToCancel, setRegToCancel] = useState(null);
   const [cancelError, setCancelError] = useState("");
 
@@ -370,9 +370,9 @@ export default function MyRegistrationsTable({
 
   return (
     <>
-      <div className="space-y-5">
+      <div className="participant-registration-list space-y-5">
         {/* Filter and Control Bar */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
+        <div className="participant-registrations-toolbar rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Status Filter Tabs */}
             <div className="flex flex-wrap items-center gap-1.5">
@@ -473,7 +473,7 @@ export default function MyRegistrationsTable({
           <>
             {/* Table View */}
             {viewMode === "TABLE" && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+              <div className="participant-registrations-table overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[700px] text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -707,7 +707,7 @@ export default function MyRegistrationsTable({
 
             {/* Cards View */}
             {viewMode === "CARDS" && (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="participant-registration-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredRegistrations.map((registration) => {
                   const canCancel = canCancelRegistration(registration);
                   const hasTicket = canViewTicket(registration);
@@ -715,7 +715,7 @@ export default function MyRegistrationsTable({
                   return (
                     <div
                       key={`card-${registration.id}`}
-                      className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-shadow hover:shadow-md"
+                      className="participant-registration-card flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-shadow hover:shadow-md"
                     >
                       <div className="space-y-3">
                         {/* Header Badges */}
