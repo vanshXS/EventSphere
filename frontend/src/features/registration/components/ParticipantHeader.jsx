@@ -6,8 +6,6 @@ export default function ParticipantHeader({
   user,
   activeTab,
   setActiveTab,
-  activeRegistrationsCount = 0,
-  teamsCount = 0,
   volunteerAssignmentsCount = 0,
   onLogout,
   onOpenAffiliationModal
@@ -17,8 +15,8 @@ export default function ParticipantHeader({
 
   const navItems = [
     { id: "EXPLORE", label: "Discover" },
-    { id: "MY_REGISTRATIONS", label: "My registrations", count: activeRegistrationsCount },
-    { id: "MY_TEAMS", label: "My teams", count: teamsCount }
+    { id: "MY_REGISTRATIONS", label: "My registrations" },
+    { id: "MY_TEAMS", label: "My teams" }
   ];
 
   if (volunteerAssignmentsCount > 0) {
@@ -69,11 +67,6 @@ export default function ParticipantHeader({
                   }`}
                 >
                   {item.label}
-                  {item.count > 0 && (
-                    <span className="ml-1.5 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
-                      {item.count}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -145,7 +138,6 @@ export default function ParticipantHeader({
                 }`}
               >
                 <span>{item.label}</span>
-                {item.count > 0 && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">{item.count}</span>}
               </button>
             ))}
             {!isVerified && (
