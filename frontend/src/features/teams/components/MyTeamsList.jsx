@@ -222,19 +222,19 @@ export default function MyTeamsList({
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+        <div className="mt-4 border-t border-slate-100 pt-3">
           <span className="text-[11px] text-slate-500">Created {createdDate(team.createdAt)}</span>
-          <div className="flex items-center gap-1.5">
-            <button type="button" onClick={() => setSelectedTeamForDetails(team)} className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200">
-              Members
+          <div className="mt-3 grid grid-cols-12 gap-2">
+            <button type="button" onClick={() => setSelectedTeamForDetails(team)} className={`col-span-${isLeader ? "5" : "12"} inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200`}>
+              <Users className="h-4 w-4"/>Members ({members.length})
             </button>
             {isLeader && (
               <>
-                <button type="button" onClick={() => setSelectedTeamForAddMember(team)} className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700">
-                  <UserPlus className="mr-1 inline h-3.5 w-3.5"/>Invite
+                <button type="button" onClick={() => setSelectedTeamForAddMember(team)} className="col-span-5 inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-700">
+                  <UserPlus className="h-4 w-4"/>Add member
                 </button>
-                <button type="button" onClick={() => setTeamToDelete(team)} title="Delete team" aria-label="Delete team" className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600">
-                  <Trash2 className="h-4 w-4"/>
+                <button type="button" onClick={() => setTeamToDelete(team)} title="Delete team" aria-label="Delete team" className="col-span-2 inline-flex h-11 items-center justify-center rounded-lg bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100">
+                  <Trash2 className="h-5 w-5"/>
                 </button>
               </>
             )}
