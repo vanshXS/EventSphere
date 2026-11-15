@@ -14,6 +14,19 @@ export async function getMyCertificates(page = 0) {
   const response = await api.get("/api/participant/certificates", { params: { page } });
   return response.data;
 }
+
+export async function getAllMyCertificates() {
+  const firstPage = await getMyCertificates(0);
+  const certificates = [...(firstPage?.content || [])];
+  const totalPages = Math.max(1, Number(firstPage?.totalPages) || 1);
+
+  for (let page = 1; page < totalPages; page += 1) {
+    const result = await getMyCertificates(page);
+    certificates.push(...(result?.content || []));
+  }
+
+  return certificates;
+}
 export async function getCertificatePdfBlob(id) {
   const response = await api.get(`/api/participant/certificates/${id}/download`, { responseType: "blob" });
   return response.data;
