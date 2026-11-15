@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Form, Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { registerOrganization } from "../authApi";
 import { parseAuthError } from "../utils/errorMapper";
 import AuthLayout from "../../../components/common/AuthLayout";
@@ -129,7 +129,7 @@ export default function OrganizerRegisterPage() {
       title="Organizer Registration"
       subtitle="Register your institution or organizing committee"
     >
-      <form onSubmit={handleSubmit} noValidate>
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <FormField
           id="organizer-name"
           name="name"
@@ -241,7 +241,7 @@ export default function OrganizerRegisterPage() {
         }}
       />
 
-      <div className="mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-600 space-y-2">
+      <div className="auth-footer-links mt-6 border-t border-slate-100 pt-5 text-center text-xs text-slate-600 space-y-2">
         <div>
           Already have an account?{" "}
           <Link
