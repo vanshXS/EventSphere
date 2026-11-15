@@ -58,8 +58,14 @@ export default function ParticipantEventTable({
     }));
 
     return [...eventItems, ...activityItems].sort((a, b) => {
-      const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
-      const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+      const timeA = Date.parse(a.startDateTime || "") || 0;
+      const timeB = Date.parse(b.startDateTime || "") || 0;
+      const now = Date.now();
+      const upcomingA = timeA >= now;
+      const upcomingB = timeB >= now;
+      if (upcomingA && upcomingB) return timeA - timeB;
+      if (upcomingA) return -1;
+      if (upcomingB) return 1;
       return timeB - timeA;
     });
   }, [events, standaloneActivities]);
