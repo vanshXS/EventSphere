@@ -9,7 +9,6 @@ import RegistrationStatusBadge from "./RegistrationStatusBadge";
 import ConfirmDialog from "../../events/components/ConfirmDialog";
 import QrTicketCard from "./QrTicketCard";
 import { getActivityTicket, getEventTicket } from "../../attendance/attendanceApi";
-import { downloadCertificate } from "../../certificates/certificateApi";
 
 const filters = [["ALL","All"],["ACTIVE","Active"],["PENDING","Pending"],["APPROVED","Approved"],["REJECTED","Rejected"],["CANCELLED","Cancelled"]];
 const matchesStatus = (registration, filter) => filter === "ALL" ? true : filter === "ACTIVE" ? isActiveRegistration(registration) : normalizeRegistrationStatus(registration.status) === filter;
@@ -48,7 +47,6 @@ export default function MyRegistrationsTable({
   const [modalTicket, setModalTicket] = useState(null);
   const [ticketLoading, setTicketLoading] = useState(false);
   const [ticketError, setTicketError] = useState("");
-  const [downloadingCertId, setDownloadingCertId] = useState(null);
 
   const enrichedRegistrations = useMemo(() => {
     const activities = new Map(standaloneActivities.map(item => [item.id,item]));
@@ -97,17 +95,6 @@ export default function MyRegistrationsTable({
   }, [enrichedRegistrations,statusFilter,searchQuery]);
   const activeCount = enrichedRegistrations.filter(isActiveRegistration).length;
 
-  const handleDownloadCertificate = async cert => {
-    if (!cert?.id) return;
-    try {
-      setDownloadingCertId(cert.id);
-      await downloadCertificate(cert.id,cert.certificateNumber || "Certificate");
-    } catch {
-      setCancelError("Could not download the certificate. Please try again.");
-    } finally {
-      setDownloadingCertId(null);
-    }
-  };
   const handleOpenTicket = async registration => {
     setTicketModalReg(registration);
     setModalTicket(null);
@@ -146,7 +133,7 @@ export default function MyRegistrationsTable({
       <div className={compact ? "grid grid-cols-3 gap-2" : "flex flex-wrap items-center justify-end gap-2"}>
         {hasTicket && <button type="button" onClick={() => handleOpenTicket(reg)} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-100 px-2 text-xs font-semibold text-indigo-700" : "inline-flex items-center gap-1.5 rounded-lg bg-indigo-100 px-3 py-2 text-xs font-semibold text-indigo-700"}><Ticket size={15}/>Ticket</button>}
         {reg.hasPublishedResults && onViewResults && <button type="button" onClick={() => onViewResults(reg.activityId)} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-100 px-2 text-xs font-semibold text-slate-800" : "inline-flex items-center gap-1.5 rounded-lg bg-indigo-100 px-3 py-2 text-xs font-semibold text-slate-800"}><Trophy size={15}/>Results</button>}
-        {reg.matchingCert && <button type="button" disabled={downloadingCertId === reg.matchingCert.id} onClick={() => handleDownloadCertificate(reg.matchingCert)} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-emerald-300 px-2 text-xs font-semibold text-emerald-950 disabled:opacity-60" : "inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-60"}>{downloadingCertId === reg.matchingCert.id ? <Loader2 size={15} className="animate-spin"/> : <Award size={15}/>}Certificate</button>}
+        {reg.matchingCert && <Link to={`/participant/certificates/${reg.matchingCert.id}`} state={{ certificate: reg.matchingCert }} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-emerald-300 px-2 text-xs font-semibold text-emerald-950" : "inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-800"}><Award size={15}/>Certificate</Link>}
         {canCancel && <button type="button" disabled={Boolean(cancellingId)} onClick={() => {setCancelError("");setRegToCancel(reg);}} className={compact ? "col-span-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white text-xs font-semibold text-rose-600 disabled:opacity-50" : "inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 disabled:opacity-50"}><X size={14}/>Cancel</button>}
         {!compact && !canCancel && reg.registrationType === "TEAM" && reg.teamLeaderId && reg.teamLeaderId !== currentUserId && isActiveRegistration(reg) && <span className="text-[11px] text-slate-400">Leader only</span>}
       </div>
