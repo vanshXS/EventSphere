@@ -268,7 +268,7 @@
   background: #fff !important;
   box-shadow: none !important;
 }
-.auth-modal-card input:focus {
+.auth-modal-card input:not([type="radio"]):not([type="checkbox"]):focus {
   border-color: #818cf8 !important;
   outline: none;
   box-shadow: 0 0 0 3px rgba(99,102,241,.12) !important;
