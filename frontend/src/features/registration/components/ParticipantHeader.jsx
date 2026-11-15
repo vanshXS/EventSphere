@@ -102,7 +102,7 @@ export default function ParticipantHeader({
           </button>
         </div>
 
-        <span className="hidden h-8 w-8 place-items-center rounded-full bg-indigo-700 text-xs font-semibold text-white max-md:grid" aria-hidden="true">{initials || "P"}</span>
+        {activeTab !== "EXPLORE" && <span className="hidden h-8 w-8 place-items-center rounded-full bg-indigo-700 text-xs font-semibold text-white max-md:grid" aria-hidden="true">{initials || "P"}</span>}
         <button
           type="button"
           onClick={() => setMobileMenuOpen((open) => !open)}
