@@ -109,7 +109,7 @@ export default function ParticipantDashboard() {
         ["activities", getVisibleStandaloneActivities],
         ["registrations", getMyRegistrations],
         ["teams", getMyTeams],
-        ["volunteer assignments", getMyVolunteerAssignments],
+        ["volunteer assignments", () => getMyVolunteerAssignments().catch(() => [])],
         ["certificates", getAllMyCertificates],
         ["competition results", getParticipantLeaderboardResults]
       ];
