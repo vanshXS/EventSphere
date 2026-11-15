@@ -250,9 +250,9 @@ export default function MyTeamsList({
       <div className="flex flex-col justify-between gap-5 pb-1 md:flex-row md:items-center">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Team hub</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">{user?.collegeCode || user?.collegeName || "Participant"} Collaboration</span>
             <span className="h-1.5 w-1.5 rounded-full bg-slate-300"/>
-            <span className="text-xs font-medium text-slate-500">Participant workspace</span>
+            <span className="text-xs font-medium text-slate-500">Team Hub</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 max-md:text-2xl">My Teams</h1>
           <p className="max-w-2xl text-sm text-slate-500">Manage your teams and collaborate across campus competitions, hackathons, and group challenges.</p>
