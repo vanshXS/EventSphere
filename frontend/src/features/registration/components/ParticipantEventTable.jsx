@@ -145,9 +145,6 @@ export default function ParticipantEventTable({
     { value: "ACTIVITIES", label: "Activities", count: standaloneActivities.length }
   ];
 
-  const selectedDateLabel = dateOptions.find((option) => option.value === dateFilter)?.label || "Any date";
-  const selectedSortLabel = sortOptions.find((option) => option.value === sortOrder)?.label || "Upcoming first";
-
   const openDetails = (item) => {
     if (item.itemKind === "EVENT") onSelectEvent?.(item);
     else onSelectActivity?.(item);
@@ -323,10 +320,11 @@ export default function ParticipantEventTable({
       </section>
 
       {filteredItems.length ? (
-        <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 max-md:gap-4" aria-label="Event results">
-          {visibleItems.map(renderItem)}
-        </section>
-        {totalPages > 1 && (
+        <>
+          <section className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 max-md:gap-4" aria-label="Event results">
+            {visibleItems.map(renderItem)}
+          </section>
+          {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 py-4 text-xs text-slate-500" aria-label="Event result pages">
             <button
               type="button"
@@ -348,7 +346,8 @@ export default function ParticipantEventTable({
               <ChevronRight size={15} />
             </button>
           </div>
-        )}
+          )}
+        </>
       ) : (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
           <CalendarDays className="mx-auto mb-3 h-8 w-8 text-slate-300" />
