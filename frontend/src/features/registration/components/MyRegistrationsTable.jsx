@@ -60,17 +60,18 @@ export default function MyRegistrationsTable({
       const eventCancelled = Boolean(activity?.status === "CANCELLED" || event?.eventStatus === "CANCELLED" || event?.status === "CANCELLED");
       const cancelled = eventCancelled || normalizeRegistrationStatus(reg.status) === "CANCELLED";
       const rejected = normalizeRegistrationStatus(reg.status) === "REJECTED";
-      const certificate = certificates.find(cert =>
-        (cert.registrationId && cert.registrationId === reg.id) ||
-        (reg.activityId && cert.activityId && cert.activityId === reg.activityId) ||
-        (reg.eventId && cert.eventId && cert.eventId === reg.eventId) ||
-        ((cert.scopeName || "").trim().toLowerCase() === (reg.activityName || activity?.name || "").trim().toLowerCase() && Boolean(cert.scopeName)) ||
-        ((cert.scopeName || "").trim().toLowerCase() === (reg.eventName || event?.title || "").trim().toLowerCase() && Boolean(cert.scopeName))
-      );
+      const matchingCertificates = certificates.filter((cert) => {
+        if (cert.registrationId) return cert.registrationId === reg.id;
+        if (reg.activityId) return cert.scope === "ACTIVITY" && cert.activityId === reg.activityId;
+        if (reg.eventId) return cert.scope === "EVENT" && cert.eventId === reg.eventId;
+        return false;
+      }).sort((a, b) => Date.parse(b.issuedAt || 0) - Date.parse(a.issuedAt || 0));
+      const participationCertificate = matchingCertificates.find((cert) => cert.type === "PARTICIPATION") || null;
+      const winnerCertificate = matchingCertificates.find((cert) => cert.type === "WINNER") || null;
       return {
         ...reg, activity, event, isCompleted: completed, isEnded: completed,
         isEventCancelled: eventCancelled, isCancelled: cancelled, isRejected: rejected,
-        matchingCert: certificate,
+        matchingCertificates, participationCertificate, winnerCertificate,
         hasPublishedResults: Boolean(reg.activityId && publishedResults.some(item => item.activityId === reg.activityId)),
         activityName: reg.activityName || activity?.name || event?.title || "Registration",
         activityType: reg.activityType || activity?.activityType || activity?.type || "OTHER",
@@ -130,10 +131,11 @@ export default function MyRegistrationsTable({
     const canCancel = canCancelRegistration(reg,currentUserId);
     const hasTicket = canViewTicket(reg);
     return (
-      <div className={compact ? "grid grid-cols-3 gap-2" : "flex flex-wrap items-center justify-end gap-2"}>
+      <div className={compact ? "grid grid-cols-2 gap-2 sm:grid-cols-3" : "flex flex-wrap items-center justify-end gap-2"}>
         {hasTicket && <button type="button" onClick={() => handleOpenTicket(reg)} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-100 px-2 text-xs font-semibold text-indigo-700" : "inline-flex items-center gap-1.5 rounded-lg bg-indigo-100 px-3 py-2 text-xs font-semibold text-indigo-700"}><Ticket size={15}/>Ticket</button>}
         {reg.hasPublishedResults && onViewResults && <button type="button" onClick={() => onViewResults(reg.activityId)} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-100 px-2 text-xs font-semibold text-slate-800" : "inline-flex items-center gap-1.5 rounded-lg bg-indigo-100 px-3 py-2 text-xs font-semibold text-slate-800"}><Trophy size={15}/>Results</button>}
-        {reg.matchingCert && <Link to={`/participant/certificates/${reg.matchingCert.id}`} state={{ certificate: reg.matchingCert }} className={compact ? "inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-emerald-300 px-2 text-xs font-semibold text-emerald-950" : "inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-800"}><Award size={15}/>Certificate</Link>}
+        {reg.participationCertificate && <Link to={`/participant/certificates/${reg.participationCertificate.id}`} state={{ certificate: reg.participationCertificate }} aria-label="View participation certificate" className={compact ? "inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-emerald-100 px-2 text-[11px] font-semibold text-emerald-800" : "inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-800"}><Award size={15}/>Participation</Link>}
+        {reg.winnerCertificate && <Link to={`/participant/certificates/${reg.winnerCertificate.id}`} state={{ certificate: reg.winnerCertificate }} aria-label="View winner certificate" className={compact ? "inline-flex min-h-11 items-center justify-center gap-1 rounded-lg bg-amber-100 px-2 text-[11px] font-semibold text-amber-800" : "inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-800"}><Trophy size={15}/>Winner</Link>}
         {canCancel && <button type="button" disabled={Boolean(cancellingId)} onClick={() => {setCancelError("");setRegToCancel(reg);}} className={compact ? "col-span-3 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white text-xs font-semibold text-rose-600 disabled:opacity-50" : "inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-600 disabled:opacity-50"}><X size={14}/>Cancel</button>}
         {!compact && !canCancel && reg.registrationType === "TEAM" && reg.teamLeaderId && reg.teamLeaderId !== currentUserId && isActiveRegistration(reg) && <span className="text-[11px] text-slate-400">Leader only</span>}
       </div>
