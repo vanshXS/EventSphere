@@ -332,8 +332,6 @@ export default function ParticipantDashboard() {
         user={user}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        activeRegistrationsCount={activeRegistrationsCount}
-        teamsCount={myTeams.length}
         volunteerAssignmentsCount={volunteerAssignments.length}
         onLogout={logoutUser}
         onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
