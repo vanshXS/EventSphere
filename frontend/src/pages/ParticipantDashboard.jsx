@@ -27,7 +27,6 @@ import {
 import { getMyVolunteerAssignments } from "../features/attendance/attendanceApi";
 
 import {
-  isActiveRegistration,
   getActivityRegistration,
   getRegistrationMessage
 } from "../features/registration/utils/registrationHelpers";
