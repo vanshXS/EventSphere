@@ -13,7 +13,6 @@ import {
   List,
   Eye
 } from "lucide-react";
-import { formatDateTime } from "../../events/utils/eventHelpers";
 import AddMemberModal from "./AddMemberModal";
 import TeamDetailsModal from "./TeamDetailsModal";
 import ConfirmDialog from "../../events/components/ConfirmDialog";
@@ -321,7 +320,7 @@ export default function MyTeamsList({
       ) : (
         <>
           {viewMode === "TABLE" ? (
-            <div className="hidden w-full overflow-hidden rounded-xl bg-white shadow-sm md:block">
+            <div className={`hidden w-full overflow-hidden rounded-xl bg-white shadow-sm ${viewMode === "TABLE" ? "md:block" : "md:hidden"}`}>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead><tr className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600"><th className="px-6 py-3.5">Team</th><th className="px-6 py-3.5">Your role</th><th className="px-6 py-3.5">Members</th><th className="px-6 py-3.5">Created</th><th className="px-6 py-3.5 text-right">Actions</th></tr></thead>
