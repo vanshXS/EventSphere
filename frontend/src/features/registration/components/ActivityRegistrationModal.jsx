@@ -259,7 +259,7 @@ function RegistrationForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="registration-title"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
+        className="participant-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
         onClick={(event) => {
           if (
             event.target === event.currentTarget &&
@@ -270,7 +270,7 @@ function RegistrationForm({
           }
         }}
       >
-        <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="participant-dialog flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
           <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5">
             <div>
               <p className="text-xs font-semibold text-indigo-600">
