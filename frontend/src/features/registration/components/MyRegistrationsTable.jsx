@@ -165,11 +165,11 @@ export default function MyRegistrationsTable({
   return (
     <>
       <section className="space-y-6">
-        <div className="flex flex-wrap items-center gap-2.5" aria-label="Registration status filters">
+        <div className="flex w-full items-center gap-2.5 overflow-x-auto pb-1" aria-label="Registration status filters">
           {filters.map(([value,label]) => {
             const count = enrichedRegistrations.filter(reg => matchesStatus(reg,value)).length;
             const active = statusFilter === value;
-            return <button key={value} type="button" onClick={() => setStatusFilter(value)} aria-pressed={active} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${active ? "bg-indigo-700 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}>
+            return <button key={value} type="button" onClick={() => setStatusFilter(value)} aria-pressed={active} className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-colors ${active ? "bg-indigo-700 text-white" : "bg-white text-slate-700 hover:bg-slate-50"}`}>
               {label}<span className={`rounded-full px-1.5 py-0.5 text-[10px] ${active ? "bg-white/20" : "bg-indigo-50 text-indigo-700"}`}>{count}</span>
             </button>;
           })}
