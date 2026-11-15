@@ -44,7 +44,7 @@ export default function ParticipantEventTable({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
-  const [viewMode, setViewMode] = useState("TABLE"); // "TABLE" | "CARDS"
+  const [viewMode, setViewMode] = useState("CARDS"); // "TABLE" | "CARDS"
 
   const allItems = useMemo(() => {
     const eventItems = events.map((event) => ({
@@ -117,14 +117,14 @@ export default function ParticipantEventTable({
   const filterOptions = [
     ["ALL", "All", allItems.length],
     ["EVENTS", "Events", events.length],
-    ["ACTIVITIES", "Competitions", standaloneActivities.length],
+    ["ACTIVITIES", "Activities", standaloneActivities.length],
     ["ACTIVE", "My Entries", allItems.filter(hasActiveEntry).length]
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="participant-event-explorer space-y-5">
       {/* Filter, Search & View Controls */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
+      <div className="participant-discovery-controls rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Filter Pills */}
           <div className="flex flex-wrap items-center gap-1.5">
@@ -420,7 +420,7 @@ export default function ParticipantEventTable({
 
           {/* Card Grid View */}
           {viewMode === "CARDS" && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="participant-event-grid grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredItems.map((item) => {
                 const isEvent = item.itemKind === "EVENT";
                 const type = item.type || item.activityType;
@@ -449,7 +449,7 @@ export default function ParticipantEventTable({
                 return (
                   <div
                     key={`${item.itemKind}-${item.id}`}
-                    className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-shadow hover:shadow-md"
+                    className={`participant-event-card ${isEvent ? "participant-event-card--event" : "participant-event-card--activity"} flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-shadow hover:shadow-md`}
                   >
                     <div className="space-y-3">
                       {/* Card Header – Type Badge */}
