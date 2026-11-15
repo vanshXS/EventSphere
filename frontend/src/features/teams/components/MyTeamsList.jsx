@@ -70,7 +70,7 @@ export default function MyTeamsList({
       name:
         id === user?.userId
           ? `${user?.name || "You"}`
-          : `Participant (${id.slice(0, 6)})`,
+          : "Participant",
       email: id === user?.userId ? user?.email : "",
       leader: id === team.leaderId
     }));
