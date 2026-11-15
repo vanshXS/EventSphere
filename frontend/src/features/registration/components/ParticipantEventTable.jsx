@@ -55,7 +55,7 @@ function getItemLocation(item) {
 }
 
 function isCompetition(item) {
-  if (item.itemKind !== "ACTIVITY") return false;
+  if (item.itemKind === "EVENT") return false;
   const type = item.type || item.activityType;
   return type === "HACKATHON" || type === "TECHNICAL_COMPETITION";
 }
