@@ -102,7 +102,7 @@ export default function RegistrationOtpModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+      className="auth-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting && !success) {
           onClose();
@@ -110,7 +110,7 @@ export default function RegistrationOtpModal({
       }}
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left flex flex-col animate-in fade-in zoom-in-95 duration-150"
+        className="auth-modal-card relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left flex flex-col animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -182,13 +182,13 @@ export default function RegistrationOtpModal({
                   6-Digit OTP Code
                 </label>
                 <input
-                  id="reg-otp-input"
+                  id="reg-otp-input" inputMode="numeric" autoComplete="one-time-code"
                   type="text"
                   maxLength={6}
                   placeholder="123456"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  className="w-full text-center tracking-[0.4em] text-2xl font-mono font-bold py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+                  className="auth-otp-code w-full text-center tracking-[0.4em] text-2xl font-mono font-bold py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                   autoFocus
                   disabled={isSubmitting}
                 />
