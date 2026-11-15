@@ -147,7 +147,7 @@ export default function ParticipantCertificatePreviewPage() {
   };
 
   const isWinner = certificate?.type === "WINNER";
-  const title = isWinner ? "Certificate of Merit & Excellence" : "Certificate of Participation";
+  const title = isWinner ? "Certificate of Achievement" : "Certificate of Participation";
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f8f8fc] text-slate-900">
@@ -193,7 +193,7 @@ export default function ParticipantCertificatePreviewPage() {
             <div className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-slate-200 pb-5">
               <div className="min-w-0">
                 <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-indigo-700">
-                  <span>Participant certificate</span>
+                  <span>{isWinner ? "Winner certificate" : "Participation certificate"}</span>
                   <span className="h-1 w-1 rounded-full bg-slate-300" />
                   <span>{certificate.type === "WINNER" ? "Winner" : "Participation"}</span>
                 </div>
