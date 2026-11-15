@@ -149,7 +149,7 @@ export default function ParticipantEventTable({
 
     const ended = item.itemKind === "ACTIVITY"
       ? isEnded(item)
-      : Boolean(item.endDateTime && Date.parse(item.endDateTime) <= Date.now()) || ["COMPLETED", "CANCELLED"].includes(item.status || item.eventStatus);
+      : isEnded(item) || ["COMPLETED", "CANCELLED"].includes(item.status || item.eventStatus);
 
     const open = item.itemKind === "ACTIVITY" ? isRegistrationOpen(item) : !ended;
     const accent = item.itemKind === "EVENT" ? "border-t-indigo-600" : activityAccent(activityType);
