@@ -262,7 +262,7 @@ export default function MyTeamsList({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="hidden grid-cols-1 gap-4 sm:grid-cols-2 md:grid">
         <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Total teams</p>
