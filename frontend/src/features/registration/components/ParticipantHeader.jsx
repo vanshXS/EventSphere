@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  Award,
   BookmarkCheck,
   CalendarDays,
   GraduationCap,
@@ -17,6 +18,7 @@ export default function ParticipantHeader({
   setActiveTab,
   activeRegistrationsCount,
   teamsCount,
+  certificatesCount = 0,
   volunteerAssignmentsCount = 0,
   onLogout,
   onOpenAffiliationModal
@@ -27,7 +29,8 @@ export default function ParticipantHeader({
   const navItems = [
     { id: "EXPLORE", label: "Discover", icon: CalendarDays },
     { id: "MY_REGISTRATIONS", label: "My registrations", icon: BookmarkCheck, badge: activeRegistrationsCount },
-    { id: "MY_TEAMS", label: "My teams", icon: Users, badge: teamsCount }
+    { id: "MY_TEAMS", label: "My teams", icon: Users, badge: teamsCount },
+    { id: "MY_CERTIFICATES", label: "Certificates", icon: Award, badge: certificatesCount }
   ];
 
   if (volunteerAssignmentsCount > 0) {
@@ -36,7 +39,7 @@ export default function ParticipantHeader({
 
   const initials = (user?.name || "Participant")
     .trim()
-    .split(/\\s+/)
+    .split(/\s+/)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() || "")
     .join("");
