@@ -462,7 +462,7 @@ export default function ParticipantDashboard() {
                   certificates={myCertificates}
                   currentUser={user}
                   onCancelRegistration={handleCancelRegistration}
-                  onBrowseEvents={() => setActiveTab("EXPLORE")}
+                  onBrowseEvents={() => { setActiveTab("EXPLORE"); navigate("/participant", { replace: true }); }}
                   onViewResults={handleViewResults}
                 />
               </section>
