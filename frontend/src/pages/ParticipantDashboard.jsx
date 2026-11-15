@@ -339,6 +339,32 @@ export default function ParticipantDashboard() {
         onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
       />
 
+      {user?.collegeName && (
+        <div className="px-4 pt-4 md:hidden">
+          <button
+            type="button"
+            onClick={() => user?.collegeVerificationStatus !== "VERIFIED" && setIsAffiliationModalOpen(true)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-50 px-4 py-3 text-left"
+            aria-label="College affiliation status"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Campus · {user?.collegeCode || "Participant"}
+                </span>
+                <span className="mt-0.5 block truncate text-sm font-medium text-slate-900">{user.collegeName}</span>
+              </span>
+            </span>
+            <span className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${user?.collegeVerificationStatus === "VERIFIED" ? "bg-white text-emerald-700" : "bg-white text-amber-700"}`}>
+              {user?.collegeVerificationStatus === "VERIFIED" ? "Verified" : user?.collegeVerificationStatus === "PENDING" ? "Pending" : "Verify"}
+            </span>
+          </button>
+        </div>
+      )}
+
       <main className="participant-main mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {/* College Affiliation Status Alert Banner */}
         {user?.collegeVerificationStatus !== "VERIFIED" && (
@@ -384,8 +410,7 @@ export default function ParticipantDashboard() {
                     Discover events
                   </h1>
                   <p className="mt-1 text-sm text-slate-500">
-                    Browse activities, read the rules and choose how
-                    you want to participate.
+                    Find events and competitions happening around your campus.
                   </p>
                 </div>
 
@@ -410,8 +435,7 @@ export default function ParticipantDashboard() {
                       My Registrations
                     </h1>
                     <p className="mt-1 text-sm text-slate-500">
-                      Track approval decisions, read organizer notes,
-                      and manage your entries.
+                      Track approval decisions, access your entry tickets, and view published competition results.
                     </p>
                   </div>
 
@@ -465,6 +489,10 @@ export default function ParticipantDashboard() {
           </>
         )}
       </main>
+
+      <footer className="mt-auto border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
+        © {new Date().getFullYear()} EventSphere Platform. Designed for campus innovation.
+      </footer>
 
       <EventDetailsModal
         isOpen={Boolean(selectedEventForDetails)}
