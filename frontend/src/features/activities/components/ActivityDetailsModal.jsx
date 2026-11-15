@@ -286,11 +286,11 @@ export default function ActivityDetailsModal({
           </section>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 p-4 sm:p-5">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Close
           </button>
@@ -313,30 +313,22 @@ export default function ActivityDetailsModal({
                 </button>
               )}
             </div>
-          ) : onRegisterClick ? (
-            isRegistrationOpen(activity) ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onRegisterClick(activity);
-                }}
-                className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-medium text-white shadow-xs hover:bg-indigo-700"
-              >
-                Register Now
-              </button>
-            ) : (
-              <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                {isEnded(activity)
-                  ? "Activity Ended"
-                  : "Registration Closed"}
-              </span>
-            ) : (
-              <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                {isEnded(activity) ? "Activity Ended" : "Registration Closed"}
-              </span>
-            )
-          ) : null}
+          ) : onRegisterClick && isRegistrationOpen(activity) ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onRegisterClick(activity);
+              }}
+              className="rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              Register Now
+            </button>
+          ) : (
+            <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-600">
+              {isEnded(activity) ? "Activity Ended" : "Registration Closed"}
+            </span>
+          )}
         </footer>
       </div>
     </div>,
