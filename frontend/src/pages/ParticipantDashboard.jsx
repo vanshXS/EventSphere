@@ -368,7 +368,7 @@ export default function ParticipantDashboard() {
       <main className="participant-main mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
         {/* College Affiliation Status Alert Banner */}
         {user?.collegeVerificationStatus !== "VERIFIED" && (
-          <div className="participant-affiliation-alert mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="participant-affiliation-alert mb-6 hidden rounded-xl border p-4 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-5 h-5" />
