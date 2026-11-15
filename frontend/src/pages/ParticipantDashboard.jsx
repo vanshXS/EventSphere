@@ -322,10 +322,6 @@ export default function ParticipantDashboard() {
     setResultsModalActivityId(activityId || null);
   };
 
-  const activeRegistrationsCount = myRegistrations.filter(
-    isActiveRegistration
-  ).length;
-
   return (
     <div className="participant-workspace flex min-h-screen flex-col bg-slate-50 font-sans">
       <ParticipantHeader
