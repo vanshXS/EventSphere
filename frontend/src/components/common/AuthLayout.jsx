@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function AuthLayout({ title, subtitle, children }) {
   return (
     <div className="participant-auth-shell min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
