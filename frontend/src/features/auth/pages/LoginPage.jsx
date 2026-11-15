@@ -127,7 +127,7 @@ export default function LoginPage() {
       subtitle="Sign in to your EventSphere account"
     >
       {showVerifyPrompt && (
-        <div className="mb-4 p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl flex items-center justify-between text-xs text-amber-900 animate-in fade-in">
+        <div className="auth-alert mb-4 p-3.5 border rounded-xl flex items-center justify-between text-xs animate-in fade-in">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>Account email needs verification?</span>
@@ -142,7 +142,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} noValidate>
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <FormField
           id="login-email"
           name="email"
@@ -187,14 +187,14 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 border-t border-slate-100 pt-5 text-xs text-slate-600 space-y-3">
-        <div className="text-center font-medium text-slate-500">
+      <div className="auth-account-options text-xs text-slate-600 space-y-3">
+        <div className="auth-account-intro text-center font-medium text-slate-500">
           Don't have an account?
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <Link
             to="/register/organizer"
-            className="group block rounded-lg border border-slate-200 hover:border-indigo-200 bg-slate-50 hover:bg-indigo-50/50 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="auth-account-option group block rounded-lg border border-slate-200 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <span className="block text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
               Register as Organizer
@@ -205,7 +205,7 @@ export default function LoginPage() {
           </Link>
           <Link
             to="/register/participant"
-            className="group block rounded-lg border border-slate-200 hover:border-emerald-200 bg-slate-50 hover:bg-emerald-50/50 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="auth-account-option group block rounded-lg border border-slate-200 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <span className="block text-sm font-semibold text-emerald-600 group-hover:text-emerald-700">
               Join as Participant
