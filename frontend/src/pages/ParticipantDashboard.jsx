@@ -47,6 +47,7 @@ import ParticipantLeaderboard from "../features/judging/components/ParticipantLe
 import { useToast } from "../components/common/ToastContext";
 import { getAllMyCertificates } from "../features/certificates/certificateApi";
 import { getParticipantLeaderboardResults } from "../features/judging/api/judgingApi";
+import { useNavigate } from "react-router-dom";
 import "../styles/participant-experience.css";
 
 export default function ParticipantDashboard() {
