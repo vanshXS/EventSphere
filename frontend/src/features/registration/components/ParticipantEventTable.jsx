@@ -294,9 +294,9 @@ export default function ParticipantEventTable({
       </section>
 
       <section aria-label="Browse categories" className="flex flex-col gap-2.5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Browse</p>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+        <p className="hidden text-xs font-semibold uppercase tracking-wider text-slate-500 md:block">Browse</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 max-md:block">
+          <div className="flex flex-wrap items-center gap-2 max-md:flex-nowrap max-md:overflow-x-auto max-md:pb-1">
             {filterOptions.map((option) => (
               <button
                 key={option.value}
@@ -313,7 +313,7 @@ export default function ParticipantEventTable({
               </button>
             ))}
           </div>
-          <span className="text-sm font-medium text-slate-500">
+          <span className="text-sm font-medium text-slate-500 max-md:mt-3 max-md:block max-md:text-xs">
             {filteredItems.length} {filteredItems.length === 1 ? "result" : "results"}
           </span>
         </div>
