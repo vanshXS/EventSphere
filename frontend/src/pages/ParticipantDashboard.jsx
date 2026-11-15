@@ -53,7 +53,7 @@ export default function ParticipantDashboard() {
   const { user, updateUser, logoutUser } = useAuth();
   const addToast = useToast();
 
-  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab") === "MY_REGISTRATIONS" ? "MY_REGISTRATIONS" : "EXPLORE");
+  const [activeTab, setActiveTab] = useState(() => { const requestedTab = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab"); return ["EXPLORE", "MY_REGISTRATIONS", "MY_TEAMS"].includes(requestedTab) ? requestedTab : "EXPLORE"; });
   const [selectedResultActivityId, setSelectedResultActivityId] = useState(null);
   const [isAffiliationModalOpen, setIsAffiliationModalOpen] = useState(false);
 
@@ -332,7 +332,7 @@ export default function ParticipantDashboard() {
         onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
       />
 
-      {user?.collegeName && (
+      {activeTab === "MY_REGISTRATIONS" && user?.collegeName && (
         <div className="px-4 pt-4 md:hidden">
           <button
             type="button"
