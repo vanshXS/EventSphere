@@ -149,7 +149,7 @@ export default function ParticipantEventTable({
     const activityType = item.type || item.activityType;
     const registration = item.itemKind === "ACTIVITY"
       ? getActivityRegistration(myRegistrations, item.id)
-      : myRegistrations.find((entry) => !entry.activityId && entry.eventId === item.id && isActiveRegistration(entry));
+      : myRegistrations.find((entry) => entry.registrationKind === "EVENT" && entry.eventId === item.id && isActiveRegistration(entry));
 
     const ended = item.itemKind === "ACTIVITY"
       ? isEnded(item)
