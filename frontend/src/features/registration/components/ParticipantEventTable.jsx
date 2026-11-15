@@ -316,7 +316,7 @@ export default function ParticipantEventTable({
           <div className="flex items-center justify-center gap-3 py-4 text-xs text-slate-500" aria-label="Event result pages">
             <button
               type="button"
-              onClick={() => setCurrentPage((page) => Math.max(0, currentPageIndex - 1))}
+              onClick={() => setCurrentPage(Math.max(0, currentPageIndex - 1))}
               disabled={currentPageIndex === 0}
               aria-label="Previous page"
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
@@ -326,7 +326,7 @@ export default function ParticipantEventTable({
             <span className="font-medium tabular-nums">{currentPageIndex + 1} / {totalPages}</span>
             <button
               type="button"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, currentPageIndex + 1))}
+              onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPageIndex + 1))}
               disabled={currentPageIndex >= totalPages - 1}
               aria-label="Next page"
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
