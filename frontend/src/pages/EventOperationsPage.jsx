@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  ExternalLink,
   Sliders,
   AlertCircle,
   CheckCircle2,
@@ -24,9 +23,7 @@ import {
   Shield,
   Loader2,
   Play,
-  CheckCircle,
   Activity,
-  TrendingUp,
   Clock,
   Trophy
 } from "lucide-react";
@@ -62,7 +59,6 @@ import "../styles/organizer-experience.css";
 export default function EventOperationsPage() {
   const addToast = useToast();
   const { eventId } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Main Tab: 'activities' | 'attendance' | 'volunteers' | 'overview'
@@ -161,7 +157,11 @@ export default function EventOperationsPage() {
   }, [eventId, setError]);
 
   useEffect(() => {
-    loadInitialData();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadInitialData();
+    });
+    return () => { active = false; };
   }, [loadInitialData]);
 
   // Load Attendance data based on current tab/subtab
@@ -185,9 +185,13 @@ export default function EventOperationsPage() {
   }, [eventId, attendanceSubTab, selectedActivityId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "attendance") {
-      loadAttendanceData();
+      Promise.resolve().then(() => {
+        if (active) loadAttendanceData();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, attendanceSubTab, selectedActivityId, loadAttendanceData]);
 
   // Load Volunteer Staff data
@@ -211,9 +215,13 @@ export default function EventOperationsPage() {
   }, [eventId, volunteerSubTab, selectedVolActivityId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "volunteers") {
-      loadVolunteerData();
+      Promise.resolve().then(() => {
+        if (active) loadVolunteerData();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, volunteerSubTab, selectedVolActivityId, loadVolunteerData]);
 
   // Load Activity Summaries
@@ -232,9 +240,13 @@ export default function EventOperationsPage() {
   }, [eventId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "activities") {
-      loadActivitySummaries();
+      Promise.resolve().then(() => {
+        if (active) loadActivitySummaries();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, loadActivitySummaries]);
 
   // Activity Start/Complete handlers
