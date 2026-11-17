@@ -347,28 +347,13 @@ export default function StandaloneActivityOperationsPage() {
         </div>
       </header>
 
-      {/* Breadcrumb Trail */}
-      <div className="bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 text-xs text-slate-400 overflow-x-auto">
-          <Link to="/organizer" className="hover:text-slate-700 transition-colors shrink-0 font-medium">
-            Organizer Dashboard
-          </Link>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-slate-600 font-semibold truncate max-w-[200px]" title={activity?.name}>
-            {activity?.name || "Activity"}
-          </span>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-indigo-600 font-semibold shrink-0">Operations</span>
-        </div>
-      </div>
-
       {/* Main Container */}
       <main className="organizer-page-main organizer-operations-main max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Activity Quick Info Bar */}
         <div className="organizer-operations-summary bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900">{activity.name}</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Competition overview</h2>
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${isNotStarted
                     ? "bg-amber-50 text-amber-700 border-amber-200"
