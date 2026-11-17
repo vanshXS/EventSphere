@@ -161,7 +161,8 @@ export default function EventTable({
   completingActivityIds = new Set(),
   onStartActivity,
   onCompleteActivity,
-  toolbar = null
+  toolbar = null,
+  totalItems = null
 }) {
   const navigate = useNavigate();
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -272,6 +273,8 @@ export default function EventTable({
     <>
       <div className="organizer-list-surface overflow-hidden rounded-xl border border-slate-200 bg-white">
         {toolbar && <div className="organizer-list-toolbar">{toolbar}</div>}
+        {totalCount > 0 ? (
+          <>
       <div className="organizer-data-table organizer-desktop-table hidden md:block">
         <div className="overflow-x-auto">
           <table className="organizer-events-table w-full min-w-[760px] border-collapse text-left">
@@ -674,9 +677,17 @@ export default function EventTable({
           );
         })}
       </section>
+          </>
+        ) : (
+          <div className="flex min-h-56 flex-col items-center justify-center px-6 py-10 text-center">
+            <Search className="h-6 w-6 text-slate-300" />
+            <h2 className="mt-3 text-sm font-semibold text-slate-900">No matching items</h2>
+            <p className="mt-1 text-xs text-slate-500">Try changing the search term or filters above.</p>
+          </div>
+        )}
 
         <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-400">
-          Showing {totalCount} {totalCount === 1 ? "managed item" : "managed items"}
+          Showing {totalCount} of {totalItems ?? totalCount} {totalCount === 1 ? "managed item" : "managed items"}
           {events.length > 0 && standaloneActivities.length > 0 && (
             <span>
               {" "}· {events.length} {events.length === 1 ? "event" : "events"}, {standaloneActivities.length} {standaloneActivities.length === 1 ? "competition" : "competitions"}
