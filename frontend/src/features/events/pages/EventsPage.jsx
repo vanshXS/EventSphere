@@ -301,10 +301,6 @@ export default function EventsPage() {
     (item) => item.status === "DRAFT"
   ).length;
 
-  const organizerCompletedCount = allOrganizerItems.filter(
-    (item) => item.status === "COMPLETED"
-  ).length;
-
   return (
     <div className="organizer-workspace organizer-events-page min-h-screen bg-slate-50 text-slate-900">
       <AppHeader
