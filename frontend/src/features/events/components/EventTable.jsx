@@ -269,9 +269,9 @@ export default function EventTable({
 
   return (
     <>
-      <div className="overflow-visible rounded-xl border border-slate-200 bg-white shadow-xs">
+      <div className="organizer-data-table overflow-visible rounded-xl border border-slate-200 bg-white shadow-xs">
         <div className="overflow-x-auto rounded-xl">
-          <table className="w-full min-w-[760px] border-collapse text-left">
+          <table className="organizer-events-table w-full min-w-[760px] border-collapse text-left">
             <thead className="bg-slate-50">
               <tr className="border-b border-slate-200">
                 <th scope="col" className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Name</th>
