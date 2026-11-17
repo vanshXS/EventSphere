@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Calendar, LogOut, Menu, ShieldCheck, X } from "lucide-react";
+import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import CollegeNavbarBadge from "./CollegeNavbarBadge";
 
 /**
@@ -41,11 +41,11 @@ export default function AppHeader({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-14">
         {/* Left: Logo + Role + College */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="bg-indigo-600 text-white p-1.5 rounded-lg shrink-0">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <span className="font-extrabold text-lg text-slate-900 tracking-tight">
-            Event<span className="text-indigo-600">Sphere</span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-600 text-base font-bold text-white">
+            E
+          </span>
+          <span className="font-semibold text-base tracking-tight text-slate-900">
+            EventSphere
           </span>
           <span
             className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${roleStyle}`}
