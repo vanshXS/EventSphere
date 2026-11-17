@@ -419,101 +419,19 @@
     white-space: nowrap;
   }
 
-  .organizer-data-table {
-    overflow: visible;
-    border: 0;
-    background: transparent;
-  }
-
-  .organizer-data-table .overflow-x-auto {
-    overflow: visible;
-  }
-
-  .organizer-events-table {
-    display: block;
-    min-width: 0;
-    width: 100%;
-  }
-
-  .organizer-events-table thead {
-    display: none;
-  }
-
-  .organizer-events-table tbody {
+  .organizer-mobile-items {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
-  .organizer-events-table tbody tr {
-    display: block;
-    overflow: visible;
-    border: 1px solid var(--organizer-border);
-    border-radius: 12px;
-    background: #fff;
+  .organizer-mobile-item {
+    min-width: 0;
     box-shadow: none;
   }
 
-  .organizer-events-table tbody tr:hover {
-    background: #fff;
-  }
-
-  .organizer-events-table td {
-    display: grid;
-    grid-template-columns: 104px minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    max-width: none;
-    padding: 11px 14px;
-    border-bottom: 1px solid #f1f5f9;
-    text-align: left;
-  }
-
-  .organizer-events-table td:first-child {
-    display: block;
-    padding-top: 15px;
-  }
-
-  .organizer-events-table td:last-child {
-    display: flex;
-    justify-content: flex-end;
-    min-height: 48px;
-    border-bottom: 0;
-  }
-
-  .organizer-events-table td:nth-child(2)::before {
-    content: "Type";
-  }
-
-  .organizer-events-table td:nth-child(3)::before {
-    content: "Schedule & venue";
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    align-self: center;
-  }
-
-  .organizer-events-table td:nth-child(3) > span:first-child {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .organizer-events-table td:nth-child(3) > span:last-child {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .organizer-events-table td:nth-child(4)::before {
-    content: "Status";
-  }
-
-  .organizer-events-table td:nth-child(2)::before,
-  .organizer-events-table td:nth-child(3)::before,
-  .organizer-events-table td:nth-child(4)::before {
-    color: #94a3b8;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .045em;
-    text-transform: uppercase;
+  .organizer-mobile-item:active {
+    border-color: #a5b4fc;
   }
 
   .organizer-operations-main {
