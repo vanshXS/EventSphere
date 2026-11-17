@@ -19,7 +19,6 @@ import {
   Layers,
   Info,
   QrCode,
-  Shield,
   Loader2,
   Play,
   Activity,
@@ -412,16 +411,18 @@ export default function EventOperationsPage() {
   const selectedVolActivityObj = activities.find((a) => a.id === selectedVolActivityId);
 
   // Filtered Volunteer List
-  const currentStaffList = volunteerSubTab === "all"
-    ? [
-        ...entryStaff.map((person) => ({ ...person, staffScope: "EVENT_ENTRY", scopeLabel: "Event entry" })),
-        ...allActivityStaff
-      ]
-    : activityStaff.map((person) => ({
-        ...person,
-        staffScope: "ACTIVITY",
-        scopeLabel: selectedVolActivityObj?.name || "Activity"
-      }));
+  const currentStaffList = useMemo(() => (
+    volunteerSubTab === "all"
+      ? [
+          ...entryStaff.map((person) => ({ ...person, staffScope: "EVENT_ENTRY", scopeLabel: "Event entry" })),
+          ...allActivityStaff
+        ]
+      : activityStaff.map((person) => ({
+          ...person,
+          staffScope: "ACTIVITY",
+          scopeLabel: selectedVolActivityObj?.name || "Activity"
+        }))
+  ), [volunteerSubTab, entryStaff, allActivityStaff, activityStaff, selectedVolActivityObj?.name]);
 
   const filteredStaff = useMemo(() => {
     if (!volSearch.trim()) return currentStaffList;
