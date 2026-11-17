@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
@@ -19,7 +19,6 @@ import {
   Trophy,
   Loader2,
   Info,
-  QrCode,
   ChevronRight
 } from "lucide-react";
 import {
@@ -47,7 +46,6 @@ import "../styles/organizer-experience.css";
 export default function StandaloneActivityOperationsPage() {
   const addToast = useToast();
   const { activityId } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Tab: 'attendance' | 'registrations' | 'volunteers' | 'details'
@@ -75,6 +73,7 @@ export default function StandaloneActivityOperationsPage() {
   // General UI state
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
   const setError = useCallback((message) => {
     if (message) addToast(message, "error");
   }, [addToast]);
@@ -113,8 +112,24 @@ export default function StandaloneActivityOperationsPage() {
   }, [activityId, setError]);
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadData();
+    });
+    return () => { active = false; };
   }, [loadData]);
+
+  useEffect(() => {
+    let active = true;
+    const intervalId = window.setInterval(() => setCurrentTime(Date.now()), 60000);
+    Promise.resolve().then(() => {
+      if (active) setCurrentTime(Date.now());
+    });
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -257,7 +272,7 @@ export default function StandaloneActivityOperationsPage() {
 
   const isPastEnd =
     Boolean(activity.endDateTime) &&
-    new Date(activity.endDateTime).getTime() <= Date.now();
+    new Date(activity.endDateTime).getTime() <= currentTime;
   const isNotStarted = activity.status === "PUBLISHED" && isPastEnd;
   const canStart = activity.status === "PUBLISHED" && !isPastEnd;
   const isOngoing = activity.status === "ONGOING";
