@@ -419,7 +419,7 @@ export default function EventOperationsPage() {
   return (
     <div className="organizer-workspace organizer-operations-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header / Breadcrumb */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <header className="organizer-operations-header bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link
@@ -482,9 +482,9 @@ export default function EventOperationsPage() {
       </div>
 
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main organizer-operations-main max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Event Quick Overview Strip */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="organizer-operations-summary bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-lg font-bold text-slate-900">{event.title}</h2>
@@ -526,7 +526,7 @@ export default function EventOperationsPage() {
         </div>
 
         {/* Master Navigation Tabs */}
-        <div className="border-b border-slate-200">
+        <div className="organizer-operations-tabs border-b border-slate-200">
           <nav className="flex space-x-6 overflow-x-auto">
             <button
               type="button"
