@@ -153,6 +153,70 @@
   box-shadow: none;
 }
 
+/* Organizer list: one Stitch-style surface for type filters, search and the managed rows. */
+.organizer-list-surface {
+  border-color: #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-list-toolbar {
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.organizer-list-toolbar input,
+.organizer-list-toolbar select {
+  min-height: 36px;
+}
+
+.organizer-list-surface .organizer-data-table {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.organizer-list-surface .organizer-events-table th {
+  background: #f8fafc;
+}
+
+.organizer-list-surface .organizer-events-table td {
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.organizer-staff-workspace .organizer-staff-roster {
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.organizer-staff-workspace .organizer-staff-view-switcher {
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+@media (max-width: 767px) {
+  .organizer-list-toolbar {
+    padding: 13px;
+  }
+
+  .organizer-list-toolbar > div:first-child {
+    align-items: stretch;
+  }
+
+  .organizer-staff-workspace > div:first-child {
+    align-items: stretch;
+  }
+
+  .organizer-staff-workspace form,
+  .organizer-staff-workspace section {
+    min-width: 0;
+  }
+}
+
 /* Organizer management table. On phones each real table row becomes a readable card. */
 .organizer-data-table {
   overflow: hidden;
