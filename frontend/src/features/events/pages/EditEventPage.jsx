@@ -27,6 +27,7 @@ import {
 import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
 import { useToast } from "../../../components/common/ToastContext";
+import "../../../styles/organizer-experience.css";
 
 export default function EditEventPage() {
   const { eventId } = useParams();
@@ -236,7 +237,7 @@ export default function EditEventPage() {
   const isDraft = event?.status === "DRAFT" || event?.eventStatus === "DRAFT";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-edit-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header */}
       <AppHeader
         user={user}
@@ -245,7 +246,7 @@ export default function EditEventPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Navigation & Header */}
         <div className="space-y-2">
           <Link
