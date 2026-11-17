@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import OrganizerAffiliationPanel from "../../auth/components/OrganizerAffiliationPanel";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
@@ -23,7 +23,6 @@ import {
   FileEdit,
   CheckCircle
 } from "lucide-react";
-import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
 import { useToast } from "../../../components/common/ToastContext";
 import "../../../styles/organizer-experience.css";
@@ -37,6 +36,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState([]);
   const [standaloneActivities, setStandaloneActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reloadVersion, setReloadVersion] = useState(0);
   const [error, setError] = useState("");
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
 
@@ -84,7 +84,7 @@ export default function EventsPage() {
       setError(message);
       addToast(message, "error", {
         actionLabel: "Retry",
-        onAction: fetchEvents
+        onAction: () => setReloadVersion((version) => version + 1)
       });
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents]);
+  }, [fetchEvents, reloadVersion]);
 
   const handlePublish = async (eventId) => {
     try {
