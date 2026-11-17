@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint participant module files
+      - name: Lint participant and organizer module files
         run: >-
           npx eslint
           src/pages/ParticipantDashboard.jsx
