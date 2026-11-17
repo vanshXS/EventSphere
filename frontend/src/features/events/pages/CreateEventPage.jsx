@@ -15,7 +15,6 @@ import { formatDateTime } from "../utils/eventHelpers";
 import { 
   Calendar, 
   ArrowLeft, 
-  LogOut, 
   Plus, 
   Pencil,
   Trash2, 
@@ -24,7 +23,6 @@ import {
   Loader2
 } from "lucide-react";
 import { EVENT_VISIBILITIES } from "../utils/eventHelpers";
-import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
 import { useToast } from "../../../components/common/ToastContext";
 import "../../../styles/organizer-experience.css";
