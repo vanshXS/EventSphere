@@ -18,8 +18,7 @@ import {
   Play,
   Trophy,
   Loader2,
-  Info,
-  ChevronRight
+  Info
 } from "lucide-react";
 import {
   getStandaloneActivity,
