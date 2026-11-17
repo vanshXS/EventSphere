@@ -17,7 +17,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Layers,
-  ChevronRight,
   Info,
   QrCode,
   Shield,
