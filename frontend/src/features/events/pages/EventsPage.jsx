@@ -92,7 +92,11 @@ export default function EventsPage() {
   }, [addToast]);
 
   useEffect(() => {
-    fetchEvents();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) fetchEvents();
+    });
+    return () => { active = false; };
   }, [fetchEvents, reloadVersion]);
 
   const handlePublish = async (eventId) => {
