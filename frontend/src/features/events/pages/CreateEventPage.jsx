@@ -264,7 +264,7 @@ export default function CreateEventPage() {
       {/* Main Content */}
       <main className="organizer-page-main max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Navigation & Header */}
-        <div className="space-y-2">
+        <div className="organizer-page-title flex flex-col gap-3 border-b border-slate-200 pb-6">
           <Link
             to="/organizer"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
@@ -273,7 +273,8 @@ export default function CreateEventPage() {
             <span>Back to My Events</span>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-700">Organizer workspace / New</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950 max-md:text-2xl">
               {creationMode === "competition" ? "Create Competition" : "Create Event"}
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -291,9 +292,9 @@ export default function CreateEventPage() {
             isSubmitting={isSubmitting}
           />
         ) : (
-        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="organizer-create-form space-y-6">
           {/* Section 1: Event Information */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="organizer-create-section space-y-4">
             <h2 className="text-base font-semibold text-slate-900 pb-2 border-b border-slate-100">
               Event Details
             </h2>
@@ -517,7 +518,7 @@ export default function CreateEventPage() {
                   return (
                     <div
                       key={index}
-                      className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3 text-xs"
+                      className="organizer-staged-activity flex items-start justify-between gap-3 text-xs"
                     >
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2">
