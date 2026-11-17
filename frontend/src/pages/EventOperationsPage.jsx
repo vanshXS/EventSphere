@@ -64,13 +64,13 @@ export default function EventOperationsPage() {
   const activeTab = searchParams.get("tab") || "activities";
   // Active Sub Tab for Attendance: 'entry' | 'activity'
   const attendanceSubTab = searchParams.get("sub") === "activity" ? "activity" : "entry";
-  // Active Sub Tab for Volunteers: 'entry' | 'activity' | 'judges'
+  // Staff workspace view: all team, activity-scoped volunteers, or competition judges.
   const volunteerSubTab =
     searchParams.get("vsub") === "judges"
       ? "judges"
       : searchParams.get("vsub") === "activity"
       ? "activity"
-      : "entry";
+      : "all";
 
   // Data States
   const [event, setEvent] = useState(null);
@@ -93,6 +93,7 @@ export default function EventOperationsPage() {
   // Volunteer state
   const [entryStaff, setEntryStaff] = useState([]);
   const [activityStaff, setActivityStaff] = useState([]);
+  const [allActivityStaff, setAllActivityStaff] = useState([]);
   const [volSearch, setVolSearch] = useState("");
   const [volLoading, setVolLoading] = useState(false);
 
@@ -193,15 +194,33 @@ export default function EventOperationsPage() {
     return () => { active = false; };
   }, [initialLoading, activeTab, attendanceSubTab, selectedActivityId, loadAttendanceData]);
 
-  // Load Volunteer Staff data
+  // Load event-entry and activity-scoped volunteers for the consolidated staff workspace.
   const loadVolunteerData = useCallback(async () => {
     if (!eventId) return;
     setVolLoading(true);
     try {
-      if (volunteerSubTab === "entry") {
-        const data = await getEventStaff(eventId);
-        setEntryStaff(Array.isArray(data) ? data : []);
-      } else if (selectedVolActivityId) {
+      if (volunteerSubTab === "all") {
+        const [eventPeople, activityPeople] = await Promise.all([
+          getEventStaff(eventId),
+          Promise.all(
+            activities.map(async (activity) => ({
+              activity,
+              staff: await getActivityStaff(activity.id)
+            }))
+          )
+        ]);
+        setEntryStaff(Array.isArray(eventPeople) ? eventPeople : []);
+        setAllActivityStaff(
+          activityPeople.flatMap(({ activity, staff }) =>
+            (Array.isArray(staff) ? staff : []).map((person) => ({
+              ...person,
+              staffScope: "ACTIVITY",
+              activityName: activity.name,
+              activityId: activity.id
+            }))
+          )
+        );
+      } else if (volunteerSubTab === "activity" && selectedVolActivityId) {
         const data = await getActivityStaff(selectedVolActivityId);
         setActivityStaff(Array.isArray(data) ? data : []);
       }
@@ -211,7 +230,7 @@ export default function EventOperationsPage() {
     } finally {
       setVolLoading(false);
     }
-  }, [eventId, volunteerSubTab, selectedVolActivityId, setError]);
+  }, [eventId, activities, volunteerSubTab, selectedVolActivityId, setError]);
 
   useEffect(() => {
     let active = true;
@@ -301,15 +320,15 @@ export default function EventOperationsPage() {
     }
   };
 
-  // Invite Volunteer Handler
+  // Invite volunteers at event-entry scope or the selected activity scope.
   const handleInviteVolunteer = async (e) => {
     e.preventDefault();
     if (!volunteerEmail.trim()) return;
+    if (volunteerSubTab === "activity" && !selectedVolActivityId) return;
 
     setInviting(true);
-
     try {
-      if (volunteerSubTab === "entry") {
+      if (volunteerSubTab !== "activity") {
         const newStaff = await inviteEventStaff(eventId, {
           name: volunteerName.trim() || null,
           email: volunteerEmail.trim()
@@ -317,12 +336,15 @@ export default function EventOperationsPage() {
         setEntryStaff((prev) => [newStaff, ...prev]);
         setSuccess(`Invitation generated for ${volunteerEmail}. Share the link below.`);
       } else {
-        if (!selectedVolActivityId) return;
         const newStaff = await inviteActivityStaff(selectedVolActivityId, {
           name: volunteerName.trim() || null,
           email: volunteerEmail.trim()
         });
         setActivityStaff((prev) => [newStaff, ...prev]);
+        setAllActivityStaff((prev) => [
+          { ...newStaff, staffScope: "ACTIVITY", activityName: selectedVolActivityObj?.name, activityId: selectedVolActivityId },
+          ...prev
+        ]);
         setSuccess(`Activity invitation generated for ${volunteerEmail}.`);
       }
       setVolunteerName("");
@@ -342,13 +364,17 @@ export default function EventOperationsPage() {
     }
     try {
       await revokeStaff(staffId);
-      if (volunteerSubTab === "entry") {
+      const isEventEntryStaff = entryStaff.some((person) => person.id === staffId);
+      if (isEventEntryStaff) {
         setEntryStaff((prev) =>
-          prev.map((s) => (s.id === staffId ? { ...s, status: "REVOKED" } : s))
+          prev.map((person) => (person.id === staffId ? { ...person, status: "REVOKED" } : person))
         );
       } else {
         setActivityStaff((prev) =>
-          prev.map((s) => (s.id === staffId ? { ...s, status: "REVOKED" } : s))
+          prev.map((person) => (person.id === staffId ? { ...person, status: "REVOKED" } : person))
+        );
+        setAllActivityStaff((prev) =>
+          prev.map((person) => (person.id === staffId ? { ...person, status: "REVOKED" } : person))
         );
       }
       setSuccess("Volunteer access revoked successfully.");
@@ -383,14 +409,25 @@ export default function EventOperationsPage() {
   }, [currentAttendanceList, attendanceSearch]);
 
   // Filtered Volunteer List
-  const currentStaffList = volunteerSubTab === "entry" ? entryStaff : activityStaff;
+  const currentStaffList = volunteerSubTab === "all"
+    ? [
+        ...entryStaff.map((person) => ({ ...person, staffScope: "EVENT_ENTRY", scopeLabel: "Event entry" })),
+        ...allActivityStaff
+      ]
+    : activityStaff.map((person) => ({
+        ...person,
+        staffScope: "ACTIVITY",
+        scopeLabel: selectedVolActivityObj?.name || "Activity"
+      }));
+
   const filteredStaff = useMemo(() => {
     if (!volSearch.trim()) return currentStaffList;
-    const q = volSearch.toLowerCase();
-    return currentStaffList.filter((s) => {
-      const name = (s.invitedName || "").toLowerCase();
-      const email = (s.email || "").toLowerCase();
-      return name.includes(q) || email.includes(q);
+    const query = volSearch.toLowerCase();
+    return currentStaffList.filter((person) => {
+      const name = (person.invitedName || "").toLowerCase();
+      const email = (person.email || "").toLowerCase();
+      const scope = (person.activityName || person.scopeLabel || "").toLowerCase();
+      return name.includes(query) || email.includes(query) || scope.includes(query);
     });
   }, [currentStaffList, volSearch]);
 
