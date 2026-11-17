@@ -408,6 +408,9 @@ export default function EventOperationsPage() {
     });
   }, [currentAttendanceList, attendanceSearch]);
 
+  const selectedActivityObj = activities.find((a) => a.id === selectedActivityId);
+  const selectedVolActivityObj = activities.find((a) => a.id === selectedVolActivityId);
+
   // Filtered Volunteer List
   const currentStaffList = volunteerSubTab === "all"
     ? [
@@ -430,9 +433,6 @@ export default function EventOperationsPage() {
       return name.includes(query) || email.includes(query) || scope.includes(query);
     });
   }, [currentStaffList, volSearch]);
-
-  const selectedActivityObj = activities.find((a) => a.id === selectedActivityId);
-  const selectedVolActivityObj = activities.find((a) => a.id === selectedVolActivityId);
 
   if (initialLoading) {
     return (
