@@ -25,6 +25,7 @@ import {
 import { EmptyState, ErrorNotice, LoadingState, StatusBadge, SuccessNotice, dangerButton, inputClass, labelClass, primaryButton, secondaryButton } from "../components/JudgingUi";
 import { formatDateTime, formatScheduledDateTime, getLocalTimeZone, toDateTimeLocalValue } from "../utils/judgingFormatter";
 import { getRecommendedRubric } from "../utils/recommendedRubrics";
+import "../../../styles/organizer-experience.css";
 
 const emptyConfig = { judgingEnabled: true, competitionMode: "MULTI_ROUND", rankingPolicy: "SEPARATE_BY_ENTRY_TYPE" };
 const competitionModes = [
@@ -438,9 +439,9 @@ export default function OrganizerJudgingPage() {
   const publishedRounds = rounds.filter((r) => r.status === "PUBLISHED").length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="organizer-workspace organizer-judging-page min-h-screen bg-slate-50 text-slate-900">
       {/* ── Sticky top header ── */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <header className="organizer-operations-header sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex min-h-14 max-w-5xl items-center justify-between gap-3 px-4 py-2 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link to={eventId ? `/organizer/events/${eventId}/operations?tab=activities` : "/organizer"} className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:bg-slate-100" aria-label="Back to operations"><ArrowLeft className="h-4 w-4" /></Link>
@@ -457,7 +458,7 @@ export default function OrganizerJudgingPage() {
       </header>
 
       {/* ── Tab navigation ── */}
-      <nav className="sticky top-14 z-20 border-b border-slate-200 bg-white">
+      <nav className="organizer-operations-tabs sticky top-14 z-20 border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <div className="flex gap-0 overflow-x-auto scrollbar-hide">
             {TABS.map((tab) => {
@@ -489,7 +490,7 @@ export default function OrganizerJudgingPage() {
       <ErrorNotice message={error} onDismiss={() => setError("")} /><SuccessNotice message={success} />
 
       {/* ── Tab content ── */}
-      <main className="mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
+      <main className="organizer-page-main organizer-operations-main mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
 
         {/* ═══════ OVERVIEW TAB ═══════ */}
         {activeTab === "overview" && (
