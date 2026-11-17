@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -122,15 +122,11 @@ export default function ParticipantEventTable({
 
   const pageSize = 6;
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
-  const visibleItems = filteredItems.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
-
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [searchQuery, typeFilter, dateFilter, sortOrder]);
-
-  useEffect(() => {
-    setCurrentPage((page) => Math.min(page, totalPages - 1));
-  }, [totalPages]);
+  const currentPageIndex = Math.min(currentPage, totalPages - 1);
+  const visibleItems = filteredItems.slice(
+    currentPageIndex * pageSize,
+    (currentPageIndex + 1) * pageSize
+  );
 
   const filterOptions = [
     { value: "ALL", label: "All", count: allItems.length },
@@ -149,11 +145,11 @@ export default function ParticipantEventTable({
     const activityType = item.type || item.activityType;
     const registration = item.itemKind === "ACTIVITY"
       ? getActivityRegistration(myRegistrations, item.id)
-      : myRegistrations.find((entry) => !entry.activityId && entry.eventId === item.id && isActiveRegistration(entry));
+      : myRegistrations.find((entry) => entry.registrationKind === "EVENT" && entry.eventId === item.id && isActiveRegistration(entry));
 
     const ended = item.itemKind === "ACTIVITY"
       ? isEnded(item)
-      : Boolean(item.endDateTime && Date.parse(item.endDateTime) <= Date.now()) || ["COMPLETED", "CANCELLED"].includes(item.status || item.eventStatus);
+      : isEnded(item) || ["COMPLETED", "CANCELLED"].includes(item.status || item.eventStatus);
 
     const open = item.itemKind === "ACTIVITY" ? isRegistrationOpen(item) : !ended;
     const accent = item.itemKind === "EVENT" ? "border-t-indigo-600" : activityAccent(activityType);
@@ -253,7 +249,7 @@ export default function ParticipantEventTable({
           <input
             type="search"
             value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
+            onChange={(event) => { setCurrentPage(0); setSearchQuery(event.target.value); }}
             aria-label="Search by event, competition or location"
             placeholder="Search by event, competition or location"
             className="h-[42px] w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 shadow-none outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
@@ -264,7 +260,7 @@ export default function ParticipantEventTable({
           <span className="sr-only">Date filter</span>
           <select
             value={dateFilter}
-            onChange={(event) => setDateFilter(event.target.value)}
+            onChange={(event) => { setCurrentPage(0); setDateFilter(event.target.value); }}
             className="h-[42px] min-w-[112px] appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
           >
             {dateOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -276,7 +272,7 @@ export default function ParticipantEventTable({
           <span className="sr-only">Sort events</span>
           <select
             value={sortOrder}
-            onChange={(event) => setSortOrder(event.target.value)}
+            onChange={(event) => { setCurrentPage(0); setSortOrder(event.target.value); }}
             className="h-[42px] min-w-[140px] appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
           >
             {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -293,7 +289,7 @@ export default function ParticipantEventTable({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setTypeFilter(option.value)}
+                onClick={() => { setCurrentPage(0); setTypeFilter(option.value); }}
                 aria-pressed={typeFilter === option.value}
                 className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors ${
                   typeFilter === option.value
@@ -320,18 +316,18 @@ export default function ParticipantEventTable({
           <div className="flex items-center justify-center gap-3 py-4 text-xs text-slate-500" aria-label="Event result pages">
             <button
               type="button"
-              onClick={() => setCurrentPage((page) => Math.max(0, page - 1))}
-              disabled={currentPage === 0}
+              onClick={() => setCurrentPage(Math.max(0, currentPageIndex - 1))}
+              disabled={currentPageIndex === 0}
               aria-label="Previous page"
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ChevronLeft size={15} />
             </button>
-            <span className="font-medium tabular-nums">{currentPage + 1} / {totalPages}</span>
+            <span className="font-medium tabular-nums">{currentPageIndex + 1} / {totalPages}</span>
             <button
               type="button"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, page + 1))}
-              disabled={currentPage >= totalPages - 1}
+              onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPageIndex + 1))}
+              disabled={currentPageIndex >= totalPages - 1}
               aria-label="Next page"
               className="grid h-8 w-8 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -347,7 +343,7 @@ export default function ParticipantEventTable({
           <p className="mt-1 text-sm text-slate-500">Try another search or change the filters.</p>
           <button
             type="button"
-            onClick={() => { setSearchQuery(""); setTypeFilter("ALL"); setDateFilter("ANY"); setSortOrder("UPCOMING"); }}
+            onClick={() => { setCurrentPage(0); setSearchQuery(""); setTypeFilter("ALL"); setDateFilter("ANY"); setSortOrder("UPCOMING"); }}
             className="mt-4 text-sm font-semibold text-indigo-600 hover:text-indigo-800"
           >
             Clear filters

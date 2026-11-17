@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Users,
   Plus,
@@ -53,28 +53,25 @@ export default function MyTeamsList({
     }
   };
 
-  const getIsLeader = (team) => {
-    return (
-      team.leaderId === user?.userId ||
-      team.leaderId === user?.email ||
-      team.createdBy === user?.userId
-    );
-  };
+  const currentUserId = user?.userId || user?.id;
 
-  const getNormalizedMembers = (team) => {
+  const getIsLeader = useCallback((team) => (
+    team.leaderId === currentUserId ||
+    team.leaderId === user?.email ||
+    team.createdBy === currentUserId
+  ), [currentUserId, user?.email]);
+
+  const getNormalizedMembers = useCallback((team) => {
     if (team.members && team.members.length > 0) {
       return team.members;
     }
     return (team.membersId || team.memberIds || []).map((id) => ({
       userId: id,
-      name:
-        id === user?.userId
-          ? `${user?.name || "You"}`
-          : "Participant",
-      email: id === user?.userId ? user?.email : "",
+      name: id === currentUserId ? (user?.name || "You") : "Participant",
+      email: id === currentUserId ? user?.email : "",
       leader: id === team.leaderId
     }));
-  };
+  }, [currentUserId, user?.email, user?.name]);
 
   // Filtered teams
   const filteredTeams = useMemo(() => {
@@ -100,11 +97,11 @@ export default function MyTeamsList({
 
       return matchName || matchId || matchMember;
     });
-  }, [teams, roleFilter, searchQuery, user]);
+  }, [teams, roleFilter, searchQuery, getIsLeader, getNormalizedMembers]);
 
   const leaderCount = useMemo(() => {
     return teams.filter((t) => getIsLeader(t)).length;
-  }, [teams, user]);
+  }, [teams, getIsLeader]);
 
   // Handle Team Deletion
   const handleConfirmDeleteTeam = async () => {

@@ -8,8 +8,7 @@ import {
   Users,
   FileText,
   Info,
-  Play,
-  CheckCircle2
+  Play
 } from "lucide-react";
 
 import {

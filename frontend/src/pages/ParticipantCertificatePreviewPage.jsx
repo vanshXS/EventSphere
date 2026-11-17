@@ -274,7 +274,7 @@ export default function ParticipantCertificatePreviewPage() {
                   <dl className="space-y-4 text-xs">
                     <div className="flex items-start justify-between gap-4">
                       <dt className="text-slate-500">Recipient</dt>
-                      <dd className="text-right font-semibold text-slate-900">{user?.name || "Your account"}</dd>
+                      <dd className="text-right font-semibold text-slate-900">{certificate.recipientName || user?.name || "Your account"}</dd>
                     </div>
                     <div className="flex items-start justify-between gap-4">
                       <dt className="text-slate-500">Event / Activity</dt>
