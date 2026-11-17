@@ -410,30 +410,27 @@ export default function EventOperationsPage() {
   const selectedActivityObj = activities.find((a) => a.id === selectedActivityId);
   const selectedVolActivityObj = activities.find((a) => a.id === selectedVolActivityId);
 
-  // Filtered Volunteer List
-  const currentStaffList = useMemo(() => (
-    volunteerSubTab === "all"
-      ? [
-          ...entryStaff.map((person) => ({ ...person, staffScope: "EVENT_ENTRY", scopeLabel: "Event entry" })),
-          ...allActivityStaff
-        ]
-      : activityStaff.map((person) => ({
-          ...person,
-          staffScope: "ACTIVITY",
-          scopeLabel: selectedVolActivityObj?.name || "Activity"
-        }))
-  ), [volunteerSubTab, entryStaff, allActivityStaff, activityStaff, selectedVolActivityObj?.name]);
+  // Filtered Volunteer List. Roster sizes are small; derive directly to keep dependencies explicit.
+  const currentStaffList = volunteerSubTab === "all"
+    ? [
+        ...entryStaff.map((person) => ({ ...person, staffScope: "EVENT_ENTRY", scopeLabel: "Event entry" })),
+        ...allActivityStaff
+      ]
+    : activityStaff.map((person) => ({
+        ...person,
+        staffScope: "ACTIVITY",
+        scopeLabel: selectedVolActivityObj?.name || "Activity"
+      }));
 
-  const filteredStaff = useMemo(() => {
-    if (!volSearch.trim()) return currentStaffList;
-    const query = volSearch.toLowerCase();
-    return currentStaffList.filter((person) => {
-      const name = (person.invitedName || "").toLowerCase();
-      const email = (person.email || "").toLowerCase();
-      const scope = (person.activityName || person.scopeLabel || "").toLowerCase();
-      return name.includes(query) || email.includes(query) || scope.includes(query);
-    });
-  }, [currentStaffList, volSearch]);
+  const staffQuery = volSearch.trim().toLowerCase();
+  const filteredStaff = staffQuery
+    ? currentStaffList.filter((person) => {
+        const name = (person.invitedName || "").toLowerCase();
+        const email = (person.email || "").toLowerCase();
+        const scope = (person.activityName || person.scopeLabel || "").toLowerCase();
+        return name.includes(staffQuery) || email.includes(staffQuery) || scope.includes(staffQuery);
+      })
+    : currentStaffList;
 
   if (initialLoading) {
     return (
