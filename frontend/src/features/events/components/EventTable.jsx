@@ -12,6 +12,7 @@ import {
   Loader2,
   MapPin,
   MoreVertical,
+  Search,
   Play,
   Send,
   SlidersHorizontal,
