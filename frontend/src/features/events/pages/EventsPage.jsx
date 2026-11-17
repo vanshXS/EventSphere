@@ -306,277 +306,251 @@ export default function EventsPage() {
   ).length;
 
   return (
-    <div className="organizer-workspace organizer-events-page min-h-screen bg-slate-50 text-slate-900 pb-16">
-      {/* Top Header */}
+    <div className="organizer-workspace organizer-events-page min-h-screen bg-slate-50 text-slate-900">
       <AppHeader
         user={user}
         onLogout={logoutUser}
         roleBadge={{ label: "Organizer", color: "indigo" }}
       />
 
-      {/* Main Content Area */}
-      <main className="organizer-page-main max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main mx-auto w-full max-w-7xl space-y-7 px-6 py-8 max-md:px-4">
         {user?.collegeVerificationMode === "MANUAL_DOCUMENTS" && <OrganizerAffiliationPanel />}
-        {/* Page Title Bar */}
-        <div className="organizer-page-title flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              Organizer Operations Center
+
+        <section className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
+          <div className="min-w-0">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-700">
+              Organizer workspace
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950 max-md:text-2xl">
+              My events
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Unified workspace for managing campus events, live check-ins, and volunteer scanning.
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+              Create events and competitions, manage their lifecycle, and open the tools for each one.
             </p>
           </div>
 
-          <div className="relative shrink-0 self-start sm:self-auto">
+          <div className="relative w-full shrink-0 sm:w-auto">
             <button
               type="button"
               onClick={() => setIsCreateMenuOpen((current) => !current)}
               aria-expanded={isCreateMenuOpen}
-              aria-controls="create-event-menu"
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-2xs transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              aria-controls="organizer-create-menu"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 sm:w-auto"
             >
-              <Plus className="w-4 h-4" />
-              <span>Create New</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${isCreateMenuOpen ? "rotate-180" : ""}`} />
+              <Plus className="h-4 w-4" />
+              Create new
+              <ChevronDown className={`h-4 w-4 transition-transform ${isCreateMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {isCreateMenuOpen && (
-              <div
-                id="create-event-menu"
-                className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-30 animate-in fade-in slide-in-from-top-1"
-              >
-                <div className="px-3 py-1.5 mb-1 border-b border-slate-100">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Choose event format</span>
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-20 cursor-default"
+                  aria-label="Close create menu"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                />
+                <div
+                  id="organizer-create-menu"
+                  className="absolute right-0 top-full z-30 mt-2 w-full min-w-[280px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg sm:w-80"
+                >
+                  <p className="border-b border-slate-100 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Choose what to create
+                  </p>
+                  <Link
+                    to="/organizer/events/new"
+                    state={{ creationMode: "multiple" }}
+                    onClick={() => setIsCreateMenuOpen(false)}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-indigo-50/60"
+                  >
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700">
+                      <Layers className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-slate-900">Event with activities</span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
+                        A larger event with workshops or multiple competitions.
+                      </span>
+                    </span>
+                  </Link>
+                  <Link
+                    to="/organizer/events/new"
+                    state={{ creationMode: "competition" }}
+                    onClick={() => setIsCreateMenuOpen(false)}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-emerald-50/60"
+                  >
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
+                      <Trophy className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-slate-900">Standalone competition</span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">
+                        A single competition with its own registration and operations.
+                      </span>
+                    </span>
+                  </Link>
                 </div>
-                <Link
-                  to="/organizer/events/new"
-                  state={{ creationMode: "multiple" }}
-                  onClick={() => setIsCreateMenuOpen(false)}
-                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-indigo-50/70 transition-colors group"
-                >
-                  <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors shrink-0 mt-0.5">
-                    <Layers className="w-4 h-4" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-semibold text-slate-800 group-hover:text-indigo-900">Event with Activities</span>
-                    <span className="block text-xs text-slate-500 mt-0.5 leading-relaxed">Multi-tier fest, summit, or cultural day with workshops & sub-competitions.</span>
-                  </div>
-                </Link>
-                <Link
-                  to="/organizer/events/new"
-                  state={{ creationMode: "competition" }}
-                  onClick={() => setIsCreateMenuOpen(false)}
-                  className="flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-emerald-50/70 transition-colors group"
-                >
-                  <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors shrink-0 mt-0.5">
-                    <Trophy className="w-4 h-4" aria-hidden="true" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-semibold text-slate-800 group-hover:text-emerald-900">Single Competition</span>
-                    <span className="block text-xs text-slate-500 mt-0.5 leading-relaxed">Standalone hackathon, sport match, or quiz with direct participation.</span>
-                  </div>
-                </Link>
-              </div>
+              </>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Executive KPI Summary Cards */}
-        {!loading && totalItems > 0 && (
-          <div className="organizer-kpi-grid grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
-                <Layers className="w-5 h-5" />
+        {!loading && !error && totalItems > 0 && (
+          <section aria-label="Organizer event summary" className="grid grid-cols-2 divide-x divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white sm:grid-cols-4 sm:divide-y-0">
+            {[
+              { label: "Total items", value: totalItems, icon: Layers },
+              { label: "Published", value: organizerPublishedCount, icon: CheckCircle },
+              { label: "Ongoing", value: organizerOngoingCount, icon: Radio },
+              { label: "Drafts", value: organizerDraftCount, icon: FileEdit }
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="flex min-w-0 items-center justify-between gap-3 px-4 py-4 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-500">{label}</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">{value}</p>
+                </div>
+                <Icon className="h-5 w-5 shrink-0 text-slate-300" aria-hidden="true" />
               </div>
-              <div>
-                <span className="text-xs font-medium text-slate-500 block">Total Managed</span>
-                <span className="text-xl font-bold text-slate-900">{totalItems}</span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-                <CheckCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-slate-500 block">Published & Active</span>
-                <span className="text-xl font-bold text-slate-900">{organizerPublishedCount}</span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                <Radio className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-slate-500 block">Ongoing Live</span>
-                <span className="text-xl font-bold text-slate-900">{organizerOngoingCount}</span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-                <FileEdit className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-slate-500 block">Draft Mode</span>
-                <span className="text-xl font-bold text-slate-900">{organizerDraftCount}</span>
-              </div>
-            </div>
-          </div>
+            ))}
+          </section>
         )}
 
-        {/* Filter and Search Bar */}
-        {!loading && totalItems > 0 && (
-          <div className="organizer-filters bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              {/* Scope Segment: All, Events, Competitions */}
-              <div className="organizer-scope-filters flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("ALL")}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${typeFilter === "ALL"
-                      ? "bg-white text-indigo-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                >
-                  All Items ({totalItems})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("EVENTS")}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${typeFilter === "EVENTS"
-                      ? "bg-white text-indigo-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Events ({events.length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTypeFilter("ACTIVITIES")}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${typeFilter === "ACTIVITIES"
-                      ? "bg-white text-indigo-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                    }`}
-                >
-                  <Trophy className="w-3.5 h-3.5" />
-                  <span>Competitions ({standaloneActivities.length})</span>
-                </button>
-              </div>
-
-              {/* Search Box */}
-              <div className="relative flex-1 max-w-sm">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search by title, venue, or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                />
-                {searchQuery && (
+        {!loading && !error && totalItems > 0 && (
+          <section aria-label="Filter events and competitions" className="space-y-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 lg:w-auto">
+                {[
+                  ["ALL", "All", totalItems],
+                  ["EVENTS", "Events", events.length],
+                  ["ACTIVITIES", "Competitions", standaloneActivities.length]
+                ].map(([value, label, count]) => (
                   <button
+                    key={value}
                     type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
+                    onClick={() => setTypeFilter(value)}
+                    aria-pressed={typeFilter === value}
+                    className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3.5 text-xs font-semibold transition-colors ${
+                      typeFilter === value
+                        ? "bg-white text-indigo-700 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
                   >
-                    Clear
+                    {label}
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                      typeFilter === value ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
+                    }`}>{count}</span>
                   </button>
-                )}
+                ))}
+              </div>
+
+              <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+                <label className="relative min-w-0 flex-1 lg:w-80">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search by name, venue or description"
+                    aria-label="Search events and competitions"
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  />
+                </label>
+                <label className="relative sm:w-40">
+                  <span className="sr-only">Filter by status</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-9 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  >
+                    <option value="ALL">All statuses</option>
+                    <option value="DRAFT">Draft</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="ONGOING">Ongoing</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                </label>
               </div>
             </div>
 
-            {/* Status Filter Chips */}
-            <div className="organizer-status-filters flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
-              <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
-              {[
-                ["ALL", "All", totalItems],
-                ["PUBLISHED", "Published", organizerPublishedCount],
-                ["ONGOING", "Ongoing", organizerOngoingCount],
-                ["DRAFT", "Draft", organizerDraftCount],
-                ["COMPLETED", "Completed", organizerCompletedCount]
-              ].map(([value, label, count]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setStatusFilter(value)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${statusFilter === value
-                      ? "bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200"
-                      : "text-slate-600 hover:bg-slate-100"
-                    }`}
-                >
-                  {label} ({count})
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* State 1: Loading Skeleton */}
-        {loading && (
-          <div className="p-12 text-center bg-white rounded-xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center space-y-3">
-            <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-            <p className="text-sm text-slate-500 font-medium">Loading your operations workspace...</p>
-          </div>
-        )}
-
-        {/* State 2: No Events or Activities at all */}
-        {!loading && !error && totalItems === 0 && (
-          <div className="organizer-empty-state bg-white rounded-xl border border-slate-200/80 p-8 sm:p-12 text-center shadow-xs space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600">
-              <CalendarDays className="w-6 h-6" />
-            </div>
-            <div className="max-w-md mx-auto space-y-1">
-              <h2 className="text-base font-semibold text-slate-900">
-                No events or competitions yet
-              </h2>
-              <p className="text-sm text-slate-500">
-                Create your first event to start managing activities, volunteer check-in scanners, and attendee ticketing.
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+              <p className="text-xs text-slate-500">
+                Showing <span className="font-semibold text-slate-800">{totalFilteredItems}</span> of {totalItems} items
               </p>
+              {(searchQuery || statusFilter !== "ALL" || typeFilter !== "ALL") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("ALL");
+                    setTypeFilter("ALL");
+                  }}
+                  className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setIsCreateMenuOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shadow-2xs transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create New Event</span>
-              </button>
-            </div>
+          </section>
+        )}
+
+        {error && (
+          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-rose-800">{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadVersion((version) => version + 1)}
+              className="shrink-0 text-sm font-semibold text-rose-800 underline underline-offset-2"
+            >
+              Try again
+            </button>
           </div>
         )}
 
-        {/* State 3: Filter / Search returns 0 items */}
-        {!loading && !error && totalItems > 0 && totalFilteredItems === 0 && (
-          <div className="bg-white rounded-xl border border-slate-200/80 p-8 text-center shadow-xs space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-              <Search className="w-5 h-5" />
-            </div>
-            <h3 className="text-sm font-semibold text-slate-900">No matching items found</h3>
-            <p className="text-xs text-slate-500">
-              Try adjusting your search query or switching your status/type filter.
+        {loading && (
+          <div className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white">
+            <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            <p className="text-sm text-slate-500">Loading your events…</p>
+          </div>
+        )}
+
+        {!loading && !error && totalItems === 0 && (
+          <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-indigo-50 text-indigo-700">
+              <CalendarDays className="h-6 w-6" />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold text-slate-900">No events or competitions yet</h2>
+            <p className="mt-1 max-w-md text-sm leading-relaxed text-slate-500">
+              Create an event with activities or a standalone competition to start managing registrations and operations.
             </p>
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setStatusFilter("ALL");
-                  setTypeFilter("ALL");
-                }}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
-              >
-                Reset filters
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsCreateMenuOpen(true)}
+              className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4" /> Create your first item
+            </button>
           </div>
         )}
 
-        {/* State 4: Clean unified management table */}
+        {!loading && !error && totalItems > 0 && totalFilteredItems === 0 && (
+          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
+            <Search className="h-6 w-6 text-slate-300" />
+            <h2 className="mt-3 text-base font-semibold text-slate-900">No matching items</h2>
+            <p className="mt-1 text-sm text-slate-500">Try changing the search term or filters.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("ALL");
+                setTypeFilter("ALL");
+              }}
+              className="mt-3 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+            >
+              Reset filters
+            </button>
+          </div>
+        )}
+
         {!loading && totalFilteredItems > 0 && (
           <EventTable
             events={filteredEvents}
