@@ -42,6 +42,7 @@ import ActivityRegistrationsModal from "../features/registration/components/Acti
 import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
 import JudgeAssignmentManager from "../features/judging/components/JudgeAssignmentManager";
 import { useToast } from "../components/common/ToastContext";
+import "../styles/organizer-experience.css";
 
 export default function StandaloneActivityOperationsPage() {
   const addToast = useToast();
@@ -263,7 +264,7 @@ export default function StandaloneActivityOperationsPage() {
   const typeBadgeStyle = getActivityTypeBadgeStyle(activity.type);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-standalone-operations-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
