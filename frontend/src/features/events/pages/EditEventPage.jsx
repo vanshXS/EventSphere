@@ -1,21 +1,19 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getEventById, updateEvent, publishEvent, deleteEvent } from "../eventApi";
-import { getActivitiesByEvent} from "../../activities/activityApi";
+import { getActivitiesByEvent, deleteActivity, startActivity, completeActivity } from "../../activities/activityApi";
 import EventForm from "../components/EventForm";
 import EventStatusBadge from "../components/EventStatusBadge";
 import ActivityList from "../../activities/components/ActivityList";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { 
   formatDateRange,
-  formatDateTime,
   getVisibilityLabel 
 } from "../utils/eventHelpers";
 import { 
   Calendar, 
   ArrowLeft, 
-  LogOut, 
   Loader2, 
   AlertCircle, 
   MapPin, 
@@ -24,7 +22,6 @@ import {
   Send,
   Trash2
 } from "lucide-react";
-import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
 import { useToast } from "../../../components/common/ToastContext";
 import "../../../styles/organizer-experience.css";
@@ -100,13 +97,21 @@ export default function EditEventPage() {
   }, [eventId]);
 
   useEffect(() => {
-    fetchEvent();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) fetchEvent();
+    });
+    return () => { active = false; };
   }, [fetchEvent]);
 
   useEffect(() => {
+    let active = true;
     if (event) {
-      fetchActivities();
+      Promise.resolve().then(() => {
+        if (active) fetchActivities();
+      });
     }
+    return () => { active = false; };
   }, [event, fetchActivities]);
 
   useEffect(() => {
