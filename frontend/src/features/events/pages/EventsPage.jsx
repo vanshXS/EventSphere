@@ -314,7 +314,7 @@ export default function EventsPage() {
       <main className="organizer-page-main max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {user?.collegeVerificationMode === "MANUAL_DOCUMENTS" && <OrganizerAffiliationPanel />}
         {/* Page Title Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="organizer-page-title flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               Organizer Operations Center
@@ -380,7 +380,7 @@ export default function EventsPage() {
 
         {/* Executive KPI Summary Cards */}
         {!loading && totalItems > 0 && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="organizer-kpi-grid grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
                 <Layers className="w-5 h-5" />
@@ -425,10 +425,10 @@ export default function EventsPage() {
 
         {/* Filter and Search Bar */}
         {!loading && totalItems > 0 && (
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+          <div className="organizer-filters bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               {/* Scope Segment: All, Events, Competitions */}
-              <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg">
+              <div className="organizer-scope-filters flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg">
                 <button
                   type="button"
                   onClick={() => setTypeFilter("ALL")}
@@ -486,7 +486,7 @@ export default function EventsPage() {
             </div>
 
             {/* Status Filter Chips */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+            <div className="organizer-status-filters flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
               <span className="text-xs font-medium text-slate-400 mr-1">Status:</span>
               {[
                 ["ALL", "All", totalItems],
@@ -521,7 +521,7 @@ export default function EventsPage() {
 
         {/* State 2: No Events or Activities at all */}
         {!loading && !error && totalItems === 0 && (
-          <div className="bg-white rounded-xl border border-slate-200/80 p-8 sm:p-12 text-center shadow-xs space-y-4">
+          <div className="organizer-empty-state bg-white rounded-xl border border-slate-200/80 p-8 sm:p-12 text-center shadow-xs space-y-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600">
               <CalendarDays className="w-6 h-6" />
             </div>
