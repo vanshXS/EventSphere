@@ -272,7 +272,6 @@ export default function EventsPage() {
   }, [standaloneActivities, searchQuery, statusFilter, typeFilter]);
 
   const totalItems = events.length + standaloneActivities.length;
-  const totalFilteredItems = filteredEvents.length + filteredActivities.length;
 
   const allOrganizerItems = [
     ...events.map((event) => ({
