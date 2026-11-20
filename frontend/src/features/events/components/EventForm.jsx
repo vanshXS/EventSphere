@@ -115,7 +115,7 @@ export default function EventForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="organizer-event-form space-y-6">
       {/* Backend Error Message */}
       {serverError && (
         <div
@@ -128,8 +128,8 @@ export default function EventForm({
       )}
 
       {/* Main Event Details Card */}
-      <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
-        <h2 className="text-base font-semibold text-slate-900 pb-2 border-b border-slate-100">
+      <div className="organizer-form-section space-y-4">
+        <h2 className="border-b border-slate-200 pb-3 text-sm font-semibold text-slate-900">
           Event Details
         </h2>
 

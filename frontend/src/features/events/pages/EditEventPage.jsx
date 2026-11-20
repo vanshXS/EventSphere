@@ -1,21 +1,19 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { getEventById, updateEvent, publishEvent, deleteEvent } from "../eventApi";
-import { getActivitiesByEvent} from "../../activities/activityApi";
+import { getActivitiesByEvent, deleteActivity, startActivity, completeActivity } from "../../activities/activityApi";
 import EventForm from "../components/EventForm";
 import EventStatusBadge from "../components/EventStatusBadge";
 import ActivityList from "../../activities/components/ActivityList";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { 
   formatDateRange,
-  formatDateTime,
   getVisibilityLabel 
 } from "../utils/eventHelpers";
 import { 
   Calendar, 
   ArrowLeft, 
-  LogOut, 
   Loader2, 
   AlertCircle, 
   MapPin, 
@@ -24,9 +22,9 @@ import {
   Send,
   Trash2
 } from "lucide-react";
-import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
 import { useToast } from "../../../components/common/ToastContext";
+import "../../../styles/organizer-experience.css";
 
 export default function EditEventPage() {
   const { eventId } = useParams();
@@ -99,13 +97,21 @@ export default function EditEventPage() {
   }, [eventId]);
 
   useEffect(() => {
-    fetchEvent();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) fetchEvent();
+    });
+    return () => { active = false; };
   }, [fetchEvent]);
 
   useEffect(() => {
+    let active = true;
     if (event) {
-      fetchActivities();
+      Promise.resolve().then(() => {
+        if (active) fetchActivities();
+      });
     }
+    return () => { active = false; };
   }, [event, fetchActivities]);
 
   useEffect(() => {
@@ -236,7 +242,7 @@ export default function EditEventPage() {
   const isDraft = event?.status === "DRAFT" || event?.eventStatus === "DRAFT";
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-edit-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header */}
       <AppHeader
         user={user}
@@ -245,9 +251,9 @@ export default function EditEventPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Navigation & Header */}
-        <div className="space-y-2">
+        <div className="organizer-page-title flex flex-col gap-3 border-b border-slate-200 pb-6">
           <Link
             to="/organizer"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
@@ -259,7 +265,8 @@ export default function EditEventPage() {
           {event && (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-700">Organizer workspace / Event</p>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-950 max-md:text-2xl">
                   {isDraft ? "Edit Event & Activities" : "Event Overview & Activities"}
                 </h1>
                 <p className="text-sm text-slate-500 mt-0.5">
@@ -370,7 +377,7 @@ export default function EditEventPage() {
             </div>
 
             {/* Event Overview Card */}
-            <div className="bg-white rounded-xl border border-slate-200/80 p-6 shadow-xs space-y-6">
+            <div className="organizer-event-overview space-y-6">
               {/* Title, Visibility & Status */}
               <div className="space-y-2 border-b border-slate-100 pb-5">
                 <div className="flex items-center gap-2">

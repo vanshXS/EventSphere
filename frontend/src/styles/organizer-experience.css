@@ -1,0 +1,537 @@
+/* EventSphere organizer portal — restrained SaaS styling shared with the approved participant visual system.
+   Presentation only: existing organizer state, permissions, routes and API workflows remain unchanged. */
+.organizer-workspace {
+  --organizer-primary: #4f46e5;
+  --organizer-primary-hover: #4338ca;
+  --organizer-ink: #0f172a;
+  --organizer-muted: #64748b;
+  --organizer-border: #e2e8f0;
+  min-height: 100vh;
+  background: #f8fafc;
+  color: var(--organizer-ink);
+}
+
+.organizer-workspace > header {
+  border-bottom: 1px solid var(--organizer-border);
+  background: rgba(255,255,255,.98);
+  box-shadow: none;
+}
+
+.organizer-workspace > header > div:first-child {
+  min-height: 64px;
+}
+
+.organizer-workspace .organizer-page-main {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding: 30px 24px 48px;
+}
+
+.organizer-workspace h1 {
+  color: var(--organizer-ink);
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
+  font-weight: 730;
+  line-height: 1.2;
+  letter-spacing: -.035em;
+}
+
+.organizer-workspace h2 {
+  letter-spacing: -.02em;
+}
+
+.organizer-page-title {
+  align-items: flex-end;
+  margin-bottom: 4px;
+}
+
+.organizer-page-title p {
+  max-width: 700px;
+  margin-top: 7px;
+  color: var(--organizer-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.organizer-workspace button,
+.organizer-workspace a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.organizer-workspace button:focus-visible,
+.organizer-workspace a:focus-visible,
+.organizer-workspace input:focus-visible,
+.organizer-workspace select:focus-visible,
+.organizer-workspace textarea:focus-visible {
+  outline: 2px solid #818cf8;
+  outline-offset: 2px;
+}
+
+/* Neutral surfaces and a consistent radius; no nested decorative card stacks. */
+.organizer-workspace .rounded-2xl,
+.organizer-workspace .rounded-xl {
+  border-radius: 12px;
+}
+
+.organizer-workspace .shadow-xs,
+.organizer-workspace .shadow-2xs {
+  box-shadow: none;
+}
+
+.organizer-workspace .border-slate-200\/80,
+.organizer-workspace .border-slate-200 {
+  border-color: var(--organizer-border);
+}
+
+.organizer-workspace .organizer-kpi-grid > div {
+  min-height: 88px;
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-workspace .organizer-kpi-grid > div > div:first-child {
+  border: 0;
+  border-radius: 9px;
+}
+
+.organizer-workspace .organizer-filters {
+  padding: 14px;
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-workspace .organizer-filters input,
+.organizer-workspace input:not([type="checkbox"]):not([type="radio"]),
+.organizer-workspace select,
+.organizer-workspace textarea {
+  border-color: #cbd5e1;
+  border-radius: 9px;
+  background-color: #fff;
+  color: #0f172a;
+  box-shadow: none;
+}
+
+.organizer-workspace input:not([type="checkbox"]):not([type="radio"]):focus,
+.organizer-workspace select:focus,
+.organizer-workspace textarea:focus {
+  border-color: #818cf8;
+  outline: 0;
+  box-shadow: 0 0 0 3px #eef2ff;
+}
+
+.organizer-workspace input::placeholder,
+.organizer-workspace textarea::placeholder {
+  color: #94a3b8;
+}
+
+.organizer-workspace .organizer-scope-filters {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #eef2f7;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.organizer-workspace .organizer-scope-filters button {
+  min-height: 34px;
+  border-radius: 7px;
+}
+
+.organizer-workspace .organizer-status-filters button {
+  min-height: 30px;
+  border-radius: 7px;
+}
+
+.organizer-workspace .organizer-empty-state {
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+/* Organizer management table. On phones each real table row becomes a readable card. */
+.organizer-data-table {
+  overflow: hidden;
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-data-table .overflow-x-auto {
+  border-radius: 12px;
+}
+
+.organizer-events-table {
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.organizer-events-table thead {
+  background: #f8fafc;
+}
+
+.organizer-events-table th {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.organizer-events-table td {
+  padding-top: 15px;
+  padding-bottom: 15px;
+  vertical-align: middle;
+}
+
+.organizer-events-table tbody tr {
+  border-color: #f1f5f9;
+}
+
+.organizer-events-table tbody tr:hover {
+  background: #f8faff;
+}
+
+/* Operations console shell */
+.organizer-operations-header {
+  border-bottom: 1px solid var(--organizer-border);
+  background: rgba(255,255,255,.98);
+}
+
+.organizer-operations-header > div:first-child {
+  min-height: 64px;
+}
+
+.organizer-operations-page .organizer-page-main {
+  padding-top: 24px;
+}
+
+.organizer-operations-summary {
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-operations-summary h2 {
+  color: var(--organizer-ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.organizer-operations-summary .bg-slate-50 {
+  border-color: #edf1f6;
+  background: #f8fafc;
+}
+
+.organizer-operations-tabs {
+  border-color: var(--organizer-border);
+}
+
+.organizer-operations-tabs nav {
+  gap: 22px;
+  scrollbar-width: thin;
+}
+
+.organizer-operations-tabs nav button {
+  min-height: 46px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  white-space: nowrap;
+  border-bottom-width: 2px;
+}
+
+.organizer-operations-main .bg-white.rounded-xl.border,
+.organizer-operations-main .bg-white.rounded-2xl.border {
+  border-color: var(--organizer-border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.organizer-operations-main .bg-white.rounded-xl.border:hover {
+  box-shadow: none;
+}
+
+.organizer-operations-main form {
+  border-radius: 12px;
+}
+
+.organizer-operations-main table {
+  border-collapse: collapse;
+}
+
+.organizer-operations-main thead {
+  background: #f8fafc;
+}
+
+.organizer-operations-main th {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .055em;
+}
+
+.organizer-operations-main td {
+  vertical-align: middle;
+}
+
+/* Create/edit forms retain every existing field and validation rule. */
+.organizer-create-page .organizer-page-main,
+.organizer-edit-page .organizer-page-main {
+  max-width: 1000px;
+}
+
+.organizer-create-page .organizer-page-main > form,
+.organizer-edit-page .organizer-page-main > form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.organizer-create-page .organizer-page-main form > div,
+.organizer-edit-page .organizer-page-main > div > div,
+.organizer-edit-page .organizer-page-main form > div {
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-create-page label,
+.organizer-edit-page label {
+  color: #475569;
+  font-weight: 600;
+}
+
+.organizer-create-page input,
+.organizer-create-page select,
+.organizer-create-page textarea,
+.organizer-edit-page input,
+.organizer-edit-page select,
+.organizer-edit-page textarea {
+  min-height: 42px;
+  border-radius: 9px;
+}
+
+.organizer-create-page textarea,
+.organizer-edit-page textarea {
+  min-height: 108px;
+}
+
+.organizer-create-page input[type="checkbox"],
+.organizer-edit-page input[type="checkbox"] {
+  min-height: 0;
+  border-radius: 5px;
+}
+
+/* Event creation and editing forms use one primary surface with flat, clearly separated sections. */
+.organizer-create-page .organizer-create-form,
+.organizer-create-page .organizer-event-form,
+.organizer-edit-page .organizer-event-form {
+  padding: 24px;
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-create-page .organizer-create-section,
+.organizer-event-form .organizer-form-section {
+  padding: 0 0 22px;
+  border: 0;
+  border-bottom: 1px solid #edf1f6;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.organizer-create-page .organizer-create-section:last-of-type,
+.organizer-event-form .organizer-form-section:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.organizer-create-page .organizer-create-section h2,
+.organizer-event-form .organizer-form-section h2 {
+  color: var(--organizer-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.organizer-create-page .organizer-staged-activity {
+  padding: 13px 0;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.organizer-create-page .organizer-staged-activity:last-child {
+  border-bottom: 0;
+}
+
+.organizer-edit-page .organizer-event-overview {
+  padding: 24px;
+  border: 1px solid var(--organizer-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.organizer-create-page .organizer-create-form > div:last-child,
+.organizer-event-form > div:last-child {
+  padding-top: 0;
+}
+
+/* Keep the organizer badge, dropdowns, action menus and dialogs within the same visual language. */
+.organizer-workspace .rounded-full.border,
+.organizer-workspace .rounded-md.border {
+  box-shadow: none;
+}
+
+.organizer-workspace [role="menu"],
+.organizer-workspace .shadow-xl {
+  border-color: var(--organizer-border);
+  border-radius: 10px;
+}
+
+@media (max-width: 767px) {
+  .organizer-workspace .organizer-page-main {
+    padding: 22px 16px 36px;
+  }
+
+  .organizer-create-page .organizer-create-form,
+  .organizer-create-page .organizer-event-form,
+  .organizer-edit-page .organizer-event-form,
+  .organizer-edit-page .organizer-event-overview {
+    padding: 18px;
+  }
+
+  .organizer-create-page .organizer-create-section,
+  .organizer-event-form .organizer-form-section {
+    padding-bottom: 18px;
+  }
+
+  .organizer-page-title {
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .organizer-page-title > div:last-child,
+  .organizer-page-title > button {
+    align-self: stretch;
+  }
+
+  .organizer-page-title button {
+    justify-content: center;
+  }
+
+  .organizer-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .organizer-kpi-grid > div {
+    min-width: 0;
+    min-height: 76px;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .organizer-kpi-grid > div > div:first-child {
+    width: 34px;
+    height: 34px;
+  }
+
+  .organizer-kpi-grid > div > div:last-child span:first-child {
+    font-size: 10px;
+  }
+
+  .organizer-kpi-grid > div > div:last-child span:last-child {
+    font-size: 19px;
+  }
+
+  .organizer-filters {
+    padding: 11px;
+  }
+
+  .organizer-filters > div:first-child {
+    align-items: stretch;
+  }
+
+  .organizer-scope-filters {
+    width: 100%;
+    overflow-x: auto;
+    gap: 2px;
+  }
+
+  .organizer-scope-filters button {
+    flex: 0 0 auto;
+    padding-inline: 10px;
+    white-space: nowrap;
+  }
+
+  .organizer-status-filters {
+    align-items: center;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 3px;
+    scrollbar-width: thin;
+  }
+
+  .organizer-status-filters button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .organizer-mobile-items {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .organizer-mobile-item {
+    min-width: 0;
+    box-shadow: none;
+  }
+
+  .organizer-mobile-item:active {
+    border-color: #a5b4fc;
+  }
+
+  .organizer-operations-main {
+    gap: 18px;
+  }
+
+  .organizer-operations-summary {
+    padding: 15px;
+  }
+
+  .organizer-operations-tabs nav {
+    gap: 16px;
+  }
+
+  .organizer-operations-tabs nav button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+
+  .organizer-operations-summary .border-l {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .organizer-workspace *,
+  .organizer-workspace *::before,
+  .organizer-workspace *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

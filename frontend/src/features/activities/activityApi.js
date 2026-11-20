@@ -140,17 +140,31 @@ export const completeStandaloneActivity = async (activityId) => {
   return normalizeActivity(response.data);
 };
 
+export const deleteActivity = async (eventId, activityId) => {
+  const response = await api.delete(
+    `/api/organizer/events/${eventId}/activities/${activityId}`
+  );
+  return response.data;
+};
+
 export const updateActivity = async (
   eventId,
   activityId,
   formData
 ) => {
+  const url = eventId
+    ? /api/organizer/events//activities/
+    : /api/organizer/activities/;
   const response = await api.put(
-    `/api/organizer/events/${eventId}/activities/${activityId}`,
+    url,
     formatActivityPayload(formData)
   );
 
   return normalizeActivity(response.data);
+};
+
+export const updateStandaloneActivity = async (activityId, formData) => {
+  return updateActivity(null, activityId, formData);
 };
 
 export const getActivitiesByEvent = async (eventId) => {

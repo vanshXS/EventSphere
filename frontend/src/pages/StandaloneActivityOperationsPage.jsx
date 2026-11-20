@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
@@ -18,9 +18,7 @@ import {
   Play,
   Trophy,
   Loader2,
-  Info,
-  QrCode,
-  ChevronRight
+  Info
 } from "lucide-react";
 import {
   getStandaloneActivity,
@@ -42,11 +40,11 @@ import ActivityRegistrationsModal from "../features/registration/components/Acti
 import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
 import JudgeAssignmentManager from "../features/judging/components/JudgeAssignmentManager";
 import { useToast } from "../components/common/ToastContext";
+import "../styles/organizer-experience.css";
 
 export default function StandaloneActivityOperationsPage() {
   const addToast = useToast();
   const { activityId } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Tab: 'attendance' | 'registrations' | 'volunteers' | 'details'
@@ -74,6 +72,7 @@ export default function StandaloneActivityOperationsPage() {
   // General UI state
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
   const setError = useCallback((message) => {
     if (message) addToast(message, "error");
   }, [addToast]);
@@ -112,8 +111,24 @@ export default function StandaloneActivityOperationsPage() {
   }, [activityId, setError]);
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadData();
+    });
+    return () => { active = false; };
   }, [loadData]);
+
+  useEffect(() => {
+    let active = true;
+    const intervalId = window.setInterval(() => setCurrentTime(Date.now()), 60000);
+    Promise.resolve().then(() => {
+      if (active) setCurrentTime(Date.now());
+    });
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -256,16 +271,16 @@ export default function StandaloneActivityOperationsPage() {
 
   const isPastEnd =
     Boolean(activity.endDateTime) &&
-    new Date(activity.endDateTime).getTime() <= Date.now();
+    new Date(activity.endDateTime).getTime() <= currentTime;
   const isNotStarted = activity.status === "PUBLISHED" && isPastEnd;
   const canStart = activity.status === "PUBLISHED" && !isPastEnd;
   const isOngoing = activity.status === "ONGOING";
   const typeBadgeStyle = getActivityTypeBadgeStyle(activity.type);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-standalone-operations-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <header className="organizer-operations-header bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link
@@ -331,28 +346,13 @@ export default function StandaloneActivityOperationsPage() {
         </div>
       </header>
 
-      {/* Breadcrumb Trail */}
-      <div className="bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 text-xs text-slate-400 overflow-x-auto">
-          <Link to="/organizer" className="hover:text-slate-700 transition-colors shrink-0 font-medium">
-            Organizer Dashboard
-          </Link>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-slate-600 font-semibold truncate max-w-[200px]" title={activity?.name}>
-            {activity?.name || "Activity"}
-          </span>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-indigo-600 font-semibold shrink-0">Operations</span>
-        </div>
-      </div>
-
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main organizer-operations-main max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Activity Quick Info Bar */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="organizer-operations-summary bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900">{activity.name}</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Competition overview</h2>
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${isNotStarted
                     ? "bg-amber-50 text-amber-700 border-amber-200"
@@ -398,7 +398,7 @@ export default function StandaloneActivityOperationsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-slate-200">
+        <div className="organizer-operations-tabs border-b border-slate-200">
           <nav className="flex space-x-6 overflow-x-auto">
             <button
               type="button"

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
@@ -13,20 +13,16 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  ExternalLink,
   Sliders,
   AlertCircle,
   CheckCircle2,
   Layers,
-  ChevronRight,
   Info,
   QrCode,
   Shield,
   Loader2,
   Play,
-  CheckCircle,
   Activity,
-  TrendingUp,
   Clock,
   Trophy
 } from "lucide-react";
@@ -57,11 +53,11 @@ import ActivityRegistrationsModal from "../features/registration/components/Acti
 import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
 import JudgeAssignmentManager from "../features/judging/components/JudgeAssignmentManager";
 import { useToast } from "../components/common/ToastContext";
+import "../styles/organizer-experience.css";
 
 export default function EventOperationsPage() {
   const addToast = useToast();
   const { eventId } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Main Tab: 'activities' | 'attendance' | 'volunteers' | 'overview'
@@ -160,7 +156,11 @@ export default function EventOperationsPage() {
   }, [eventId, setError]);
 
   useEffect(() => {
-    loadInitialData();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadInitialData();
+    });
+    return () => { active = false; };
   }, [loadInitialData]);
 
   // Load Attendance data based on current tab/subtab
@@ -184,9 +184,13 @@ export default function EventOperationsPage() {
   }, [eventId, attendanceSubTab, selectedActivityId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "attendance") {
-      loadAttendanceData();
+      Promise.resolve().then(() => {
+        if (active) loadAttendanceData();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, attendanceSubTab, selectedActivityId, loadAttendanceData]);
 
   // Load Volunteer Staff data
@@ -210,9 +214,13 @@ export default function EventOperationsPage() {
   }, [eventId, volunteerSubTab, selectedVolActivityId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "volunteers") {
-      loadVolunteerData();
+      Promise.resolve().then(() => {
+        if (active) loadVolunteerData();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, volunteerSubTab, selectedVolActivityId, loadVolunteerData]);
 
   // Load Activity Summaries
@@ -231,9 +239,13 @@ export default function EventOperationsPage() {
   }, [eventId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "activities") {
-      loadActivitySummaries();
+      Promise.resolve().then(() => {
+        if (active) loadActivitySummaries();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, loadActivitySummaries]);
 
   // Activity Start/Complete handlers
@@ -416,9 +428,9 @@ export default function EventOperationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-operations-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header / Breadcrumb */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <header className="organizer-operations-header bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link
@@ -465,31 +477,16 @@ export default function EventOperationsPage() {
         </div>
       </header>
 
-      {/* Breadcrumb Trail */}
-      <div className="bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 text-xs text-slate-400 overflow-x-auto">
-          <Link to="/organizer" className="hover:text-slate-700 transition-colors shrink-0 font-medium">
-            Organizer Dashboard
-          </Link>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-slate-600 font-semibold truncate max-w-[200px]" title={event.title}>
-            {event.title}
-          </span>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-indigo-600 font-semibold shrink-0">Operations</span>
-        </div>
-      </div>
-
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main organizer-operations-main max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Event Quick Overview Strip */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="organizer-operations-summary bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900">{event.title}</h2>
-              <span className="text-xs font-medium text-slate-400">
-                ({activities.length} {activities.length === 1 ? "activity" : "activities"})
-              </span>
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-slate-900">Event overview</h2>
+              <p className="text-xs text-slate-500">
+                {activities.length} {activities.length === 1 ? "activity" : "activities"} · Current event schedule and venue
+              </p>
             </div>
             <div className="flex items-center gap-4 flex-wrap text-xs text-slate-500">
               <span className="inline-flex items-center gap-1.5">
@@ -525,7 +522,7 @@ export default function EventOperationsPage() {
         </div>
 
         {/* Master Navigation Tabs */}
-        <div className="border-b border-slate-200">
+        <div className="organizer-operations-tabs border-b border-slate-200">
           <nav className="flex space-x-6 overflow-x-auto">
             <button
               type="button"
