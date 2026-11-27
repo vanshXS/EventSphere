@@ -12,6 +12,7 @@ import {
   Loader2,
   MapPin,
   MoreVertical,
+  Search,
   Play,
   Send,
   SlidersHorizontal,
@@ -160,7 +161,9 @@ export default function EventTable({
   startingActivityIds = new Set(),
   completingActivityIds = new Set(),
   onStartActivity,
-  onCompleteActivity
+  onCompleteActivity,
+  toolbar = null,
+  totalItems = null
 }) {
   const navigate = useNavigate();
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -269,8 +272,12 @@ export default function EventTable({
 
   return (
     <>
-      <div className="organizer-data-table organizer-desktop-table hidden overflow-visible rounded-xl border border-slate-200 bg-white shadow-xs md:block">
-        <div className="overflow-x-auto rounded-xl">
+      <div className="organizer-list-surface overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {toolbar && <div className="organizer-list-toolbar">{toolbar}</div>}
+        {totalCount > 0 ? (
+          <>
+      <div className="organizer-data-table organizer-desktop-table hidden md:block">
+        <div className="overflow-x-auto">
           <table className="organizer-events-table w-full min-w-[760px] border-collapse text-left">
             <thead className="bg-slate-50">
               <tr className="border-b border-slate-200">
@@ -510,16 +517,7 @@ export default function EventTable({
             </tbody>
           </table>
         </div>
-        <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-400">
-          Showing {totalCount} {totalCount === 1 ? "managed item" : "managed items"}
-          {events.length > 0 && standaloneActivities.length > 0 && (
-            <span>
-              {" "}· {events.length} {events.length === 1 ? "event" : "events"}, {standaloneActivities.length} {standaloneActivities.length === 1 ? "competition" : "competitions"}
-            </span>
-          )}
-        </div>
       </div>
-
       <section className="organizer-mobile-items grid grid-cols-1 gap-3 md:hidden" aria-label="Managed events and competitions">
         {events.map((event) => {
           const operationsPath = `/organizer/events/${event.id}/operations`;
@@ -680,6 +678,25 @@ export default function EventTable({
           );
         })}
       </section>
+          </>
+        ) : (
+          <div className="flex min-h-56 flex-col items-center justify-center px-6 py-10 text-center">
+            <Search className="h-6 w-6 text-slate-300" />
+            <h2 className="mt-3 text-sm font-semibold text-slate-900">No matching items</h2>
+            <p className="mt-1 text-xs text-slate-500">Try changing the search term or filters above.</p>
+          </div>
+        )}
+
+        <div className="border-t border-slate-100 px-5 py-3 text-xs text-slate-400">
+          Showing {totalCount} of {totalItems ?? totalCount} {totalCount === 1 ? "managed item" : "managed items"}
+          {events.length > 0 && standaloneActivities.length > 0 && (
+            <span>
+              {" "}· {events.length} {events.length === 1 ? "event" : "events"}, {standaloneActivities.length} {standaloneActivities.length === 1 ? "competition" : "competitions"}
+            </span>
+          )}
+        </div>
+
+      </div>
 
       <ActivityDetailsModal
         isOpen={Boolean(selectedActivity)}

@@ -153,8 +153,8 @@ export const updateActivity = async (
   formData
 ) => {
   const url = eventId
-    ? /api/organizer/events//activities/
-    : /api/organizer/activities/;
+    ? `/api/organizer/events/${eventId}/activities/${activityId}`
+    : `/api/organizer/activities/${activityId}`;
   const response = await api.put(
     url,
     formatActivityPayload(formData)

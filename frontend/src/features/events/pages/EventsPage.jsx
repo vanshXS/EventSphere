@@ -272,7 +272,6 @@ export default function EventsPage() {
   }, [standaloneActivities, searchQuery, statusFilter, typeFilter]);
 
   const totalItems = events.length + standaloneActivities.length;
-  const totalFilteredItems = filteredEvents.length + filteredActivities.length;
 
   const allOrganizerItems = [
     ...events.map((event) => ({
@@ -410,85 +409,6 @@ export default function EventsPage() {
           </section>
         )}
 
-        {!loading && !error && totalItems > 0 && (
-          <section aria-label="Filter events and competitions" className="space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex w-full items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 lg:w-auto">
-                {[
-                  ["ALL", "All", totalItems],
-                  ["EVENTS", "Events", events.length],
-                  ["ACTIVITIES", "Competitions", standaloneActivities.length]
-                ].map(([value, label, count]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setTypeFilter(value)}
-                    aria-pressed={typeFilter === value}
-                    className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3.5 text-xs font-semibold transition-colors ${
-                      typeFilter === value
-                        ? "bg-white text-indigo-700 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    {label}
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
-                      typeFilter === value ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
-                    }`}>{count}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
-                <label className="relative min-w-0 flex-1 lg:w-80">
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by name, venue or description"
-                    aria-label="Search events and competitions"
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  />
-                </label>
-                <label className="relative sm:w-40">
-                  <span className="sr-only">Filter by status</span>
-                  <select
-                    value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
-                    className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-9 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                  >
-                    <option value="ALL">All statuses</option>
-                    <option value="DRAFT">Draft</option>
-                    <option value="PUBLISHED">Published</option>
-                    <option value="ONGOING">Ongoing</option>
-                    <option value="COMPLETED">Completed</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                </label>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
-              <p className="text-xs text-slate-500">
-                Showing <span className="font-semibold text-slate-800">{totalFilteredItems}</span> of {totalItems} items
-              </p>
-              {(searchQuery || statusFilter !== "ALL" || typeFilter !== "ALL") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter("ALL");
-                    setTypeFilter("ALL");
-                  }}
-                  className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-
         {error && (
           <div role="alert" className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-rose-800">{error}</p>
@@ -528,26 +448,7 @@ export default function EventsPage() {
           </div>
         )}
 
-        {!loading && !error && totalItems > 0 && totalFilteredItems === 0 && (
-          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center">
-            <Search className="h-6 w-6 text-slate-300" />
-            <h2 className="mt-3 text-base font-semibold text-slate-900">No matching items</h2>
-            <p className="mt-1 text-sm text-slate-500">Try changing the search term or filters.</p>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setStatusFilter("ALL");
-                setTypeFilter("ALL");
-              }}
-              className="mt-3 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
-            >
-              Reset filters
-            </button>
-          </div>
-        )}
-
-        {!loading && totalFilteredItems > 0 && (
+        {!loading && totalItems > 0 && (
           <EventTable
             events={filteredEvents}
             standaloneActivities={filteredActivities}
@@ -563,6 +464,80 @@ export default function EventsPage() {
             deletingActivityIds={deletingActivityIds}
             startingActivityIds={startingActivityIds}
             completingActivityIds={completingActivityIds}
+            totalItems={totalItems}
+            toolbar={
+              <div className="flex flex-col gap-3 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex w-full items-center gap-1 overflow-x-auto lg:w-auto">
+                    {[
+                      ["ALL", "All Items", totalItems],
+                      ["EVENTS", "Events", events.length],
+                      ["ACTIVITIES", "Competitions", standaloneActivities.length]
+                    ].map(([value, label, count]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTypeFilter(value)}
+                        aria-pressed={typeFilter === value}
+                        className={`inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-colors ${
+                          typeFilter === value
+                            ? "bg-indigo-50 text-indigo-700"
+                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        {label}
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                          typeFilter === value ? "bg-white text-indigo-700" : "bg-slate-100 text-slate-600"
+                        }`}>{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+                    <label className="relative min-w-0 flex-1 lg:w-72">
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Search by name, venue or description"
+                        aria-label="Search events and competitions"
+                        className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-3 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                      />
+                    </label>
+                    <label className="relative sm:w-36">
+                      <span className="sr-only">Filter by status</span>
+                      <select
+                        value={statusFilter}
+                        onChange={(event) => setStatusFilter(event.target.value)}
+                        className="h-9 w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 px-3 pr-9 text-xs text-slate-700 outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <option value="ALL">All statuses</option>
+                        <option value="DRAFT">Draft</option>
+                        <option value="PUBLISHED">Published</option>
+                        <option value="ONGOING">Ongoing</option>
+                        <option value="COMPLETED">Completed</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </label>
+                  </div>
+                </div>
+                {(searchQuery || statusFilter !== "ALL" || typeFilter !== "ALL") && (
+                  <div className="flex justify-end border-t border-slate-100 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setStatusFilter("ALL");
+                        setTypeFilter("ALL");
+                      }}
+                      className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            }
           />
         )}
       </main>
