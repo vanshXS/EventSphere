@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   X,
   Users,
@@ -8,8 +8,7 @@ import {
   Trash2,
   Copy,
   Check,
-  Calendar,
-  AlertTriangle
+  Calendar
 } from "lucide-react";
 import { formatDateTime } from "../../events/utils/eventHelpers";
 
@@ -26,10 +25,11 @@ export default function TeamDetailsModal({
 
   if (!isOpen || !team) return null;
 
+  const currentUserId = user?.userId || user?.id;
   const isLeader =
-    team.leaderId === user?.userId ||
+    team.leaderId === currentUserId ||
     team.leaderId === user?.email ||
-    team.createdBy === user?.userId;
+    team.createdBy === currentUserId;
 
   const membersList =
     team.members && team.members.length > 0
@@ -37,10 +37,10 @@ export default function TeamDetailsModal({
       : (team.membersId || team.memberIds || []).map((id) => ({
           userId: id,
           name:
-            id === user?.userId
+            id === currentUserId
               ? `${user?.name || "You"}`
               : `Participant (${id.slice(0, 6)})`,
-          email: id === user?.userId ? user?.email : "",
+          email: id === currentUserId ? user?.email : "",
           leader: id === team.leaderId
         }));
 
@@ -58,13 +58,13 @@ export default function TeamDetailsModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+      className="participant-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left flex flex-col max-h-[90vh]"
+        className="participant-dialog relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -148,7 +148,7 @@ export default function TeamDetailsModal({
             {membersList.map((m, idx) => {
               const isMemberLeader = m.leader || m.userId === team.leaderId;
               const isSelf =
-                m.userId === user?.userId || m.email === user?.email;
+                m.userId === currentUserId || m.email === user?.email;
               const initials = (m.name || "U")
                 .split(" ")
                 .map((n) => n[0])

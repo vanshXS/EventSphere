@@ -7,13 +7,12 @@ import {
 
 import {
   Loader2,
-  Plus,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  X
 } from "lucide-react";
 
 import { useAuth } from "../features/auth/AuthContext";
-import { getMyAffiliationStatus } from "../features/auth/authApi";
 import StudentAffiliationModal from "../features/auth/components/StudentAffiliationModal";
 
 import {
@@ -26,7 +25,6 @@ import {
 import { getMyVolunteerAssignments } from "../features/attendance/attendanceApi";
 
 import {
-  isActiveRegistration,
   getActivityRegistration,
   getRegistrationMessage
 } from "../features/registration/utils/registrationHelpers";
@@ -45,13 +43,17 @@ import MyTeamsList from "../features/teams/components/MyTeamsList";
 import CreateTeamModal from "../features/teams/components/CreateTeamModal";
 import ParticipantLeaderboard from "../features/judging/components/ParticipantLeaderboard";
 import { useToast } from "../components/common/ToastContext";
+import { getAllMyCertificates } from "../features/certificates/certificateApi";
+import { getParticipantLeaderboardResults } from "../features/judging/api/judgingApi";
+import { useNavigate } from "react-router-dom";
+import "../styles/participant-experience.css";
 
 export default function ParticipantDashboard() {
-  const { user, updateUser, logoutUser } = useAuth();
+  const { user, logoutUser } = useAuth();
+  const navigate = useNavigate();
   const addToast = useToast();
 
-  const [activeTab, setActiveTab] = useState("EXPLORE");
-  const [selectedResultActivityId, setSelectedResultActivityId] = useState(null);
+  const [activeTab, setActiveTab] = useState(() => { const requestedTab = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("tab"); return ["EXPLORE", "MY_REGISTRATIONS", "MY_TEAMS"].includes(requestedTab) ? requestedTab : "EXPLORE"; });
   const [isAffiliationModalOpen, setIsAffiliationModalOpen] = useState(false);
 
   const [events, setEvents] = useState([]);
@@ -60,7 +62,14 @@ export default function ParticipantDashboard() {
   const [myTeams, setMyTeams] = useState([]);
   const [volunteerAssignments, setVolunteerAssignments] = useState([]);
 
+  const [myCertificates, setMyCertificates] = useState([]);
+  const [publishedResults, setPublishedResults] = useState([]);
+
+  const [resultsModalActivityId, setResultsModalActivityId] = useState(null);
+
+
   const [loading, setLoading] = useState(true);
+  const [loadErrors, setLoadErrors] = useState([]);
   const [loadVersion, setLoadVersion] = useState(0);
   const setError = (message) => {
     if (message) addToast(message, "error");
@@ -91,52 +100,88 @@ export default function ParticipantDashboard() {
   useEffect(() => {
     let ignore = false;
 
-    Promise.all([
-      getVisibleEvents(),
-      getVisibleStandaloneActivities(),
-      getMyRegistrations(),
-      getMyTeams(),
-      getMyVolunteerAssignments(),
-      getMyAffiliationStatus().catch(() => null)
-    ])
-      .then(([eventsData, activitiesData, registrationsData, teamsData, assignmentsData, affiliationData]) => {
-        if (ignore) return;
+    const loadDashboard = async () => {
+      setLoading(true);
+      setLoadErrors([]);
 
-        if (affiliationData && affiliationData.status && updateUser) {
-          updateUser({ collegeVerificationStatus: affiliationData.status });
-        }
+      const tasks = [
+        ["events", getVisibleEvents],
+        ["activities", getVisibleStandaloneActivities],
+        ["registrations", getMyRegistrations],
+        ["teams", getMyTeams],
+        ["volunteer assignments", () => getMyVolunteerAssignments().catch(() => [])],
+        ["certificates", getAllMyCertificates],
+        ["competition results", getParticipantLeaderboardResults]
+      ];
 
-        const sortByNewest = (list) =>
-          (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-            const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
-            const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
-            return timeB - timeA;
-          });
+      const outcomes = await Promise.allSettled(
+        tasks.map(([, load]) => load())
+      );
 
-        const sortRegistrationsByNewest = (list) =>
-          (Array.isArray(list) ? list : []).slice().sort((a, b) => {
-            const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
-            const timeB = Date.parse(b.registeredAt || b.createdAt || 0);
-            return timeB - timeA;
-          });
+      if (ignore) return;
 
-        setEvents(sortByNewest(eventsData));
-        setStandaloneActivities(sortByNewest(activitiesData));
-        setMyRegistrations(sortRegistrationsByNewest(registrationsData));
-        setMyTeams(teamsData);
-        setVolunteerAssignments(assignmentsData);
-      })
+      const failures = [];
+      const valueAt = (index) => {
+        const outcome = outcomes[index];
+        if (outcome.status === "fulfilled") return outcome.value;
+        failures.push(tasks[index][0]);
+        return null;
+      };
+
+      const sortByNewest = (list) =>
+        (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+          const timeA = Date.parse(a.createdAt || a.startDateTime || 0);
+          const timeB = Date.parse(b.createdAt || b.startDateTime || 0);
+          return timeB - timeA;
+        });
+
+      const sortRegistrationsByNewest = (list) =>
+        (Array.isArray(list) ? list : []).slice().sort((a, b) => {
+          const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
+          const timeB = Date.parse(b.registeredAt || b.createdAt || 0);
+          return timeB - timeA;
+        });
+
+      const eventsData = valueAt(0);
+      const activitiesData = valueAt(1);
+      const registrationsData = valueAt(2);
+      const teamsData = valueAt(3);
+      const assignmentsData = valueAt(4);
+      const certificatesData = valueAt(5);
+      const resultsData = valueAt(6);
+
+      if (eventsData !== null) setEvents(sortByNewest(eventsData));
+      if (activitiesData !== null) setStandaloneActivities(sortByNewest(activitiesData));
+      if (registrationsData !== null) setMyRegistrations(sortRegistrationsByNewest(registrationsData));
+      if (teamsData !== null) setMyTeams(Array.isArray(teamsData) ? teamsData : []);
+      if (assignmentsData !== null) setVolunteerAssignments(Array.isArray(assignmentsData) ? assignmentsData : []);
+      if (certificatesData !== null) setMyCertificates(Array.isArray(certificatesData) ? certificatesData : []);
+      if (resultsData !== null) setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
+
+      setLoadErrors(failures);
+      if (failures.length > 0) {
+        addToast(
+          `Some participant data could not load: ${failures.join(", ")}.`,
+          "error",
+          {
+            actionLabel: "Retry",
+            onAction: () => setLoadVersion((previous) => previous + 1)
+          }
+        );
+      }
+    };
+
+    loadDashboard()
       .catch((err) => {
         if (!ignore) {
-          const message = err.response?.data?.message ||
-            "Could not load your dashboard. Please try again.";
-          addToast(message, "error", {
-            actionLabel: "Reload dashboard",
-            onAction: () => {
-              setLoading(true);
-              setLoadVersion((previous) => previous + 1);
+          addToast(
+            err.response?.data?.message || "Could not load your participant workspace.",
+            "error",
+            {
+              actionLabel: "Retry",
+              onAction: () => setLoadVersion((previous) => previous + 1)
             }
-          });
+          );
         }
       })
       .finally(() => {
@@ -216,7 +261,11 @@ export default function ParticipantDashboard() {
     setRefreshingRegistrations(true);
 
     try {
-      const registrations = await getMyRegistrations();
+      const [registrations, certsData, resultsData] = await Promise.all([
+        getMyRegistrations(),
+        getAllMyCertificates().catch(() => []),
+        getParticipantLeaderboardResults().catch(() => [])
+      ]);
       const sortRegistrationsByNewest = (list) =>
         (Array.isArray(list) ? list : []).slice().sort((a, b) => {
           const timeA = Date.parse(a.registeredAt || a.createdAt || 0);
@@ -224,6 +273,8 @@ export default function ParticipantDashboard() {
           return timeB - timeA;
         });
       setMyRegistrations(sortRegistrationsByNewest(registrations));
+      setMyCertificates(Array.isArray(certsData) ? certsData : []);
+      setPublishedResults(Array.isArray(resultsData) ? resultsData : []);
       setSuccessMessage("Registration statuses updated.");
     } catch (err) {
       setError(
@@ -299,34 +350,71 @@ export default function ParticipantDashboard() {
 
   const showMyRegistrations = () => {
     setActiveTab("MY_REGISTRATIONS");
+    navigate("/participant?tab=MY_REGISTRATIONS", { replace: true });
   };
 
+  
   const handleViewResults = (activityId) => {
-    setSelectedResultActivityId(activityId || null);
-    setActiveTab("RESULTS");
+    setResultsModalActivityId(activityId || null);
   };
-
-  const activeRegistrationsCount = myRegistrations.filter(
-    isActiveRegistration
-  ).length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 font-sans">
+    <div className="participant-workspace flex min-h-screen flex-col bg-slate-50 font-sans">
       <ParticipantHeader
         user={user}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        activeRegistrationsCount={activeRegistrationsCount}
-        teamsCount={myTeams.length}
         volunteerAssignmentsCount={volunteerAssignments.length}
         onLogout={logoutUser}
         onOpenAffiliationModal={() => setIsAffiliationModalOpen(true)}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      {activeTab === "MY_REGISTRATIONS" && user?.collegeName && (
+        <div className="px-4 pt-4 md:hidden">
+          <button
+            type="button"
+            onClick={() => setIsAffiliationModalOpen(true)}
+            disabled={user?.collegeVerificationStatus === "VERIFIED"}
+            className="flex w-full items-center justify-between gap-3 rounded-xl bg-indigo-50 px-4 py-3 text-left disabled:cursor-default"
+            aria-label="College affiliation status"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Campus · {user?.collegeCode || "Participant"}
+                </span>
+                <span className="mt-0.5 block truncate text-sm font-medium text-slate-900">{user.collegeName}</span>
+              </span>
+            </span>
+            <span className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${user?.collegeVerificationStatus === "VERIFIED" ? "bg-white text-emerald-700" : "bg-white text-amber-700"}`}>
+              {user?.collegeVerificationStatus === "VERIFIED" ? "Verified" : user?.collegeVerificationStatus === "PENDING" ? "Pending" : "Verify"}
+            </span>
+          </button>
+        </div>
+      )}
+
+      <main className="participant-main mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+        {loadErrors.length > 0 && (
+          <div role="alert" className="mb-6 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <span>Some content is temporarily unavailable: {loadErrors.join(", ")}.</span>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setLoadVersion((previous) => previous + 1);
+              }}
+              className="shrink-0 font-semibold text-indigo-700 hover:text-indigo-900"
+            >
+              Retry loading
+            </button>
+          </div>
+        )}
         {/* College Affiliation Status Alert Banner */}
         {user?.collegeVerificationStatus !== "VERIFIED" && (
-          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="participant-affiliation-alert mb-6 hidden rounded-xl border p-4 md:flex md:flex-row md:items-center md:justify-between md:gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-5 h-5" />
@@ -361,14 +449,14 @@ export default function ParticipantDashboard() {
         ) : (
           <>
             {activeTab === "EXPLORE" && (
-              <section className="space-y-6">
-                <div>
+              <section className="participant-page participant-discover-page space-y-6">
+                <div className="participant-page-heading">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600">Participant</p>
                   <h1 className="text-2xl font-bold text-slate-900">
-                    Explore Events & Competitions
+                    Discover events
                   </h1>
                   <p className="mt-1 text-sm text-slate-500">
-                    Browse activities, read the rules and choose how
-                    you want to participate.
+                    Find events and competitions happening around your campus.
                   </p>
                 </div>
 
@@ -378,22 +466,20 @@ export default function ParticipantDashboard() {
                   myRegistrations={myRegistrations}
                   onSelectEvent={setSelectedEventForDetails}
                   onSelectActivity={setSelectedActivityForDetails}
-                  onRegisterActivity={setSelectedActivityForReg}
-                  onViewMyRegistrations={showMyRegistrations}
                 />
               </section>
             )}
 
             {activeTab === "MY_REGISTRATIONS" && (
-              <section className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <section className="participant-page participant-registrations-page space-y-6">
+                <div className="participant-page-heading flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-600">Participant hub</p>
                     <h1 className="text-2xl font-bold text-slate-900">
                       My Registrations
                     </h1>
                     <p className="mt-1 text-sm text-slate-500">
-                      Track approval decisions, read organizer notes,
-                      and manage your entries.
+                      Track approval decisions, access your entry tickets, and view published competition results.
                     </p>
                   </div>
 
@@ -422,36 +508,18 @@ export default function ParticipantDashboard() {
                   standaloneActivities={standaloneActivities}
                   myTeams={myTeams}
                   cancellingId={cancellingId}
+                  publishedResults={publishedResults}
+                  certificates={myCertificates}
                   currentUser={user}
                   onCancelRegistration={handleCancelRegistration}
-                  onBrowseEvents={() => setActiveTab("EXPLORE")}
+                  onBrowseEvents={() => { setActiveTab("EXPLORE"); navigate("/participant", { replace: true }); }}
                   onViewResults={handleViewResults}
                 />
               </section>
             )}
 
             {activeTab === "MY_TEAMS" && (
-              <section className="space-y-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900">
-                      My Teams
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Manage your teams and their membership.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateTeamModal(true)}
-                    className="inline-flex items-center gap-2 self-start rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shadow-sm cursor-pointer transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create Team
-                  </button>
-                </div>
-
+              <section className="participant-page participant-teams-page">
                 <MyTeamsList
                   teams={myTeams}
                   user={user}
@@ -462,17 +530,13 @@ export default function ParticipantDashboard() {
               </section>
             )}
 
-            {activeTab === "RESULTS" && (
-              <ParticipantLeaderboard
-                myRegistrations={myRegistrations}
-                selectedActivityId={selectedResultActivityId}
-                onBrowseEvents={() => setActiveTab("EXPLORE")}
-                onClearSelectedActivity={() => setSelectedResultActivityId(null)}
-              />
-            )}
           </>
         )}
       </main>
+
+      <footer className="mt-auto border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
+        © {new Date().getFullYear()} EventSphere Platform. Designed for campus innovation.
+      </footer>
 
       <EventDetailsModal
         isOpen={Boolean(selectedEventForDetails)}
@@ -493,6 +557,7 @@ export default function ParticipantDashboard() {
           selectedActivityForDetails?.id
         )}
         onRegisterClick={setSelectedActivityForReg}
+        onViewMyRegistrations={showMyRegistrations}
         onClose={closeActivityDetails}
       />
 
@@ -513,6 +578,36 @@ export default function ParticipantDashboard() {
         isOpen={isAffiliationModalOpen}
         onClose={() => setIsAffiliationModalOpen(false)}
       />
+
+      {resultsModalActivityId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          onClick={(e) =>  {
+            if(e.target === e.currentTarget)
+              setResultsModalActivityId(null);
+          }}    
+        >
+          <div className="relative w-full max-w-2xl max-h-[90vh] rounded-2xl bg-white shadow-2xl overflow-auto p-6">
+            <button
+            type="button"
+            onClick={() => setResultsModalActivityId(null)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
+            >
+                  <X/>
+            </button>
+
+            <ParticipantLeaderboard
+                 myRegistrations={myRegistrations}
+                 selectedActivityId={resultsModalActivityId}
+                 onBrowseEvents={() => {
+                  setResultsModalActivityId(null);
+                  setActiveTab("EXPLORE");
+                  navigate("/participant", { replace: true });
+                 }}
+                 onClearSelectedActivity={() => setResultsModalActivityId(null)}
+            />
+            </div>
+          </div>
+      )}
     </div>
   );
 }

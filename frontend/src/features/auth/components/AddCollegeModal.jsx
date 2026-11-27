@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   submitCollegeApplication,
+  submitManualCollegeApplication,
   sendCollegeDomainOTP,
   verifyCollegeDomainOTP
 } from "../authApi";
@@ -39,6 +40,11 @@ export default function AddCollegeModal({
   const [proposedDomain, setProposedDomain] = useState("");
   const [domainContactEmail, setDomainContactEmail] = useState("");
   const [initialAdminEmail, setInitialAdminEmail] = useState("");
+  const [supportingDocuments, setSupportingDocuments] = useState([]);
+  const [nomineeName, setNomineeName] = useState("");
+  const [nomineePhone, setNomineePhone] = useState("");
+  const [nomineeDesignation, setNomineeDesignation] = useState("");
+  const [nomineeDocument, setNomineeDocument] = useState(null);
 
   // OTP Verification state
   const [createdApplication, setCreatedApplication] = useState(null);
@@ -63,6 +69,8 @@ export default function AddCollegeModal({
       setProposedDomain("");
       setDomainContactEmail("");
       setInitialAdminEmail("");
+      setSupportingDocuments([]);
+      setNomineeName(""); setNomineePhone(""); setNomineeDesignation(""); setNomineeDocument(null);
       setCreatedApplication(null);
       setOtp("");
       setCooldown(0);
@@ -126,7 +134,15 @@ export default function AddCollegeModal({
         errors.domainContactEmail = `Email must belong to @${cleanDomain || "the proposed domain"}`;
       }
     }
+    if (verificationMode === "MANUAL_DOCUMENTS" && supportingDocuments.length === 0) {
+      errors.supportingDocuments = "Upload at least one institutional document.";
+    }
 
+    if (verificationMode === "MANUAL_DOCUMENTS") {
+      if (!nomineeName.trim() || !nomineeDesignation.trim() || !nomineePhone.trim() || !nomineeDocument || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(initialAdminEmail.trim())) {
+        errors.nominee = "Provide the administrator's name, valid email, phone, designation and authorization document.";
+      }
+    }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -151,7 +167,9 @@ export default function AddCollegeModal({
         initialAdminEmail: initialAdminEmail.trim().toLowerCase() || null
       };
 
-      const application = await submitCollegeApplication(payload);
+      const application = verificationMode === "MANUAL_DOCUMENTS"
+        ? await submitManualCollegeApplication({ ...payload, documents: supportingDocuments, nomineeName: nomineeName.trim(), nomineeEmail: initialAdminEmail.trim().toLowerCase(), nomineeContactNumber: nomineePhone.trim(), nomineeDesignation: nomineeDesignation.trim(), nomineeAuthorizationDocument: nomineeDocument })
+        : await submitCollegeApplication(payload);
       setCreatedApplication(application);
 
       if (verificationMode === "OFFICIAL_DOMAIN") {
@@ -238,13 +256,13 @@ export default function AddCollegeModal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity"
+      className="auth-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs transition-opacity"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div
-        className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left flex flex-col max-h-[90vh]"
+        className="auth-modal-card relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -445,13 +463,25 @@ export default function AddCollegeModal({
                   <p className="text-[11px] text-slate-500">
                     Your application will be submitted for manual administrative review. You can provide authorization letters or government accreditation documents.
                   </p>
+                  <label className="block text-[11px] font-semibold text-slate-700 pt-1">
+                    Institutional documents (PDF, JPG, PNG) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={(e) => setSupportingDocuments(Array.from(e.target.files || []))}
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:border-0 file:bg-indigo-50 file:px-3 file:py-1.5 file:text-indigo-700 file:font-semibold file:rounded-md"
+                  />
+                  {supportingDocuments.length > 0 && <p className="text-[11px] text-emerald-700">{supportingDocuments.length} document(s) ready to upload.</p>}
+                  {fieldErrors.supportingDocuments && <p className="text-[11px] text-red-600">{fieldErrors.supportingDocuments}</p>}
                 </div>
               )}
 
               {/* Proposed College Admin */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Proposed Initial College Admin Email (Optional)
+                  Proposed Initial College Admin Email {verificationMode === "MANUAL_DOCUMENTS" ? "*" : "(Optional)"}
                 </label>
                 <input
                   type="email"
@@ -461,10 +491,23 @@ export default function AddCollegeModal({
                   className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  If approved, the Super Admin will send a College Admin invitation to this address.
+                  Manual applications require an administrator nomination. The nominee receives an invitation after approval.
                 </p>
               </div>
 
+
+              {verificationMode === "MANUAL_DOCUMENTS" && (
+                <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                  <div><p className="text-sm font-bold text-slate-800">Initial administrator</p><p className="mt-1 text-xs leading-5 text-slate-600">The super admin will review this nomination and its authorization document before sending an invitation.</p></div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-xs font-semibold text-slate-700">Full name <span className="text-rose-600">*</span><input aria-label="Nominee name" value={nomineeName} onChange={e => setNomineeName(e.target.value)} placeholder="Administrator name" className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></label>
+                    <label className="block text-xs font-semibold text-slate-700">Contact number <span className="text-rose-600">*</span><input aria-label="Nominee contact number" type="tel" value={nomineePhone} onChange={e => setNomineePhone(e.target.value)} placeholder="Phone number" className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></label>
+                    <label className="block text-xs font-semibold text-slate-700 sm:col-span-2">Designation <span className="text-rose-600">*</span><input aria-label="Nominee designation" value={nomineeDesignation} onChange={e => setNomineeDesignation(e.target.value)} placeholder="e.g. Dean or administrator" className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" /></label>
+                  </div>
+                  <label className="block text-xs font-semibold text-slate-700">Authorization document <span className="text-rose-600">*</span><span className="mt-1 block font-normal text-slate-500">PDF, JPG or PNG</span><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setNomineeDocument(e.target.files?.[0] || null)} className="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-100 file:px-3 file:py-2 file:font-semibold file:text-indigo-700 hover:file:bg-indigo-200" /></label>
+                  {fieldErrors.nominee && <p role="alert" className="text-xs text-rose-600">{fieldErrors.nominee}</p>}
+                </div>
+              )}
               {/* Submit Buttons */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
@@ -583,7 +626,7 @@ export default function AddCollegeModal({
                 <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                   {verificationMode === "OFFICIAL_DOMAIN"
                     ? "Domain ownership has been successfully verified via OTP. Your institution application is now PENDING_VERIFICATION for Super Admin review."
-                    : "Your application and supporting documents have been received and are pending Super Admin review."}
+                    : "Your application and supporting documents are pending Super Admin review. Registration is available only after approval; search for your college again then."}
                 </p>
               </div>
 

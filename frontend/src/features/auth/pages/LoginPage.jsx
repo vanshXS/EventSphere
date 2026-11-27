@@ -5,7 +5,8 @@ import { useAuth } from "../AuthContext";
 import { parseAuthError } from "../utils/errorMapper";
 import AuthLayout from "../../../components/common/AuthLayout";
 import FormField from "../../../components/common/FormField";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import RegistrationOtpModal from "../components/RegistrationOtpModal";
 import { useToast } from "../../../components/common/ToastContext";
 
 export default function LoginPage() {
@@ -15,6 +16,8 @@ export default function LoginPage() {
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const addToast = useToast();
   const setGeneralError = (message) => {
     if (message) addToast(message, "error");
@@ -28,6 +31,8 @@ export default function LoginPage() {
     if (user) {
       if (user.role === "SUPER_ADMIN") {
         navigate("/super-admin/colleges", { replace: true });
+      } else if (user.role === "COLLEGE_ADMIN") {
+        navigate("/college-admin", { replace: true });
       } else if (user.role === "ORGANIZER") {
         navigate("/organizer", { replace: true });
       } else if (user.role === "PARTICIPANT") {
@@ -82,10 +87,12 @@ export default function LoginPage() {
 
     try {
       const user = await login(formData);
-      loginUser(user);
+      await loginUser(user);
 
       if (user?.role === "SUPER_ADMIN") {
         navigate("/super-admin/colleges");
+      } else if (user?.role === "COLLEGE_ADMIN") {
+        navigate("/college-admin");
       } else if (user?.role === "ORGANIZER") {
         navigate("/organizer");
       } else if (user?.role === "PARTICIPANT") {
@@ -101,6 +108,14 @@ export default function LoginPage() {
       const { fieldErrors: apiFieldErrors, generalError: apiGeneralError } = parseAuthError(err);
       setFieldErrors(apiFieldErrors);
       setGeneralError(apiGeneralError);
+      if (
+        apiGeneralError &&
+        (apiGeneralError.toLowerCase().includes("verify your email") ||
+         apiGeneralError.toLowerCase().includes("unverified") ||
+         apiGeneralError.toLowerCase().includes("disabled"))
+      ) {
+        setShowVerifyPrompt(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +126,23 @@ export default function LoginPage() {
       title="Welcome back"
       subtitle="Sign in to your EventSphere account"
     >
-      <form onSubmit={handleSubmit} noValidate>
+      {showVerifyPrompt && (
+        <div className="auth-alert mb-4 p-3.5 border rounded-xl flex items-center justify-between text-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Account email needs verification?</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsOtpModalOpen(true)}
+            className="font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+          >
+            Enter OTP
+          </button>
+        </div>
+      )}
+
+      <form className="auth-form" onSubmit={handleSubmit} noValidate>
         <FormField
           id="login-email"
           name="email"
@@ -156,14 +187,14 @@ export default function LoginPage() {
         </button>
       </form>
 
-      <div className="mt-6 border-t border-slate-100 pt-5 text-xs text-slate-600 space-y-3">
-        <div className="text-center font-medium text-slate-500">
+      <div className="auth-account-options text-xs text-slate-600 space-y-3">
+        <div className="auth-account-intro text-center font-medium text-slate-500">
           Don't have an account?
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <Link
             to="/register/organizer"
-            className="group block rounded-lg border border-slate-200 hover:border-indigo-200 bg-slate-50 hover:bg-indigo-50/50 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="auth-account-option group block rounded-lg border border-slate-200 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <span className="block text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
               Register as Organizer
@@ -174,7 +205,7 @@ export default function LoginPage() {
           </Link>
           <Link
             to="/register/participant"
-            className="group block rounded-lg border border-slate-200 hover:border-emerald-200 bg-slate-50 hover:bg-emerald-50/50 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="auth-account-option group block rounded-lg border border-slate-200 p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <span className="block text-sm font-semibold text-emerald-600 group-hover:text-emerald-700">
               Join as Participant
@@ -185,6 +216,18 @@ export default function LoginPage() {
           </Link>
         </div>
       </div>
+
+      <RegistrationOtpModal
+        isOpen={isOtpModalOpen}
+        email={formData.email}
+        userRole="Account"
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={() => {
+          setIsOtpModalOpen(false);
+          setShowVerifyPrompt(false);
+          addToast("Email verified successfully! You can now sign in.", "success");
+        }}
+      />
     </AuthLayout>
   );
 }

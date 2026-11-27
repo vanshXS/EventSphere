@@ -11,7 +11,7 @@ export default function QrTicketCard({ ticket, title = "Your QR Ticket" }) {
   if (!ticket?.qrPayload) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-none">
       <div className="flex items-center gap-2">
         <div className="rounded-xl bg-indigo-50 p-2 text-indigo-600">
           <QrCode className="h-5 w-5" />
@@ -24,7 +24,7 @@ export default function QrTicketCard({ ticket, title = "Your QR Ticket" }) {
         </div>
       </div>
 
-      <div className="mt-5 flex justify-center rounded-xl bg-slate-50 p-4">
+      <div className="mt-5 flex justify-center rounded-lg bg-slate-50 p-4">
         <img
           src={qrUrl(ticket.qrPayload)}
           alt="QR ticket"

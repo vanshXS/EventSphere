@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, Info, Calendar, Award, ArrowRight, ArrowLeft } from "lucide-react";
 
 import {
   ACTIVITY_REGISTRATION_TYPES,
@@ -9,6 +9,7 @@ import {
 
 import { EVENT_VISIBILITIES } from "../utils/eventHelpers";
 import ApprovalSetting from "../../activities/components/ApprovalSetting";
+import JudgingRoundConfigSection from "../../judging/components/JudgingRoundConfigSection";
 
 const inputClassName = (hasError) =>
   `block w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm transition-colors placeholder:text-slate-400 focus:outline-none focus:ring-2 disabled:opacity-60 ${
@@ -76,6 +77,12 @@ export default function CompetitionForm({
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
+  const [activeFormTab, setActiveFormTab] = useState("details");
+  const [judgingConfig, setJudgingConfig] = useState({
+    enabled: true, // Default to true for standalone competitions!
+    mode: "SINGLE_STAGE",
+    rounds: []
+  });
 
   const isTeamRegistration =
     formData.registrationType === "TEAM" ||
@@ -138,382 +145,518 @@ export default function CompetitionForm({
 
     setFieldErrors(errors);
 
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      if (errors.name || errors.type || errors.location || errors.description || errors.visibility) {
+        setActiveFormTab("details");
+      } else {
+        setActiveFormTab("schedule");
+      }
+      return;
+    }
 
-    await onSubmit(formData);
+    if (judgingConfig.enabled && Array.isArray(judgingConfig.rounds)) {
+      for (let i = 0; i < judgingConfig.rounds.length; i++) {
+        const round = judgingConfig.rounds[i];
+        const criteria = round.criteria || [];
+        const totalWeight = criteria.reduce((sum, c) => sum + (Number(c.weight) || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          setActiveFormTab("judging");
+          return;
+        }
+      }
+    }
+
+    await onSubmit({
+      ...formData,
+      judgingConfig
+    });
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
-      {serverError && (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
+    <div className="space-y-6">
+      {/* Form Step-by-Step Sub-Navbar */}
+      <nav className="flex rounded-xl border border-slate-200 bg-white p-1.5 shadow-xs overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveFormTab("details")}
+          className={`flex items-center gap-2 rounded-lg py-2.5 px-4 text-xs font-bold transition shrink-0 cursor-pointer ${
+            activeFormTab === "details"
+              ? "bg-indigo-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
         >
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-          <span>{serverError}</span>
-        </div>
-      )}
+          <Info className="h-4 w-4" />
+          <span>1. Basic Details</span>
+        </button>
 
-      <section className={sectionClassName}>
-        <div className="border-b border-slate-100 pb-2">
-          <h2 className="text-base font-semibold text-slate-900">
-            Competition details
-          </h2>
-
-          <p className="mt-0.5 text-xs text-slate-500">
-            Tell participants what they are registering for.
-          </p>
-        </div>
-
-        <Field
-          id="competition-name"
-          label="Name"
-          required
-          error={fieldErrors.name}
+        <button
+          type="button"
+          onClick={() => setActiveFormTab("schedule")}
+          className={`flex items-center gap-2 rounded-lg py-2.5 px-4 text-xs font-bold transition shrink-0 cursor-pointer ${
+            activeFormTab === "schedule"
+              ? "bg-indigo-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
         >
-          <input
-            id="competition-name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="e.g. Code Storm Hackathon"
-            disabled={isSubmitting}
-            className={inputClassName(fieldErrors.name)}
-          />
-        </Field>
+          <Calendar className="h-4 w-4" />
+          <span>2. Schedule & Rules</span>
+        </button>
 
-        <Field
-          id="competition-description"
-          label="Description"
-          required
-          error={fieldErrors.description}
-          hint={`${formData.description.length}/2000 characters`}
+        <button
+          type="button"
+          onClick={() => setActiveFormTab("judging")}
+          className={`flex items-center gap-2 rounded-lg py-2.5 px-4 text-xs font-bold transition shrink-0 cursor-pointer ${
+            activeFormTab === "judging"
+              ? "bg-indigo-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          }`}
         >
-          <textarea
-            id="competition-description"
-            name="description"
-            rows={3}
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Explain the activity and who it is for."
-            disabled={isSubmitting}
-            className={inputClassName(fieldErrors.description)}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
-            id="competition-type"
-            label="Type"
-            required
-            error={fieldErrors.type}
-          >
-            <select
-              id="competition-type"
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              disabled={isSubmitting}
-              className={inputClassName(fieldErrors.type)}
+          <Award className="h-4 w-4" />
+          <span>3. Judging Setup</span>
+          {judgingConfig.enabled && (
+            <span
+              className={`ml-1 rounded-full px-1.5 py-0.2 text-[9px] font-extrabold ${
+                activeFormTab === "judging" ? "bg-indigo-700 text-white" : "bg-indigo-100 text-indigo-700"
+              }`}
             >
-              <option value="">Select competition type</option>
+              On
+            </span>
+          )}
+        </button>
+      </nav>
 
-              {ACTIVITY_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field
-            id="competition-location"
-            label="Venue"
-            required
-            error={fieldErrors.location}
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        {serverError && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"
           >
-            <input
-              id="competition-location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              placeholder="e.g. Innovation Lab or Online"
-              disabled={isSubmitting}
-              className={inputClassName(fieldErrors.location)}
-            />
-          </Field>
-        </div>
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <span>{serverError}</span>
+          </div>
+        )}
 
-        <Field
-          id="competition-visibility"
-          label="Eligibility & visibility"
-          required
-          error={fieldErrors.visibility}
-        >
-          <select
-            id="competition-visibility"
-            name="visibility"
-            value={formData.visibility}
-            onChange={handleChange}
-            disabled={isSubmitting}
-            className={inputClassName(fieldErrors.visibility)}
-          >
-            {EVENT_VISIBILITIES.map((visibility) => (
-              <option
-                key={visibility.value}
-                value={visibility.value}
-              >
-                {visibility.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </section>
+        {/* TAB 1: DETAILS */}
+        {activeFormTab === "details" && (
+          <div className="space-y-6">
+            <section className={sectionClassName}>
+              <div className="border-b border-slate-100 pb-2">
+                <h2 className="text-base font-semibold text-slate-900">
+                  Competition details
+                </h2>
 
-      <section className={sectionClassName}>
-        <div className="border-b border-slate-100 pb-2">
-          <h2 className="text-base font-semibold text-slate-900">
-            Schedule
-          </h2>
-        </div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Tell participants what they are registering for.
+                </p>
+              </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {[
-            ["startDateTime", "Start date & time"],
-            ["endDateTime", "End date & time"],
-            ["registrationDeadline", "Registration deadline"]
-          ].map(([name, label]) => (
-            <Field
-              key={name}
-              id={`competition-${name}`}
-              label={label}
-              required
-              error={fieldErrors[name]}
-              hint={
-                name === "registrationDeadline"
-                  ? "Must be before the competition starts."
-                  : undefined
-              }
-            >
-              <input
-                id={`competition-${name}`}
-                name={name}
-                type="datetime-local"
-                value={formData[name]}
-                onChange={handleChange}
-                disabled={isSubmitting}
-                className={inputClassName(fieldErrors[name])}
-              />
-            </Field>
-          ))}
-        </div>
-        <Field
-          id="competition-check-in-window"
-          label="Activity check-in opens before start"
-        >
-          <select
-            id="competition-check-in-window"
-            name="checkInOpensMinutesBeforeStart"
-            value={formData.checkInOpensMinutesBeforeStart}
-            onChange={handleChange}
-            disabled={isSubmitting}
-            className={inputClassName(false)}
-          >
-            <option value="0">At start time</option>
-            <option value="15">15 minutes before</option>
-            <option value="30">30 minutes before</option>
-            <option value="60">60 minutes before</option>
-            <option value="120">120 minutes before</option>
-          </select>
-        </Field>
-      </section>
-
-      <section className={sectionClassName}>
-        <div className="border-b border-slate-100 pb-2">
-          <h2 className="text-base font-semibold text-slate-900">
-            Registration
-          </h2>
-
-          <p className="mt-0.5 text-xs text-slate-500">
-            Each individual or team registration uses one entry.
-          </p>
-        </div>
-
-        <Field
-          id="competition-registration-type"
-          label="Registration type"
-          required
-          error={fieldErrors.registrationType}
-          hint={
-            formData.registrationType === "BOTH"
-              ? "Participants may register individually or as a team."
-              : undefined
-          }
-        >
-          <select
-            id="competition-registration-type"
-            name="registrationType"
-            value={formData.registrationType}
-            onChange={handleRegistrationTypeChange}
-            disabled={isSubmitting}
-            className={inputClassName(fieldErrors.registrationType)}
-          >
-            {ACTIVITY_REGISTRATION_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <fieldset className="space-y-3">
-          <legend className="mb-2 text-xs font-semibold text-slate-700">
-            Registration limit
-          </legend>
-
-          <div className="flex gap-4 text-sm text-slate-700">
-            {[
-              ["UNLIMITED", "Unlimited"],
-              ["LIMITED", "Limited"]
-            ].map(([value, label]) => (
-              <label
-                key={value}
-                className="inline-flex cursor-pointer items-center gap-2"
+              <Field
+                id="competition-name"
+                label="Name"
+                required
+                error={fieldErrors.name}
               >
                 <input
-                  type="radio"
-                  name="registrationLimit"
-                  value={value}
-                  checked={formData.registrationLimit === value}
+                  id="competition-name"
+                  name="name"
+                  value={formData.name}
                   onChange={handleChange}
+                  placeholder="e.g. Code Storm Hackathon"
                   disabled={isSubmitting}
-                  className="accent-indigo-600"
+                  className={inputClassName(fieldErrors.name)}
                 />
-                {label}
-              </label>
-            ))}
-          </div>
+              </Field>
 
-          {formData.registrationLimit === "LIMITED" ? (
-            <Field
-              id="competition-capacity"
-              label="Maximum entries"
-              required
-              error={fieldErrors.capacity}
-              hint="One individual or one team counts as one entry."
-            >
-              <input
-                id="competition-capacity"
-                name="capacity"
-                type="number"
-                min="1"
-                step="1"
-                value={formData.capacity}
-                onChange={handleChange}
-                placeholder="e.g. 50"
-                disabled={isSubmitting}
-                className={inputClassName(fieldErrors.capacity)}
-              />
-            </Field>
-          ) : (
-            <p className="text-xs text-slate-500">
-              Unlimited entries until the registration deadline.
-            </p>
-          )}
-        </fieldset>
+              <Field
+                id="competition-description"
+                label="Description"
+                required
+                error={fieldErrors.description}
+                hint={`${formData.description.length}/2000 characters`}
+              >
+                <textarea
+                  id="competition-description"
+                  name="description"
+                  rows={3}
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Explain the activity and who it is for."
+                  disabled={isSubmitting}
+                  className={inputClassName(fieldErrors.description)}
+                />
+              </Field>
 
-        <ApprovalSetting
-          checked={formData.requiresApproval}
-          onChange={(checked) =>
-            setFormData((previous) => ({
-              ...previous,
-              requiresApproval: checked
-            }))
-          }
-          disabled={isSubmitting}
-        />
-
-        {isTeamRegistration && (
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div>
-              <h3 className="text-xs font-semibold text-slate-800">
-                Team size
-              </h3>
-
-              {formData.registrationType === "BOTH" && (
-                <p className="mt-1 text-xs text-slate-500">
-                  These limits apply only to team registrations.
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {[
-                ["minTeamSize", "Minimum members per team"],
-                ["maxTeamSize", "Maximum members per team"]
-              ].map(([name, label]) => (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field
-                  key={name}
-                  id={`competition-${name}`}
-                  label={label}
+                  id="competition-type"
+                  label="Type"
                   required
-                  error={fieldErrors[name]}
+                  error={fieldErrors.type}
                 >
-                  <input
-                    id={`competition-${name}`}
-                    name={name}
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={formData[name]}
+                  <select
+                    id="competition-type"
+                    name="type"
+                    value={formData.type}
                     onChange={handleChange}
                     disabled={isSubmitting}
-                    className={inputClassName(fieldErrors[name])}
+                    className={inputClassName(fieldErrors.type)}
+                  >
+                    <option value="">Select competition type</option>
+
+                    {ACTIVITY_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field
+                  id="competition-location"
+                  label="Venue"
+                  required
+                  error={fieldErrors.location}
+                >
+                  <input
+                    id="competition-location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    placeholder="e.g. Innovation Lab or Online"
+                    disabled={isSubmitting}
+                    className={inputClassName(fieldErrors.location)}
                   />
                 </Field>
-              ))}
+              </div>
+
+              <Field
+                id="competition-visibility"
+                label="Eligibility & visibility"
+                required
+                error={fieldErrors.visibility}
+              >
+                <select
+                  id="competition-visibility"
+                  name="visibility"
+                  value={formData.visibility}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName(fieldErrors.visibility)}
+                >
+                  {EVENT_VISIBILITIES.map((visibility) => (
+                    <option
+                      key={visibility.value}
+                      value={visibility.value}
+                    >
+                      {visibility.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </section>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setActiveFormTab("schedule")}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+              >
+                <span>Continue to Schedule</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
             </div>
           </div>
         )}
-      </section>
 
-      <section className={sectionClassName}>
-        <Field
-          id="competition-rules"
-          label="Rules"
-          required
-          error={fieldErrors.rules}
-          hint={`${formData.rules.length}/5000 characters`}
-        >
-          <textarea
-            id="competition-rules"
-            name="rules"
-            rows={4}
-            value={formData.rules}
-            onChange={handleChange}
-            placeholder="Add eligibility, submission and participation rules."
-            disabled={isSubmitting}
-            className={inputClassName(fieldErrors.rules)}
-          />
-        </Field>
-      </section>
+        {/* TAB 2: SCHEDULE & ENTRY */}
+        {activeFormTab === "schedule" && (
+          <div className="space-y-6">
+            <section className={sectionClassName}>
+              <div className="border-b border-slate-100 pb-2">
+                <h2 className="text-base font-semibold text-slate-900">
+                  Schedule
+                </h2>
+              </div>
 
-      <div className="flex justify-end pt-2">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting && (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          )}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {[
+                  ["startDateTime", "Start date & time"],
+                  ["endDateTime", "End date & time"],
+                  ["registrationDeadline", "Registration deadline"]
+                ].map(([name, label]) => (
+                  <Field
+                    key={name}
+                    id={`competition-${name}`}
+                    label={label}
+                    required
+                    error={fieldErrors[name]}
+                    hint={
+                      name === "registrationDeadline"
+                        ? "Must be before the competition starts."
+                        : undefined
+                    }
+                  >
+                    <input
+                      id={`competition-${name}`}
+                      name={name}
+                      type="datetime-local"
+                      value={formData[name]}
+                      onChange={handleChange}
+                      disabled={isSubmitting}
+                      className={inputClassName(fieldErrors[name])}
+                    />
+                  </Field>
+                ))}
+              </div>
+              <Field
+                id="competition-check-in-window"
+                label="Activity check-in opens before start"
+              >
+                <select
+                  id="competition-check-in-window"
+                  name="checkInOpensMinutesBeforeStart"
+                  value={formData.checkInOpensMinutesBeforeStart}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className={inputClassName(false)}
+                >
+                  <option value="0">At start time</option>
+                  <option value="15">15 minutes before</option>
+                  <option value="30">30 minutes before</option>
+                  <option value="60">60 minutes before</option>
+                  <option value="120">120 minutes before</option>
+                </select>
+              </Field>
+            </section>
 
-          {isSubmitting
-            ? "Creating competition..."
-            : "Create Competition"}
-        </button>
-      </div>
-    </form>
+            <section className={sectionClassName}>
+              <div className="border-b border-slate-100 pb-2">
+                <h2 className="text-base font-semibold text-slate-900">
+                  Registration & capacity
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Each individual or team registration uses one entry.
+                </p>
+              </div>
+
+              <Field
+                id="competition-registration-type"
+                label="Registration type"
+                required
+                error={fieldErrors.registrationType}
+                hint={
+                  formData.registrationType === "BOTH"
+                    ? "Participants may register individually or as a team."
+                    : undefined
+                }
+              >
+                <select
+                  id="competition-registration-type"
+                  name="registrationType"
+                  value={formData.registrationType}
+                  onChange={handleRegistrationTypeChange}
+                  disabled={isSubmitting}
+                  className={inputClassName(fieldErrors.registrationType)}
+                >
+                  {ACTIVITY_REGISTRATION_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <fieldset className="space-y-3">
+                <legend className="mb-2 text-xs font-semibold text-slate-700">
+                  Registration limit
+                </legend>
+
+                <div className="flex gap-4 text-sm text-slate-700">
+                  {[
+                    ["UNLIMITED", "Unlimited"],
+                    ["LIMITED", "Limited"]
+                  ].map(([value, label]) => (
+                    <label
+                      key={value}
+                      className="inline-flex cursor-pointer items-center gap-2"
+                    >
+                      <input
+                        type="radio"
+                        name="registrationLimit"
+                        value={value}
+                        checked={formData.registrationLimit === value}
+                        onChange={handleChange}
+                        disabled={isSubmitting}
+                        className="accent-indigo-600"
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+
+                {formData.registrationLimit === "LIMITED" ? (
+                  <Field
+                    id="competition-capacity"
+                    label="Maximum entries"
+                    required
+                    error={fieldErrors.capacity}
+                    hint="One individual or one team counts as one entry."
+                  >
+                    <input
+                      id="competition-capacity"
+                      name="capacity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={formData.capacity}
+                      onChange={handleChange}
+                      placeholder="e.g. 50"
+                      disabled={isSubmitting}
+                      className={inputClassName(fieldErrors.capacity)}
+                    />
+                  </Field>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Unlimited entries until the registration deadline.
+                  </p>
+                )}
+              </fieldset>
+
+              <ApprovalSetting
+                checked={formData.requiresApproval}
+                onChange={(checked) =>
+                  setFormData((previous) => ({
+                    ...previous,
+                    requiresApproval: checked
+                  }))
+                }
+                disabled={isSubmitting}
+              />
+
+              {isTeamRegistration && (
+                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-800">
+                      Team size
+                    </h3>
+
+                    {formData.registrationType === "BOTH" && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        These limits apply only to team registrations.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {[
+                      ["minTeamSize", "Minimum members per team"],
+                      ["maxTeamSize", "Maximum members per team"]
+                    ].map(([name, label]) => (
+                      <Field
+                        key={name}
+                        id={`competition-${name}`}
+                        label={label}
+                        required
+                        error={fieldErrors[name]}
+                      >
+                        <input
+                          id={`competition-${name}`}
+                          name={name}
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={formData[name]}
+                          onChange={handleChange}
+                          disabled={isSubmitting}
+                          className={inputClassName(fieldErrors[name])}
+                        />
+                      </Field>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            <section className={sectionClassName}>
+              <Field
+                id="competition-rules"
+                label="Rules"
+                required
+                error={fieldErrors.rules}
+                hint={`${formData.rules.length}/5000 characters`}
+              >
+                <textarea
+                  id="competition-rules"
+                  name="rules"
+                  rows={4}
+                  value={formData.rules}
+                  onChange={handleChange}
+                  placeholder="Add eligibility, submission and participation rules."
+                  disabled={isSubmitting}
+                  className={inputClassName(fieldErrors.rules)}
+                />
+              </Field>
+            </section>
+
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setActiveFormTab("details")}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to Details</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveFormTab("judging")}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition cursor-pointer"
+              >
+                <span>Continue to Judging Setup</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: JUDGING SETUP */}
+        {activeFormTab === "judging" && (
+          <div className="space-y-6">
+            <JudgingRoundConfigSection
+              config={judgingConfig}
+              onChange={setJudgingConfig}
+              activityType={formData.type}
+              disabled={isSubmitting}
+            />
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => setActiveFormTab("schedule")}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to Schedule</span>
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              >
+                {isSubmitting && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+
+                {isSubmitting
+                  ? "Creating competition..."
+                  : "Create Competition"}
+              </button>
+            </div>
+          </div>
+        )}
+      </form>
+    </div>
   );
 }

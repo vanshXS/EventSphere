@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ShieldCheck,
   Building2,
   Globe,
-  Mail,
   Clock,
   CheckCircle2,
   XCircle,
@@ -11,21 +10,18 @@ import {
   Loader2,
   RefreshCw,
   Search,
-  UserCheck,
-  FileText,
   KeyRound,
-  ExternalLink,
-  ChevronRight,
-  Filter
+  Download,
+  ChevronDown
 } from "lucide-react";
 import { useAuth } from "../features/auth/AuthContext";
 import AppHeader from "../components/common/AppHeader";
 import {
-  getPendingCollegeApplications,
+  getPendingCollegeApplications, getApprovedCollegeApplications, resendCollegeAdminInvitation,
   getCollegeApplicationDetails,
   approveCollegeApplication,
   rejectCollegeApplication,
-  assignCollegeAdmin
+  submitInitialAdminNomination, downloadInstitutionDocument, downloadNomineeDocument
 } from "../features/auth/authApi";
 import { useToast } from "../components/common/ToastContext";
 
@@ -34,6 +30,9 @@ export default function SuperAdminCollegesPage() {
   const addToast = useToast();
 
   const [applications, setApplications] = useState([]);
+  const [approvedApps, setApprovedApps] = useState([]);
+  const [approvedPage, setApprovedPage] = useState(0);
+  const [approvedPages, setApprovedPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -48,10 +47,8 @@ export default function SuperAdminCollegesPage() {
   const [rejectingApp, setRejectingApp] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
 
-  // Assign Admin modal state
-  const [assigningApp, setAssigningApp] = useState(null);
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminName, setAdminName] = useState("");
+  const [editNominee, setEditNominee] = useState(false);
+  const [nominee, setNominee] = useState({ name: "", email: "", contactNumber: "", designation: "", authorizationDocument: null });
 
   const fetchApplications = useCallback(async (pageIndex = 0) => {
     try {
@@ -78,8 +75,27 @@ export default function SuperAdminCollegesPage() {
     fetchApplications(page);
   }, [page, fetchApplications]);
 
+  const fetchApproved = useCallback(async () => {
+    try { const data = await getApprovedCollegeApplications(approvedPage, 20); setApprovedApps(data.content || []); setApprovedPages(data.totalPages || 1); }
+    catch (err) { addToast(err.response?.data?.message || "Could not load approved applications.", "error"); }
+  }, [approvedPage, addToast]);
+  useEffect(() => {
+    let active = true;
+    getApprovedCollegeApplications(approvedPage, 20)
+      .then(data => { if (active) { setApprovedApps(data.content || []); setApprovedPages(data.totalPages || 1); } })
+      .catch(err => { if (active) addToast(err.response?.data?.message || "Could not load approved applications.", "error"); });
+    return () => { active = false; };
+  }, [approvedPage, addToast]);
+  const resendInvitation = async (app) => {
+    try { setActionLoading(true); await resendCollegeAdminInvitation(app.id); addToast("Invitation sent.", "success"); }
+    catch (err) { addToast(err.response?.data?.message || "Could not send invitation.", "error"); }
+    finally { setActionLoading(false); }
+  };
+
   const handleViewDetails = async (app) => {
     setSelectedApp(app);
+    setEditNominee(false);
+    setNominee({ name: "", email: "", contactNumber: "", designation: "", authorizationDocument: null });
     try {
       setLoadingDetails(true);
       const details = await getCollegeApplicationDetails(app.id);
@@ -98,6 +114,7 @@ export default function SuperAdminCollegesPage() {
       addToast("College application successfully approved!", "success");
       setSelectedApp(null);
       fetchApplications(page);
+      fetchApproved();
     } catch (err) {
       console.error("Approve error:", err);
       addToast(err.response?.data?.message || "Failed to approve application.", "error");
@@ -129,31 +146,26 @@ export default function SuperAdminCollegesPage() {
     }
   };
 
-  const handleAssignAdmin = async (e) => {
-    e.preventDefault();
-    if (!adminEmail.trim()) {
-      addToast("Admin email is required.", "error");
-      return;
-    }
+  const downloadDocument = async (request, name) => {
+    try {
+      const response = await request();
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a"); link.href = url; link.download = name || "document"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) { addToast(err.response?.data?.message || "Could not download document.", "error"); }
+  };
 
+  const handleNomination = async (event) => {
+    event.preventDefault();
     try {
       setActionLoading(true);
-      await assignCollegeAdmin(assigningApp.collegeId || assigningApp.id, {
-        email: adminEmail.trim(),
-        name: adminName.trim() || undefined,
-        permissions: ["REVIEW_STUDENT_AFFILIATION", "MANAGE_COLLEGE_EVENTS"]
-      });
-      addToast(`College Admin successfully assigned to ${adminEmail}`, "success");
-      setAssigningApp(null);
-      setAdminEmail("");
-      setAdminName("");
-      fetchApplications(page);
-    } catch (err) {
-      console.error("Assign admin error:", err);
-      addToast(err.response?.data?.message || "Failed to assign college admin.", "error");
-    } finally {
-      setActionLoading(false);
-    }
+      const result = await submitInitialAdminNomination(selectedApp.id, nominee);
+      setSelectedApp(result);
+      setEditNominee(false);
+      await fetchApplications(page);
+      addToast("Administrator nomination saved for review.", "success");
+    } catch (err) { addToast(err.response?.data?.message || "Could not save nomination.", "error"); }
+    finally { setActionLoading(false); }
   };
 
   const filteredApps = applications.filter((app) => {
@@ -201,6 +213,17 @@ export default function SuperAdminCollegesPage() {
           </div>
         </div>
 
+        <details className="group mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+          <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+            <span className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><KeyRound className="h-5 w-5" aria-hidden="true" /></span><span><span className="block text-sm font-bold text-slate-900">Approved institutions & invitations</span><span className="mt-1 block text-xs text-slate-500">Manage invitations for approved college admins</span></span></span>
+            <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-slate-100 px-5 py-4">
+            {approvedApps.length === 0 && <p className="py-2 text-sm text-slate-500">No approved applications yet.</p>}
+            <div className="divide-y divide-slate-100">{approvedApps.map(app => <div key={app.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="break-words text-sm font-semibold text-slate-900">{app.name}</p><p className="mt-0.5 break-all text-xs text-slate-500">{app.initialAdminEmail || "No administrator nominated"}</p></div>{app.nomineeStatus === "APPROVED" && <button disabled={actionLoading} type="button" className="min-h-10 shrink-0 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50" onClick={() => resendInvitation(app)}>Resend invitation</button>}</div>)}</div>
+            <div className="mt-3 flex items-center justify-end gap-3 text-xs text-slate-600"><button type="button" className="rounded-md px-2 py-1.5 hover:bg-slate-100 disabled:opacity-40" disabled={approvedPage === 0} onClick={() => setApprovedPage(p => p - 1)}>Previous</button><span>Page {approvedPage + 1} of {approvedPages}</span><button type="button" className="rounded-md px-2 py-1.5 hover:bg-slate-100 disabled:opacity-40" disabled={approvedPage + 1 >= approvedPages} onClick={() => setApprovedPage(p => p + 1)}>Next</button></div>
+          </div>
+        </details>
         {/* Search & Filter Toolbar */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="relative w-full sm:max-w-md">
@@ -352,11 +375,11 @@ export default function SuperAdminCollegesPage() {
                       <button
                         type="button"
                         onClick={() => handleApprove(app.id)}
-                        disabled={isDomainMode && !isDomainVerified}
+                        disabled={!isDomainMode || !isDomainVerified}
                         title={
                           isDomainMode && !isDomainVerified
                             ? "Domain OTP challenge has not been verified yet"
-                            : "Approve Institution"
+                            : (!isDomainMode ? "Inspect documents before approval" : "Approve Institution")
                         }
                         className="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-md transition-colors cursor-pointer shadow-2xs"
                       >
@@ -440,11 +463,11 @@ export default function SuperAdminCollegesPage() {
                   <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div>
                       <span className="text-slate-400 block mb-0.5">Verification Mode</span>
-                      <span className="font-bold text-slate-800">{selectedApp.verificationMode}</span>
+                      <span className="font-bold text-slate-800">{selectedApp.verificationMode === "MANUAL_DOCUMENTS" ? "Manual documents" : selectedApp.verificationMode === "OFFICIAL_DOMAIN" ? "Official domain" : selectedApp.verificationMode}</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block mb-0.5">Current Status</span>
-                      <span className="font-bold text-amber-600">{selectedApp.verificationStatus}</span>
+                      <span className="font-bold text-amber-600">{selectedApp.verificationStatus === "PENDING_VERIFICATION" ? "Pending review" : selectedApp.verificationStatus === "VERIFIED" ? "Verified" : selectedApp.verificationStatus === "REJECTED" ? "Rejected" : selectedApp.verificationStatus}</span>
                     </div>
                     {selectedApp.proposedDomain && (
                       <div>
@@ -485,24 +508,35 @@ export default function SuperAdminCollegesPage() {
                     </div>
                   )}
 
-                  {selectedApp.initialAdminEmail && (
-                    <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between">
-                      <div>
-                        <span className="text-indigo-900 font-semibold block">Proposed Initial Admin</span>
-                        <span className="font-mono text-indigo-700">{selectedApp.initialAdminEmail}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAssigningApp(selectedApp);
-                          setAdminEmail(selectedApp.initialAdminEmail);
-                          setAdminName("");
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-2xs"
-                      >
-                        Assign as Admin
-                      </button>
+                  {selectedApp.verificationMode === "MANUAL_DOCUMENTS" && (
+                    <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-bold text-slate-800">Institutional documents</p>
+                      <p className="text-xs text-slate-500">Review the supporting documents before approving this institution.</p>
+                      {(selectedApp.supportingDocuments || []).map(doc => <button key={doc.storagePath} type="button" className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left text-xs font-semibold text-indigo-700 hover:bg-indigo-50" onClick={() => downloadDocument(() => downloadInstitutionDocument(selectedApp.id, doc.storagePath), doc.originalFilename)}><Download className="h-4 w-4 shrink-0" aria-hidden="true" /><span className="break-all">{doc.originalFilename}</span></button>)}
+                      {!selectedApp.supportingDocuments?.length && <p className="text-xs font-medium text-rose-700">No supporting documents available. This application cannot be approved.</p>}
                     </div>
+                  )}
+                  {selectedApp.nomineeStatus === "PENDING" && !editNominee ? (
+                    <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                      <p className="text-sm font-bold text-slate-800">Administrator nominee</p>
+                      <p className="text-sm font-semibold text-slate-900">{selectedApp.nomineeName}</p>
+                      <p className="break-words text-xs leading-5 text-slate-600">{selectedApp.initialAdminEmail} · {selectedApp.nomineeDesignation} · {selectedApp.nomineeContactNumber}</p>
+                      <div className="flex flex-wrap gap-2"><button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50" onClick={() => downloadDocument(() => downloadNomineeDocument(selectedApp.id), selectedApp.nomineeAuthorizationDocument?.originalFilename)}><Download className="h-4 w-4" aria-hidden="true" />Authorization document</button>{selectedApp.verificationMode === "MANUAL_DOCUMENTS" && <button type="button" className="min-h-10 rounded-lg px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-100" onClick={() => setEditNominee(true)}>Replace nomination</button>}</div>
+                      <p className="text-xs text-slate-600">Approving the institution sends an invitation to the nominee.</p>
+                      {!selectedApp.nomineeAuthorizationDocument && <p className="text-xs font-medium text-rose-700">Authorization document missing. Replace this nomination before approval.</p>}
+                    </div>
+                  ) : selectedApp.verificationMode === "MANUAL_DOCUMENTS" && (
+                    <form onSubmit={handleNomination} className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                      <div><p className="text-sm font-bold text-slate-800">Administrator nomination</p><p className="mt-1 text-xs text-slate-600">Provide the nominee's details and authorization document.</p></div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="text-xs font-semibold text-slate-700">Name<input required aria-label="Nominee name" placeholder="Full name" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" value={nominee.name} onChange={e => setNominee({...nominee, name: e.target.value})} /></label>
+                        <label className="text-xs font-semibold text-slate-700">Email<input required type="email" aria-label="Nominee email" placeholder="name@example.com" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" value={nominee.email} onChange={e => setNominee({...nominee, email: e.target.value})} /></label>
+                        <label className="text-xs font-semibold text-slate-700">Contact number<input required type="tel" aria-label="Nominee contact" placeholder="Phone number" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" value={nominee.contactNumber} onChange={e => setNominee({...nominee, contactNumber: e.target.value})} /></label>
+                        <label className="text-xs font-semibold text-slate-700">Designation<input required aria-label="Nominee designation" placeholder="Designation" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" value={nominee.designation} onChange={e => setNominee({...nominee, designation: e.target.value})} /></label>
+                      </div>
+                      <label className="block text-xs font-semibold text-slate-700">Authorization document <span className="font-normal text-slate-500">(PDF, JPG, PNG)</span><input required type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e => setNominee({...nominee, authorizationDocument: e.target.files?.[0]})} className="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-indigo-100 file:px-3 file:py-2 file:font-semibold file:text-indigo-700" /></label>
+                      <div className="flex flex-wrap gap-2"><button disabled={actionLoading} className="min-h-10 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">Save nomination</button>{editNominee && <button type="button" onClick={() => setEditNominee(false)} className="min-h-10 rounded-lg px-3 text-xs font-semibold text-slate-600 hover:bg-white">Cancel</button>}</div>
+                    </form>
                   )}
 
                   {selectedApp.address && (
@@ -535,7 +569,8 @@ export default function SuperAdminCollegesPage() {
                 onClick={() => handleApprove(selectedApp.id)}
                 disabled={
                   actionLoading ||
-                  (selectedApp.verificationMode === "OFFICIAL_DOMAIN" && !selectedApp.domainOwnershipVerifiedAt)
+                  (selectedApp.verificationMode === "OFFICIAL_DOMAIN" && !selectedApp.domainOwnershipVerifiedAt) ||
+                  (selectedApp.verificationMode === "MANUAL_DOCUMENTS" && (!selectedApp.supportingDocuments?.length || selectedApp.nomineeStatus !== "PENDING" || !selectedApp.nomineeAuthorizationDocument))
                 }
                 className="px-5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg cursor-pointer shadow-sm flex items-center gap-1.5"
               >
@@ -604,85 +639,6 @@ export default function SuperAdminCollegesPage() {
         </div>
       )}
 
-      {/* Assign Admin Modal */}
-      {assigningApp && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
-          onClick={() => setAssigningApp(null)}
-        >
-          <form
-            onSubmit={handleAssignAdmin}
-            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden text-left"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6 border-b border-slate-100 bg-indigo-50/50 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Authorize College Admin</h3>
-                <p className="text-xs text-slate-500">{assigningApp.name}</p>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Administrator Email <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={adminEmail}
-                  onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="admin@college.ac.in"
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Administrator Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={adminName}
-                  onChange={(e) => setAdminName(e.target.value)}
-                  placeholder="Dr. John Doe"
-                  className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900"
-                />
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 space-y-1">
-                <p className="font-semibold text-slate-800">Granted Permissions:</p>
-                <ul className="list-disc list-inside space-y-0.5 text-slate-500">
-                  <li>Review & approve student affiliations</li>
-                  <li>Manage campus-exclusive events and visibility</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setAssigningApp(null)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={actionLoading || !adminEmail.trim()}
-                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg cursor-pointer disabled:opacity-50"
-              >
-                {actionLoading ? "Authorizing..." : "Authorize Admin"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

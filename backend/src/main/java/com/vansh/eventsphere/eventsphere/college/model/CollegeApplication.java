@@ -1,6 +1,7 @@
 package com.vansh.eventsphere.eventsphere.college.model;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -37,6 +38,17 @@ public class CollegeApplication {
     private String domainContactEmail;
 
     private String initialAdminEmail;
+    private String nomineeName;
+    private String nomineeContactNumber;
+    private String nomineeDesignation;
+    private StoredDocument nomineeAuthorizationDocument;
+    private String nomineeStatus;
+    private String nomineeReviewedBy;
+    private LocalDateTime nomineeReviewedAt;
+    private String nomineeRejectionReason;
+
+    /** Metadata only; files remain in the private document store. */
+    private List<StoredDocument> supportingDocuments;
 
     private CollegeVerificationStatus verificationStatus;
 

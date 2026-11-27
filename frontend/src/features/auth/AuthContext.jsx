@@ -26,7 +26,7 @@ const enrichUserData = async (userData) => {
                 collegeName: college.name,
                 collegeCode: college.code,
                 collegeVerificationMode: college.verificationMode,
-                collegeVerificationStatus: college.verificationStatus,
+                institutionVerificationStatus: college.verificationStatus,
                 verifiedDomains: college.verifiedDomains || []
             };
         }

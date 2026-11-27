@@ -66,7 +66,7 @@ export default function ParticipantTicketPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8">
+    <div className="participant-ticket-page min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto max-w-3xl">
         <Link
           to="/participant"

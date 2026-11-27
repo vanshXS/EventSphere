@@ -1,0 +1,76 @@
+name: Frontend checks
+
+on:
+  push:
+    branches:
+      - ui-redesign/stitch-implementation
+  pull_request:
+    branches:
+      - rajat-branch
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint participant and organizer module files
+        run: >-
+          npx eslint
+          src/pages/ParticipantDashboard.jsx
+          src/pages/EventOperationsPage.jsx
+          src/pages/StandaloneActivityOperationsPage.jsx
+          src/features/events/pages/EventsPage.jsx
+          src/features/events/pages/CreateEventPage.jsx
+          src/features/events/pages/EditEventPage.jsx
+          src/features/events/components/EventTable.jsx
+          src/features/judging/pages/OrganizerJudgingPage.jsx
+          src/pages/ParticipantCertificatePreviewPage.jsx
+          src/pages/ParticipantTicketPage.jsx
+          src/features/registration/components/ParticipantEventTable.jsx
+          src/features/registration/components/MyRegistrationsTable.jsx
+          src/features/registration/components/ParticipantHeader.jsx
+          src/features/registration/components/ActivityRegistrationModal.jsx
+          src/features/registration/components/QrTicketCard.jsx
+          src/features/activities/components/ActivityDetailsModal.jsx
+          src/features/events/components/EventDetailsModal.jsx
+          src/features/teams/components/MyTeamsList.jsx
+          src/features/teams/components/TeamDetailsModal.jsx
+          src/features/certificates/MyCertificates.jsx
+          src/features/certificates/certificateApi.js
+
+      - name: Build production bundle
+        run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Compile backend and run tests
+        run: bash mvnw -B -Dtest='!EventSphereApplicationTests' test

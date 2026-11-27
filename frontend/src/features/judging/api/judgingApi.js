@@ -163,5 +163,69 @@ export const getParticipantRoundResults = async (roundId) => {
   return response.data;
 };
 
+export const copyRoundAssignments = async (sourceRoundId, targetRoundId) => {
+  const response = await api.post(
+    `/api/organizer/judging-rounds/${sourceRoundId}/copy-assignments/${targetRoundId}`
+  );
+  return response.data;
+};
+
+export const setupActivityJudging = async (activityId, judgingConfig, registrationType) => {
+  if (!judgingConfig || !judgingConfig.enabled) return null;
+
+  try {
+    let comp = null;
+    try {
+      comp = await getCompetition(activityId);
+    } catch {
+      comp = null;
+    }
+
+    const compPayload = {
+      judgingEnabled: true,
+      competitionMode: judgingConfig.mode || "SINGLE_STAGE",
+      ...(registrationType === "BOTH" ? { rankingPolicy: "SEPARATE_BY_ENTRY_TYPE" } : {})
+    };
+
+    if (comp) {
+      await updateCompetition(activityId, compPayload);
+    } else {
+      await createCompetition(activityId, compPayload);
+    }
+
+    const existingRounds = await getJudgingRounds(activityId);
+    const existingCount = Array.isArray(existingRounds) ? existingRounds.length : 0;
+
+    if (existingCount === 0 && Array.isArray(judgingConfig.rounds)) {
+      for (let i = 0; i < judgingConfig.rounds.length; i++) {
+        const round = judgingConfig.rounds[i];
+        const criteria = Array.isArray(round.criteria) && round.criteria.length > 0
+          ? round.criteria.map((c) => ({
+              name: c.name?.trim() || "Criterion",
+              description: c.description?.trim() || null,
+              maxScore: Number(c.maxScore) || 10,
+              weight: Number(c.weight) || (100 / round.criteria.length)
+            }))
+          : [
+              { name: "Technical execution", description: "Quality of execution", maxScore: 10, weight: 50 },
+              { name: "Presentation & clarity", description: "Clarity of delivery", maxScore: 10, weight: 50 }
+            ];
+
+        await createJudgingRound(activityId, {
+          name: round.name?.trim() || (judgingConfig.mode === "SINGLE_STAGE" ? "Final Evaluation" : `Round ${i + 1}`),
+          description: round.description?.trim() || null,
+          scheduledStartDateTime: round.scheduledStartDateTime || null,
+          scheduledEndDateTime: round.scheduledEndDateTime || null,
+          sequence: i + 1,
+          criteria
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Error setting up activity judging:", err);
+    throw err;
+  }
+};
+
 export const getApiErrorMessage = (error, fallback = "Something went wrong. Please try again.") =>
   error?.response?.data?.message || error?.response?.data?.detail || error?.message || fallback;

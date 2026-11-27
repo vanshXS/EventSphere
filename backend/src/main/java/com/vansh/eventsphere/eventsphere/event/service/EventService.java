@@ -31,6 +31,7 @@ public class EventService {
         private final EventMapper eventMapper;
         private final UserRepository userRepository;
         private final ActivityRepository activityRepository;
+        private final OrganizerAffiliationPolicy organizerAffiliationPolicy;
 
         public EventResponse createEvent(
                         CreateEventRequest request,
@@ -155,6 +156,7 @@ public class EventService {
 
                 eventValidator.validateEventAccess(event, organizerId);
                 eventValidator.validateCanPublish(event);
+                organizerAffiliationPolicy.verifyCampusPublishing(organizerId, event.getVisibility());
 
                 event.setEventStatus(EventStatus.PUBLISHED);
                 event.setUpdatedAt(LocalDateTime.now());

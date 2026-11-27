@@ -32,21 +32,24 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(
                         auth -> auth
+                                .requestMatchers("/api/colleges/applications/*/nominee").hasRole("SUPER_ADMIN")
                                 .requestMatchers(
                                         "/api/auth/register/**",
                                         "/api/auth/login",
                                         "/api/auth/refresh",
+                                        "/api/auth/college-admin/accept-invitation",
                                         "/api/colleges/search",
                                         "/api/colleges/applications/**",
                                         "/api/staff/invitations/**",
                                         "/api/judge/invitations/**"
                                 )
                                 .permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/public/certificates/*/verify").permitAll()
                                 .requestMatchers(HttpMethod.POST, "/api/colleges").denyAll()
                                 .requestMatchers("/api/colleges/super-admin/**")
                                 .hasRole("SUPER_ADMIN")
                                 .requestMatchers("/api/colleges/college-admin/**")
-                                .hasAnyRole("ORGANIZER", "PARTICIPANT", "JUDGE", "VOLUNTEER")
+                                .hasRole("COLLEGE_ADMIN")
                                 .requestMatchers("/api/colleges/participant/**")
                                 .hasRole("PARTICIPANT")
                                 .requestMatchers("/api/organizer/**")

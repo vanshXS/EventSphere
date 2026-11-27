@@ -1,0 +1,51 @@
+import api from "../../lib/api";
+
+export async function getCertificatePreview(scope, id, type, roundId) {
+  const response = await api.get(`/api/organizer/${scope}/${id}/certificates/eligibility`, {
+    params: scope === "activities" ? { type, ...(roundId ? { roundId } : {}) } : {},
+  });
+  return response.data;
+}
+export async function generateCertificate(scope, id, request) {
+  const response = await api.post(`/api/organizer/${scope}/${id}/certificates/generate`, request);
+  return response.data;
+}
+export async function getMyCertificates(page = 0) {
+  const response = await api.get("/api/participant/certificates", { params: { page } });
+  return response.data;
+}
+
+export async function getAllMyCertificates() {
+  const firstPage = await getMyCertificates(0);
+  const certificates = [...(firstPage?.content || [])];
+  const totalPages = Math.max(1, Number(firstPage?.totalPages) || 1);
+
+  for (let page = 1; page < totalPages; page += 1) {
+    const result = await getMyCertificates(page);
+    certificates.push(...(result?.content || []));
+  }
+
+  return certificates;
+}
+export async function getCertificatePdfBlob(id) {
+  const response = await api.get(`/api/participant/certificates/${id}/download`, { responseType: "blob" });
+  return response.data;
+}
+
+export async function downloadCertificate(id, number) {
+  const blob = await getCertificatePdfBlob(id);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${number}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+export async function verifyCertificate(number) {
+  // Public lookup: don't trigger authentication refresh when the user is signed out.
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"}/api/public/certificates/${encodeURIComponent(number)}/verify`, { cache: "no-store" });
+  if (!response.ok) throw new Error("Verification is currently unavailable.");
+  return response.json();
+}

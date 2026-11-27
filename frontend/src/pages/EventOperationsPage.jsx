@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Calendar,
@@ -13,20 +13,15 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  ExternalLink,
   Sliders,
   AlertCircle,
   CheckCircle2,
   Layers,
-  ChevronRight,
   Info,
   QrCode,
-  Shield,
   Loader2,
   Play,
-  CheckCircle,
   Activity,
-  TrendingUp,
   Clock,
   Trophy
 } from "lucide-react";
@@ -54,25 +49,27 @@ import {
   isEnded
 } from "../features/activities/utils/activityHelpers";
 import ActivityRegistrationsModal from "../features/registration/components/ActivityRegistrationsModal";
+import OrganizerCertificates from "../features/certificates/OrganizerCertificates";
+import JudgeAssignmentManager from "../features/judging/components/JudgeAssignmentManager";
 import { useToast } from "../components/common/ToastContext";
+import "../styles/organizer-experience.css";
 
 export default function EventOperationsPage() {
   const addToast = useToast();
   const { eventId } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Main Tab: 'activities' | 'attendance' | 'volunteers' | 'overview'
   const activeTab = searchParams.get("tab") || "activities";
   // Active Sub Tab for Attendance: 'entry' | 'activity'
   const attendanceSubTab = searchParams.get("sub") === "activity" ? "activity" : "entry";
-  // Active Sub Tab for Volunteers: 'entry' | 'activity' | 'judges'
+  // Staff workspace view: all team, activity-scoped volunteers, or competition judges.
   const volunteerSubTab =
     searchParams.get("vsub") === "judges"
       ? "judges"
       : searchParams.get("vsub") === "activity"
       ? "activity"
-      : "entry";
+      : "all";
 
   // Data States
   const [event, setEvent] = useState(null);
@@ -95,6 +92,7 @@ export default function EventOperationsPage() {
   // Volunteer state
   const [entryStaff, setEntryStaff] = useState([]);
   const [activityStaff, setActivityStaff] = useState([]);
+  const [allActivityStaff, setAllActivityStaff] = useState([]);
   const [volSearch, setVolSearch] = useState("");
   const [volLoading, setVolLoading] = useState(false);
 
@@ -158,7 +156,11 @@ export default function EventOperationsPage() {
   }, [eventId, setError]);
 
   useEffect(() => {
-    loadInitialData();
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) loadInitialData();
+    });
+    return () => { active = false; };
   }, [loadInitialData]);
 
   // Load Attendance data based on current tab/subtab
@@ -182,20 +184,42 @@ export default function EventOperationsPage() {
   }, [eventId, attendanceSubTab, selectedActivityId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "attendance") {
-      loadAttendanceData();
+      Promise.resolve().then(() => {
+        if (active) loadAttendanceData();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, attendanceSubTab, selectedActivityId, loadAttendanceData]);
 
-  // Load Volunteer Staff data
+  // Load event-entry and activity-scoped volunteers for the consolidated staff workspace.
   const loadVolunteerData = useCallback(async () => {
     if (!eventId) return;
     setVolLoading(true);
     try {
-      if (volunteerSubTab === "entry") {
-        const data = await getEventStaff(eventId);
-        setEntryStaff(Array.isArray(data) ? data : []);
-      } else if (selectedVolActivityId) {
+      if (volunteerSubTab === "all") {
+        const [eventPeople, activityPeople] = await Promise.all([
+          getEventStaff(eventId),
+          Promise.all(
+            activities.map(async (activity) => ({
+              activity,
+              staff: await getActivityStaff(activity.id)
+            }))
+          )
+        ]);
+        setEntryStaff(Array.isArray(eventPeople) ? eventPeople : []);
+        setAllActivityStaff(
+          activityPeople.flatMap(({ activity, staff }) =>
+            (Array.isArray(staff) ? staff : []).map((person) => ({
+              ...person,
+              staffScope: "ACTIVITY",
+              activityName: activity.name,
+              activityId: activity.id
+            }))
+          )
+        );
+      } else if (volunteerSubTab === "activity" && selectedVolActivityId) {
         const data = await getActivityStaff(selectedVolActivityId);
         setActivityStaff(Array.isArray(data) ? data : []);
       }
@@ -205,12 +229,16 @@ export default function EventOperationsPage() {
     } finally {
       setVolLoading(false);
     }
-  }, [eventId, volunteerSubTab, selectedVolActivityId, setError]);
+  }, [eventId, activities, volunteerSubTab, selectedVolActivityId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "volunteers") {
-      loadVolunteerData();
+      Promise.resolve().then(() => {
+        if (active) loadVolunteerData();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, volunteerSubTab, selectedVolActivityId, loadVolunteerData]);
 
   // Load Activity Summaries
@@ -229,9 +257,13 @@ export default function EventOperationsPage() {
   }, [eventId, setError]);
 
   useEffect(() => {
+    let active = true;
     if (!initialLoading && activeTab === "activities") {
-      loadActivitySummaries();
+      Promise.resolve().then(() => {
+        if (active) loadActivitySummaries();
+      });
     }
+    return () => { active = false; };
   }, [initialLoading, activeTab, loadActivitySummaries]);
 
   // Activity Start/Complete handlers
@@ -287,15 +319,15 @@ export default function EventOperationsPage() {
     }
   };
 
-  // Invite Volunteer Handler
+  // Invite volunteers at event-entry scope or the selected activity scope.
   const handleInviteVolunteer = async (e) => {
     e.preventDefault();
     if (!volunteerEmail.trim()) return;
+    if (volunteerSubTab === "activity" && !selectedVolActivityId) return;
 
     setInviting(true);
-
     try {
-      if (volunteerSubTab === "entry") {
+      if (volunteerSubTab !== "activity") {
         const newStaff = await inviteEventStaff(eventId, {
           name: volunteerName.trim() || null,
           email: volunteerEmail.trim()
@@ -303,12 +335,15 @@ export default function EventOperationsPage() {
         setEntryStaff((prev) => [newStaff, ...prev]);
         setSuccess(`Invitation generated for ${volunteerEmail}. Share the link below.`);
       } else {
-        if (!selectedVolActivityId) return;
         const newStaff = await inviteActivityStaff(selectedVolActivityId, {
           name: volunteerName.trim() || null,
           email: volunteerEmail.trim()
         });
         setActivityStaff((prev) => [newStaff, ...prev]);
+        setAllActivityStaff((prev) => [
+          { ...newStaff, staffScope: "ACTIVITY", activityName: selectedVolActivityObj?.name, activityId: selectedVolActivityId },
+          ...prev
+        ]);
         setSuccess(`Activity invitation generated for ${volunteerEmail}.`);
       }
       setVolunteerName("");
@@ -328,13 +363,17 @@ export default function EventOperationsPage() {
     }
     try {
       await revokeStaff(staffId);
-      if (volunteerSubTab === "entry") {
+      const isEventEntryStaff = entryStaff.some((person) => person.id === staffId);
+      if (isEventEntryStaff) {
         setEntryStaff((prev) =>
-          prev.map((s) => (s.id === staffId ? { ...s, status: "REVOKED" } : s))
+          prev.map((person) => (person.id === staffId ? { ...person, status: "REVOKED" } : person))
         );
       } else {
         setActivityStaff((prev) =>
-          prev.map((s) => (s.id === staffId ? { ...s, status: "REVOKED" } : s))
+          prev.map((person) => (person.id === staffId ? { ...person, status: "REVOKED" } : person))
+        );
+        setAllActivityStaff((prev) =>
+          prev.map((person) => (person.id === staffId ? { ...person, status: "REVOKED" } : person))
         );
       }
       setSuccess("Volunteer access revoked successfully.");
@@ -368,20 +407,30 @@ export default function EventOperationsPage() {
     });
   }, [currentAttendanceList, attendanceSearch]);
 
-  // Filtered Volunteer List
-  const currentStaffList = volunteerSubTab === "entry" ? entryStaff : activityStaff;
-  const filteredStaff = useMemo(() => {
-    if (!volSearch.trim()) return currentStaffList;
-    const q = volSearch.toLowerCase();
-    return currentStaffList.filter((s) => {
-      const name = (s.invitedName || "").toLowerCase();
-      const email = (s.email || "").toLowerCase();
-      return name.includes(q) || email.includes(q);
-    });
-  }, [currentStaffList, volSearch]);
-
   const selectedActivityObj = activities.find((a) => a.id === selectedActivityId);
   const selectedVolActivityObj = activities.find((a) => a.id === selectedVolActivityId);
+
+  // Filtered Volunteer List. Roster sizes are small; derive directly to keep dependencies explicit.
+  const currentStaffList = volunteerSubTab === "all"
+    ? [
+        ...entryStaff.map((person) => ({ ...person, staffScope: "EVENT_ENTRY", scopeLabel: "Event entry" })),
+        ...allActivityStaff
+      ]
+    : activityStaff.map((person) => ({
+        ...person,
+        staffScope: "ACTIVITY",
+        scopeLabel: selectedVolActivityObj?.name || "Activity"
+      }));
+
+  const staffQuery = volSearch.trim().toLowerCase();
+  const filteredStaff = staffQuery
+    ? currentStaffList.filter((person) => {
+        const name = (person.invitedName || "").toLowerCase();
+        const email = (person.email || "").toLowerCase();
+        const scope = (person.activityName || person.scopeLabel || "").toLowerCase();
+        return name.includes(staffQuery) || email.includes(staffQuery) || scope.includes(staffQuery);
+      })
+    : currentStaffList;
 
   if (initialLoading) {
     return (
@@ -414,9 +463,9 @@ export default function EventOperationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-operations-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header / Breadcrumb */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <header className="organizer-operations-header bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link
@@ -463,31 +512,16 @@ export default function EventOperationsPage() {
         </div>
       </header>
 
-      {/* Breadcrumb Trail */}
-      <div className="bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-1.5 text-xs text-slate-400 overflow-x-auto">
-          <Link to="/organizer" className="hover:text-slate-700 transition-colors shrink-0 font-medium">
-            Organizer Dashboard
-          </Link>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-slate-600 font-semibold truncate max-w-[200px]" title={event.title}>
-            {event.title}
-          </span>
-          <ChevronRight className="w-3 h-3 shrink-0" />
-          <span className="text-indigo-600 font-semibold shrink-0">Operations</span>
-        </div>
-      </div>
-
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main organizer-operations-main max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Event Quick Overview Strip */}
-        <div className="bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="organizer-operations-summary bg-white rounded-xl border border-slate-200/80 p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-lg font-bold text-slate-900">{event.title}</h2>
-              <span className="text-xs font-medium text-slate-400">
-                ({activities.length} {activities.length === 1 ? "activity" : "activities"})
-              </span>
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-slate-900">Event overview</h2>
+              <p className="text-xs text-slate-500">
+                {activities.length} {activities.length === 1 ? "activity" : "activities"} · Current event schedule and venue
+              </p>
             </div>
             <div className="flex items-center gap-4 flex-wrap text-xs text-slate-500">
               <span className="inline-flex items-center gap-1.5">
@@ -523,7 +557,7 @@ export default function EventOperationsPage() {
         </div>
 
         {/* Master Navigation Tabs */}
-        <div className="border-b border-slate-200">
+        <div className="organizer-operations-tabs border-b border-slate-200">
           <nav className="flex space-x-6 overflow-x-auto">
             <button
               type="button"
@@ -573,6 +607,8 @@ export default function EventOperationsPage() {
               </span>
             </button>
 
+            <button type="button" onClick={() => setTab("certificates")} className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 shrink-0 ${activeTab === "certificates" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}><Trophy className="w-4 h-4" />Certificates</button>
+
             <button
               type="button"
               onClick={() => setTab("overview")}
@@ -591,6 +627,8 @@ export default function EventOperationsPage() {
         {/* ══════════════════════════════════════════════════════════
             TAB 0: ACTIVITIES DASHBOARD
             ══════════════════════════════════════════════════════════ */}
+        {activeTab === "certificates" && <OrganizerCertificates eventId={eventId} activities={activities} />}
+
         {activeTab === "activities" && (
           <div className="space-y-4">
             {selectedActivityForRegistrations ? (
@@ -790,15 +828,6 @@ export default function EventOperationsPage() {
                               <span className="block text-[9px] font-bold text-purple-500 uppercase tracking-wider">Turnout</span>
                               <span className="text-lg font-extrabold text-purple-700">{act.turnoutRate || 0}%</span>
                             </div>
-                          </div>
-                          <div className="border-t border-slate-100 px-4 pb-4 pt-3 sm:px-5">
-                            <Link
-                              to={`/organizer/activities/${act.id}/judging?eventId=${eventId}`}
-                              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                            >
-                              <ClipboardCheck className="h-4 w-4" />
-                              Configure judging
-                            </Link>
                           </div>
                         </div>
                       </div>
@@ -1080,307 +1109,283 @@ export default function EventOperationsPage() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════
-            TAB 2: VOLUNTEERS & STAFF (Unified Management)
-            ══════════════════════════════════════════════════════════ */}
+        {/* TAB 2: STAFF & EVALUATION TEAM */}
         {activeTab === "volunteers" && (
-          <div className="space-y-4">
-            {/* Sub-Tabs / Scope Bar */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setVolunteerScope("entry")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    volunteerSubTab === "entry"
-                      ? "bg-indigo-600 text-white shadow-2xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Event Entry Volunteers</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                    volunteerSubTab === "entry" ? "bg-indigo-700 text-white" : "bg-white text-slate-700"
-                  }`}>
-                    {entryStaff.length}
-                  </span>
-                </button>
-
-                {activities.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setVolunteerScope("activity")}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                      volunteerSubTab === "activity"
-                        ? "bg-indigo-600 text-white shadow-2xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>Activity Volunteers</span>
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                      volunteerSubTab === "activity" ? "bg-indigo-700 text-white" : "bg-white text-slate-700"
-                    }`}>
-                      {activities.length}
-                    </span>
-                  </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setVolunteerScope("judges")}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    volunteerSubTab === "judges"
-                      ? "bg-indigo-600 text-white shadow-2xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  <Trophy className="w-3.5 h-3.5" />
-                  <span>Competition Judges</span>
-                </button>
+          <section className="organizer-staff-workspace space-y-5">
+            <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-700">
+                  Operational roster
+                </p>
+                <h2 className="text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                  Event Staff &amp; Evaluation Team
+                </h2>
+                <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
+                  Manage event-entry volunteers, activity volunteers and competition judges from one workspace.
+                </p>
               </div>
-
               {volunteerSubTab !== "judges" && (
-                <div className="relative flex-1 max-w-xs">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search volunteers..."
-                    value={volSearch}
-                    onChange={(e) => setVolSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 hover:bg-white focus:bg-white rounded-lg border border-slate-200 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                  />
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-600">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Active
+                    <strong className="font-semibold text-slate-900">
+                      {currentStaffList.filter((person) => person.status === "ACTIVE").length}
+                    </strong>
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-600">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Pending
+                    <strong className="font-semibold text-slate-900">
+                      {currentStaffList.filter((person) => person.status === "INVITED").length}
+                    </strong>
+                  </span>
                 </div>
               )}
             </div>
 
-            {volunteerSubTab === "judges" ? (
-              <div className="space-y-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-                <p className="text-sm text-slate-700">
-                  Configure judging rounds, rubrics, and judge assignments separately for each activity.
-                </p>
-                {activities.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {activities.map((activity) => (
-                      <Link
-                        key={activity.id}
-                        to={`/organizer/activities/${activity.id}/judging?eventId=${eventId}`}
-                        className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50"
-                      >
-                        <ClipboardCheck className="h-4 w-4" />
-                        Configure {activity.name}
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">Add an activity before configuring judging.</p>
-                )}
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1">
+                {[
+                  ["all", "All Team", entryStaff.length + allActivityStaff.length, Users],
+                  ["judges", "Competition Judges", null, Trophy],
+                  ["activity", "Activity Volunteers", allActivityStaff.length, UserCheck]
+                ].map(([scope, label, count, Icon]) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => setVolunteerScope(scope)}
+                    aria-pressed={volunteerSubTab === scope}
+                    className={`inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-semibold transition-colors ${
+                      volunteerSubTab === scope
+                        ? "bg-white text-indigo-700 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span>{label}</span>
+                    {count !== null && (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                        volunteerSubTab === scope ? "bg-indigo-50 text-indigo-700" : "bg-slate-200 text-slate-600"
+                      }`}>{count}</span>
+                    )}
+                  </button>
+                ))}
               </div>
+
+              {volunteerSubTab !== "judges" && (
+                <label className="relative block w-full sm:max-w-xs">
+                  <span className="sr-only">Search staff by name, email or assignment</span>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    value={volSearch}
+                    onChange={(event) => setVolSearch(event.target.value)}
+                    placeholder="Search name or email..."
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                  />
+                </label>
+              )}
+            </div>
+
+            {volunteerSubTab === "judges" ? (
+              <JudgeAssignmentManager activities={activities} eventId={eventId} />
             ) : (
               <>
-            {/* If Activity Scope: Activity Selector */}
-            {volunteerSubTab === "activity" && activities.length > 0 && (
-              <div className="bg-slate-100/80 p-2 rounded-xl flex items-center gap-1.5 overflow-x-auto">
-                <span className="text-xs font-semibold text-slate-500 px-2 shrink-0">
-                  Select Activity:
-                </span>
-                {activities.map((act) => {
-                  const isSelected = act.id === selectedVolActivityId;
-                  return (
-                    <button
-                      key={act.id}
-                      type="button"
-                      onClick={() => setSelectedVolActivityId(act.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 cursor-pointer ${
-                        isSelected
-                          ? "bg-white text-indigo-700 font-semibold shadow-2xs border border-slate-200/80"
-                          : "text-slate-600 hover:bg-white/60"
-                      }`}
-                    >
-                      {act.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Split Grid: Invite Box + Active Staff List */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              {/* Left Column: Invite Form */}
-              <div className="lg:col-span-1">
-                <form
-                  onSubmit={handleInviteVolunteer}
-                  className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-xs space-y-4"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                      <UserPlus className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900">
-                        {volunteerSubTab === "entry" ? "Add Gate Volunteer" : "Add Activity Volunteer"}
-                      </h3>
-                      <p className="text-[11px] text-slate-500">
-                        {volunteerSubTab === "entry"
-                          ? "Can scan gate tickets for this event"
-                          : `Can scan tickets for ${selectedVolActivityObj?.name || "activity"}`}
-                      </p>
-                    </div>
+                {volunteerSubTab === "activity" && activities.length > 0 && (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <label className="flex items-center gap-3 text-xs font-semibold text-slate-600">
+                      Activity
+                      <select
+                        value={selectedVolActivityId}
+                        onChange={(event) => setSelectedVolActivityId(event.target.value)}
+                        className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 sm:w-72 sm:flex-none"
+                      >
+                        {activities.map((activity) => (
+                          <option key={activity.id} value={activity.id}>{activity.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="text-xs text-slate-500">
+                      Volunteers assigned to this activity can scan its participant tickets.
+                    </p>
                   </div>
+                )}
 
-                  <div className="space-y-3 pt-1">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Volunteer Name <span className="text-slate-400 font-normal">(optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={volunteerName}
-                        onChange={(e) => setVolunteerName(e.target.value)}
-                        placeholder="e.g. John Doe"
-                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Email Address <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="email"
-                        value={volunteerEmail}
-                        onChange={(e) => setVolunteerEmail(e.target.value)}
-                        placeholder="volunteer@college.edu"
-                        className="w-full px-3 py-2 bg-slate-50 focus:bg-white rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-colors"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={inviting}
-                      className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer shadow-2xs"
+                {volunteerSubTab === "activity" && activities.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center">
+                    <Users className="mx-auto h-8 w-8 text-slate-300" />
+                    <h3 className="mt-3 text-sm font-semibold text-slate-800">No activities available</h3>
+                    <p className="mt-1 text-xs text-slate-500">Create an activity before assigning activity volunteers.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.65fr)]">
+                    <form
+                      onSubmit={handleInviteVolunteer}
+                      className="rounded-xl border border-slate-200 bg-white p-5"
                     >
-                      {inviting ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <div className="flex items-start gap-3 border-b border-slate-100 pb-4">
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-700">
+                          <UserPlus className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            {volunteerSubTab === "activity" ? "Assign activity volunteer" : "Assign event volunteer"}
+                          </h3>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                            {volunteerSubTab === "activity"
+                              ? `Access is limited to ${selectedVolActivityObj?.name || "the selected activity"}.`
+                              : "Event-entry volunteers can scan tickets at the event gate."}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-slate-700">
+                            Full name <span className="font-normal text-slate-400">(optional)</span>
+                          </span>
+                          <input
+                            type="text"
+                            value={volunteerName}
+                            onChange={(event) => setVolunteerName(event.target.value)}
+                            placeholder="Enter staff member name"
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                          />
+                        </label>
+
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-slate-700">
+                            Email address <span className="text-rose-500">*</span>
+                          </span>
+                          <input
+                            required
+                            type="email"
+                            value={volunteerEmail}
+                            onChange={(event) => setVolunteerEmail(event.target.value)}
+                            placeholder="name@college.edu"
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                          />
+                        </label>
+
+                        <button
+                          type="submit"
+                          disabled={inviting || (volunteerSubTab === "activity" && !selectedVolActivityId)}
+                          className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                          {inviting ? "Generating invitation..." : "Generate invite"}
+                        </button>
+                        <p className="text-[11px] leading-relaxed text-slate-400">
+                          The invitation link is generated after the request succeeds. Copy and share it with the invited person.
+                        </p>
+                      </div>
+                    </form>
+
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            {volunteerSubTab === "activity"
+                              ? `Activity volunteers · ${selectedVolActivityObj?.name || "Activity"}`
+                              : "All event and activity volunteers"}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {currentStaffList.filter((person) => person.status === "ACTIVE").length} active
+                            {" · "}
+                            {currentStaffList.filter((person) => person.status === "INVITED").length} pending invitations
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-slate-500">
+                          {filteredStaff.length} {filteredStaff.length === 1 ? "person" : "people"}
+                        </span>
+                      </div>
+
+                      {volLoading ? (
+                        <div className="flex min-h-48 flex-col items-center justify-center gap-2 px-4 py-10">
+                          <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                          <p className="text-xs text-slate-500">Loading staff assignments...</p>
+                        </div>
+                      ) : filteredStaff.length === 0 ? (
+                        <div className="flex min-h-48 flex-col items-center justify-center px-5 py-10 text-center">
+                          <Users className="h-8 w-8 text-slate-300" />
+                          <h4 className="mt-3 text-sm font-semibold text-slate-800">
+                            {volSearch ? "No matching staff" : "No staff assigned yet"}
+                          </h4>
+                          <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-500">
+                            {volSearch
+                              ? "Try a different name, email or assignment."
+                              : "Use the form to generate an invitation for your first staff member."}
+                          </p>
+                        </div>
                       ) : (
-                        <UserPlus className="w-3.5 h-3.5" />
-                      )}
-                      <span>{inviting ? "Generating Link…" : "Generate Invite Link"}</span>
-                    </button>
-                  </div>
-                </form>
-              </div>
+                        <div className="divide-y divide-slate-100">
+                          {filteredStaff.map((staff) => {
+                            const isRevoked = staff.status === "REVOKED";
+                            const isInvited = staff.status === "INVITED";
+                            const inviteLink = staff.invitationLink;
+                            const scopeLabel = volunteerSubTab === "all"
+                              ? (staff.staffScope === "ACTIVITY" ? staff.activityName || "Activity volunteer" : "Event entry")
+                              : selectedVolActivityObj?.name || "Activity volunteer";
 
-              {/* Right Column: Volunteers List */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                        {volunteerSubTab === "entry"
-                          ? "Assigned Event Entry Volunteers"
-                          : `Activity Volunteers · ${selectedVolActivityObj?.name || "Activity"}`}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {currentStaffList.filter((s) => s.status === "ACTIVE").length} active ·{" "}
-                        {currentStaffList.filter((s) => s.status === "INVITED").length} pending invite
-                      </p>
-                    </div>
-                  </div>
-
-                  {volLoading ? (
-                    <div className="py-12 text-center flex flex-col items-center justify-center space-y-2">
-                      <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
-                      <p className="text-xs text-slate-500">Loading volunteer roster...</p>
-                    </div>
-                  ) : filteredStaff.length === 0 ? (
-                    <div className="py-12 px-4 text-center space-y-2">
-                      <Users className="w-8 h-8 text-slate-300 mx-auto" />
-                      <h4 className="text-sm font-semibold text-slate-700">No Volunteers Assigned</h4>
-                      <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                        Use the invite form on the left to add your first volunteer for check-in scanning.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-100">
-                      {filteredStaff.map((staff) => {
-                        const isRevoked = staff.status === "REVOKED";
-                        const isInvited = staff.status === "INVITED";
-                        const inviteLink = staff.invitationLink;
-
-                        return (
-                          <div key={staff.id} className="p-4 sm:p-5 flex flex-col gap-3 hover:bg-slate-50/50 transition-colors">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-slate-900">
-                                    {staff.invitedName || staff.email}
-                                  </span>
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            return (
+                              <article key={`${staff.staffScope || volunteerSubTab}-${staff.id}`} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4 className="break-all text-xs font-semibold text-slate-900">
+                                      {staff.invitedName || staff.email}
+                                    </h4>
+                                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                                       staff.status === "ACTIVE"
-                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                         : isRevoked
-                                        ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                        : "bg-amber-50 text-amber-700 border border-amber-200"
-                                    }`}
-                                  >
-                                    {staff.status}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-slate-500">{staff.email}</p>
-                              </div>
-
-                              {!isRevoked && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRevokeStaff(staff.id)}
-                                  className="text-xs text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer flex items-center gap-1 font-medium"
-                                  title="Revoke volunteer access"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span className="hidden sm:inline">Revoke</span>
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Invitation Link Box if still invited */}
-                            {isInvited && inviteLink && (
-                              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 flex items-center justify-between gap-2">
-                                <div className="truncate text-[11px] text-slate-500 font-mono flex-1">
-                                  {inviteLink}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopy(inviteLink)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-slate-200 rounded text-xs font-semibold transition-colors shrink-0 cursor-pointer"
-                                >
-                                  {copiedLink === inviteLink ? (
-                                    <>
-                                      <Check className="w-3 h-3 text-emerald-600" />
-                                      <span className="text-emerald-600">Copied!</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Copy className="w-3 h-3" />
-                                      <span>Copy Link</span>
-                                    </>
+                                          ? "border-rose-200 bg-rose-50 text-rose-700"
+                                          : "border-amber-200 bg-amber-50 text-amber-700"
+                                    }`}>
+                                      {staff.status}
+                                    </span>
+                                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                      {scopeLabel}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 break-all text-xs text-slate-500">{staff.email}</p>
+                                  {isInvited && inviteLink && (
+                                    <div className="mt-2 flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 p-2">
+                                      <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-slate-500">{inviteLink}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopy(inviteLink)}
+                                        className="inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-50"
+                                      >
+                                        {copiedLink === inviteLink
+                                          ? <><Check className="h-3 w-3" /> Copied</>
+                                          : <><Copy className="h-3 w-3" /> Copy link</>}
+                                      </button>
+                                    </div>
                                   )}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+                                </div>
+                                {!isRevoked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRevokeStaff(staff.id)}
+                                    className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 self-start rounded-lg px-2.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-800 sm:self-center"
+                                    title="Revoke staff access"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Revoke
+                                  </button>
+                                )}
+                              </article>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                )}
               </>
             )}
-          </div>
+          </section>
         )}
 
         {/* ══════════════════════════════════════════════════════════

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Calendar, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import CollegeNavbarBadge from "./CollegeNavbarBadge";
 
 /**
@@ -41,11 +41,11 @@ export default function AppHeader({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-14">
         {/* Left: Logo + Role + College */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="bg-indigo-600 text-white p-1.5 rounded-lg shrink-0">
-            <Calendar className="w-5 h-5" />
-          </div>
-          <span className="font-extrabold text-lg text-slate-900 tracking-tight">
-            Event<span className="text-indigo-600">Sphere</span>
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-indigo-600 text-base font-bold text-white">
+            E
+          </span>
+          <span className="font-semibold text-base tracking-tight text-slate-900">
+            EventSphere
           </span>
           <span
             className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${roleStyle}`}
@@ -73,11 +73,23 @@ export default function AppHeader({
           </div>
 
           {/* User name (desktop) */}
-          <div className="hidden md:block text-right">
-            <div className="text-sm font-semibold text-slate-800 leading-tight">
-              {user?.name || "User"}
-            </div>
-            <div className="text-xs text-slate-500 leading-tight">{user?.email}</div>
+          <div className="hidden md:flex items-center gap-2.5 text-right">
+               {(user?.collegeVerificationStatus === 'VERIFIED' || 
+                user?.organizerAffiliationStatus === "VERIFIED" ||
+                user?.emailVerified
+               ) && (
+                 <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold shadow-2xs" title="Verified Account">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0"/>
+                    <span>Verified</span>
+                  </div>
+               )}
+
+               <div className="text-sm font-semibold text-slate-800 leading-tight">
+                 {user?.name || "User"}
+               </div>
+               <div className="text-xs text-slate-500 leading-tight">
+                {user?.email}
+               </div>
           </div>
 
           {/* Sign out */}

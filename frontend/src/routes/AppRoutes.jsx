@@ -1,5 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
+import VerifyCertificatePage from "../features/certificates/VerifyCertificatePage";
 import LoginPage from "../features/auth/pages/LoginPage";
+import CollegeAdminAcceptPage from "../features/auth/pages/CollegeAdminAcceptPage";
 import OrganizerRegisterPage from "../features/auth/pages/OrganizerRegisterPage";
 import ParticipantRegisterPage from "../features/auth/pages/ParticipantRegisterPage";
 import EventsPage from "../features/events/pages/EventsPage";
@@ -9,6 +11,7 @@ import ParticipantDashboard from "../pages/ParticipantDashboard";
 import ProtectedRoutes from "../features/auth/ProtectedRoutes";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
 import ParticipantTicketPage from "../pages/ParticipantTicketPage";
+import ParticipantCertificatePreviewPage from "../pages/ParticipantCertificatePreviewPage";
 import VolunteerInvitationPage from "../pages/VolunteerInvitationPage";
 import VolunteerScannerPage from "../pages/VolunteerScannerPage";
 import JudgeInvitationPage from "../pages/JudgeInvitationPage";
@@ -47,7 +50,9 @@ export default function AppRoutes() {
         <Route path="/" element={<LoginPage />} />
         
         {/* Auth Routes */}
+        <Route path="/verify-certificate" element={<VerifyCertificatePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/college-admin/accept" element={<CollegeAdminAcceptPage />} />
         <Route path="/register/organizer" element={<OrganizerRegisterPage />} />
         <Route path="/register/participant" element={<ParticipantRegisterPage />} />
 
@@ -193,6 +198,14 @@ export default function AppRoutes() {
           }
         />
         <Route
+          path="/participant/certificates/:certificateId"
+          element={
+            <ProtectedRoutes allowedRole={["PARTICIPANT"]}>
+              <ParticipantCertificatePreviewPage />
+            </ProtectedRoutes>
+          }
+        />
+        <Route
           path="/volunteer"
           element={
             <ProtectedRoutes>
@@ -246,7 +259,7 @@ export default function AppRoutes() {
         <Route
           path="/college-admin"
           element={
-            <ProtectedRoutes allowedRole={["ORGANIZER", "PARTICIPANT", "JUDGE", "VOLUNTEER", "SUPER_ADMIN"]}>
+            <ProtectedRoutes allowedRole={["COLLEGE_ADMIN"]}>
               <CollegeAdminAffiliationsPage />
             </ProtectedRoutes>
           }

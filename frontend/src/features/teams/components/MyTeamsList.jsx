@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Users,
   Plus,
@@ -9,14 +9,10 @@ import {
   Check,
   Trash2,
   Search,
-  Filter,
   LayoutGrid,
   List,
-  Eye,
-  Calendar,
-  AlertCircle
+  Eye
 } from "lucide-react";
-import { formatDateTime } from "../../events/utils/eventHelpers";
 import AddMemberModal from "./AddMemberModal";
 import TeamDetailsModal from "./TeamDetailsModal";
 import ConfirmDialog from "../../events/components/ConfirmDialog";
@@ -29,7 +25,7 @@ export default function MyTeamsList({
   onTeamUpdated,
   onTeamDeleted
 }) {
-  const [viewMode, setViewMode] = useState("TABLE"); // "TABLE" | "CARDS"
+  const [viewMode, setViewMode] = useState(() => typeof window !== "undefined" && window.innerWidth < 768 ? "CARDS" : "TABLE"); // responsive default; existing toggle is retained
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL"); // "ALL" | "LEADER" | "MEMBER"
 
@@ -57,28 +53,25 @@ export default function MyTeamsList({
     }
   };
 
-  const getIsLeader = (team) => {
-    return (
-      team.leaderId === user?.userId ||
-      team.leaderId === user?.email ||
-      team.createdBy === user?.userId
-    );
-  };
+  const currentUserId = user?.userId || user?.id;
 
-  const getNormalizedMembers = (team) => {
+  const getIsLeader = useCallback((team) => (
+    team.leaderId === currentUserId ||
+    team.leaderId === user?.email ||
+    team.createdBy === currentUserId
+  ), [currentUserId, user?.email]);
+
+  const getNormalizedMembers = useCallback((team) => {
     if (team.members && team.members.length > 0) {
       return team.members;
     }
     return (team.membersId || team.memberIds || []).map((id) => ({
       userId: id,
-      name:
-        id === user?.userId
-          ? `${user?.name || "You"}`
-          : `Participant (${id.slice(0, 6)})`,
-      email: id === user?.userId ? user?.email : "",
+      name: id === currentUserId ? (user?.name || "You") : "Participant",
+      email: id === currentUserId ? user?.email : "",
       leader: id === team.leaderId
     }));
-  };
+  }, [currentUserId, user?.email, user?.name]);
 
   // Filtered teams
   const filteredTeams = useMemo(() => {
@@ -104,11 +97,11 @@ export default function MyTeamsList({
 
       return matchName || matchId || matchMember;
     });
-  }, [teams, roleFilter, searchQuery, user]);
+  }, [teams, roleFilter, searchQuery, getIsLeader, getNormalizedMembers]);
 
   const leaderCount = useMemo(() => {
     return teams.filter((t) => getIsLeader(t)).length;
-  }, [teams, user]);
+  }, [teams, getIsLeader]);
 
   // Handle Team Deletion
   const handleConfirmDeleteTeam = async () => {
@@ -161,387 +154,223 @@ export default function MyTeamsList({
     }
   };
 
-  // Empty state: no teams created at all
-  if (!teams || teams.length === 0) {
+  const createdDate = (value) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+  };
+
+  const renderTeamCard = (team) => {
+    const isLeader = getIsLeader(team);
+    const members = getNormalizedMembers(team);
+    const leaderMember = members.find((member) => member.leader || member.userId === team.leaderId);
+    const initials = (team.name || "T").trim().charAt(0).toUpperCase();
+
     return (
-      <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center space-y-4 shadow-xs">
-        <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mx-auto">
-          <Users className="w-7 h-7" />
+      <article key={team.id} className="group flex h-full flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-colors hover:border-indigo-200">
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-indigo-100 text-base font-bold uppercase text-indigo-700">{initials}</span>
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-semibold text-slate-900">{team.name}</h3>
+                <p className="mt-0.5 text-xs text-slate-500">{isLeader ? "Team leader" : "Team member"}</p>
+              </div>
+            </div>
+            <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${isLeader ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+              {isLeader ? "Leader" : "Member"}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2">
+            <span className="min-w-0 truncate font-mono text-xs text-slate-500">ID: {team.id}</span>
+            <button type="button" onClick={(event) => handleCopyId(team.id,event)} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800" title="Copy Team ID">
+              {copiedId === team.id ? <Check className="h-3.5 w-3.5 text-emerald-600"/> : <Copy className="h-3.5 w-3.5"/>}
+              {copiedId === team.id ? "Copied" : "Copy"}
+            </button>
+          </div>
+
+          <div className="rounded-lg bg-indigo-50/60 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-slate-800">Team roster</span>
+              <span className="text-xs font-bold text-indigo-700">{members.length} {members.length === 1 ? "member" : "members"}</span>
+            </div>
+            {members.length > 0 ? (
+              <div className="space-y-2">
+                {members.slice(0,3).map((member,index) => (
+                  <div key={member.userId || index} className="flex min-w-0 items-center gap-2.5 rounded-md bg-white px-2.5 py-2">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                      {(member.name || member.userId || "P").trim().charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-slate-800">{member.name || "Participant"}</p>
+                      {member.email && <p className="truncate text-[11px] text-slate-500">{member.email}</p>}
+                    </div>
+                    {(member.leader || member.userId === team.leaderId) && <span className="shrink-0 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-bold text-indigo-700">LEADER</span>}
+                  </div>
+                ))}
+                {members.length > 3 && <p className="text-[11px] text-slate-500">+{members.length - 3} more members</p>}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">Member details are not available.</p>
+            )}
+            {leaderMember && members.length === 0 && <p className="text-xs text-slate-500">{leaderMember.name}</p>}
+          </div>
         </div>
-        <div className="space-y-1">
-          <h3 className="text-lg font-bold text-slate-900">No Teams Formed Yet</h3>
-          <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-            Create a team to participate in group competitions, hackathons, and collaborative challenges.
-          </p>
+
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <span className="text-[11px] text-slate-500">Created {createdDate(team.createdAt)}</span>
+          <div className="mt-3 grid grid-cols-12 gap-2">
+            <button type="button" onClick={() => setSelectedTeamForDetails(team)} className={`${isLeader ? "col-span-5" : "col-span-12"} inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-slate-100 px-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-200`}>
+              <Users className="h-4 w-4"/>Members ({members.length})
+            </button>
+            {isLeader && (
+              <>
+                <button type="button" onClick={() => setSelectedTeamForAddMember(team)} className="col-span-5 inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-700">
+                  <UserPlus className="h-4 w-4"/>Add member
+                </button>
+                <button type="button" onClick={() => setTeamToDelete(team)} title="Delete team" aria-label="Delete team" className="col-span-2 inline-flex h-11 items-center justify-center rounded-lg bg-rose-50 text-rose-700 transition-colors hover:bg-rose-100">
+                  <Trash2 className="h-5 w-5"/>
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={onCreateTeamClick}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm cursor-pointer transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create Your First Team</span>
-        </button>
-      </div>
+      </article>
     );
-  }
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Search, Filter & View Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search teams by name or member..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-          />
-        </div>
-
-        {/* Right controls: Role Filter & View Switcher */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-            <button
-              type="button"
-              onClick={() => setRoleFilter("ALL")}
-              className={`px-2.5 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                roleFilter === "ALL"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              All ({teams.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setRoleFilter("LEADER")}
-              className={`px-2.5 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                roleFilter === "LEADER"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Led by Me ({leaderCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setRoleFilter("MEMBER")}
-              className={`px-2.5 py-1 rounded-md font-semibold cursor-pointer transition-colors ${
-                roleFilter === "MEMBER"
-                  ? "bg-white text-slate-900 shadow-2xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Member ({teams.length - leaderCount})
-            </button>
+    <>
+    <div className="space-y-7">
+      <div className="flex flex-col justify-between gap-5 pb-1 md:flex-row md:items-center">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-700">{user?.collegeCode || user?.collegeName || "Participant"} Collaboration</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-300"/>
+            <span className="text-xs font-medium text-slate-500">Team Hub</span>
           </div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 max-md:text-2xl">My Teams</h1>
+          <p className="max-w-2xl text-sm text-slate-500">Manage your teams and collaborate across campus competitions, hackathons, and group challenges.</p>
+        </div>
+        <button type="button" onClick={onCreateTeamClick} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 md:w-auto">
+          <Plus className="h-[18px] w-[18px]"/>Create Team
+        </button>
+      </div>
 
-          {/* View Mode Switcher */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-            <button
-              type="button"
-              onClick={() => setViewMode("TABLE")}
-              title="Table View"
-              className={`p-1.5 rounded-md cursor-pointer transition-colors ${
-                viewMode === "TABLE"
-                  ? "bg-white text-indigo-600 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <List className="w-4 h-4" />
+      <div className="hidden grid-cols-1 gap-4 sm:grid-cols-2 md:grid">
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Total teams</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{teams.length.toString().padStart(2,"0")}</p>
+          </div>
+          <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-100 text-indigo-700"><Users className="h-5 w-5"/></span>
+        </div>
+        <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Teams led</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{leaderCount.toString().padStart(2,"0")}</p>
+          </div>
+          <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-50 text-indigo-700"><Shield className="h-5 w-5"/></span>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-stretch justify-between gap-4 rounded-xl bg-white p-2 shadow-sm md:flex-row md:items-center">
+        <div className="order-2 flex items-center gap-1.5 overflow-x-auto p-1 md:order-1">
+          {[
+            ["ALL","All",teams.length],
+            ["LEADER","Led by me",leaderCount],
+            ["MEMBER","Member",teams.length - leaderCount]
+          ].map(([value,label,count]) => (
+            <button key={value} type="button" onClick={() => setRoleFilter(value)} aria-pressed={roleFilter === value} className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${roleFilter === value ? "bg-indigo-700 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+              <span>{label}</span>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${roleFilter === value ? "bg-white/20" : "bg-slate-100"}`}>{count}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("CARDS")}
-              title="Card View"
-              className={`p-1.5 rounded-md cursor-pointer transition-colors ${
-                viewMode === "CARDS"
-                  ? "bg-white text-indigo-600 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
+          ))}
+        </div>
+        <div className="order-1 flex items-center gap-3 px-2 md:order-2">
+          <div className="relative min-w-0 flex-1 md:w-80">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/>
+            <input type="search" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Search teams by name, member, or ID..." aria-label="Search teams" className="w-full rounded-lg bg-slate-50 py-2 pl-9 pr-4 text-xs text-slate-800 outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-indigo-500"/>
+          </div>
+          <div className="hidden items-center rounded-lg bg-slate-100 p-1 sm:flex">
+            <button type="button" onClick={() => setViewMode("TABLE")} aria-pressed={viewMode === "TABLE"} title="Table view" className={`rounded-md p-1.5 ${viewMode === "TABLE" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}><List className="h-[18px] w-[18px]"/></button>
+            <button type="button" onClick={() => setViewMode("CARDS")} aria-pressed={viewMode === "CARDS"} title="Grid view" className={`rounded-md p-1.5 ${viewMode === "CARDS" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}><LayoutGrid className="h-[18px] w-[18px]"/></button>
           </div>
         </div>
       </div>
 
-      {/* Delete error notification */}
-      {deleteError && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between text-xs text-red-700">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{deleteError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDeleteError("")}
-            className="text-red-600 hover:text-red-800 font-bold ml-2 cursor-pointer"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+      {deleteError && <div role="alert" className="flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700"><span>{deleteError}</span><button type="button" onClick={() => setDeleteError("")} className="font-bold">Dismiss</button></div>}
 
-      {/* Zero search results */}
       {filteredTeams.length === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-2">
-          <p className="text-sm font-semibold text-slate-700">
-            No teams match your search or filter
-          </p>
-          <p className="text-xs text-slate-400">
-            Try adjusting your search query or reset the role filter.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setSearchQuery("");
-              setRoleFilter("ALL");
-            }}
-            className="mt-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-          >
-            Reset Filters
-          </button>
-        </div>
-      ) : viewMode === "TABLE" ? (
-        /* TABLE VIEW (Clean, High Density, Fast) */
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Team</th>
-                  <th className="py-3 px-4">Your Role</th>
-                  <th className="py-3 px-4">Members</th>
-                  <th className="py-3 px-4">Created</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredTeams.map((team) => {
-                  const isLeader = getIsLeader(team);
-                  const members = getNormalizedMembers(team);
-                  const leaderMember = members.find((m) => m.leader || m.userId === team.leaderId);
-
-                  return (
-                    <tr
-                      key={team.id}
-                      onClick={() => setSelectedTeamForDetails(team)}
-                      className="hover:bg-slate-50/60 transition-colors cursor-pointer group"
-                    >
-                      {/* Team Name & ID */}
-                      <td className="py-3.5 px-4">
-                        <div className="min-w-0">
-                          <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                            {team.name}
-                          </span>
-                          <div
-                            className="flex items-center gap-1 text-xs text-slate-400 font-mono mt-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <span>ID: {team.id?.slice(0, 8)}...</span>
-                            <button
-                              type="button"
-                              onClick={(e) => handleCopyId(team.id, e)}
-                              className="text-slate-400 hover:text-indigo-600 p-0.5 rounded cursor-pointer transition-colors"
-                              title="Copy full Team ID"
-                            >
-                              {copiedId === team.id ? (
-                                <Check className="w-3 h-3 text-emerald-600" />
-                              ) : (
-                                <Copy className="w-3 h-3" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Your Role */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {isLeader ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            <Shield className="w-3.5 h-3.5" />
-                            Leader
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                            <User className="w-3.5 h-3.5" />
-                            Member
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Members */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 text-xs font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
-                            <Users className="w-3 h-3 text-slate-500" />
-                            {members.length}
-                          </span>
-                          <span className="text-xs text-slate-500 truncate max-w-[180px] hidden sm:inline">
-                            {leaderMember ? `${leaderMember.name || "Leader"} (L)` : ""}
-                            {members.length > 1 ? ` +${members.length - 1} more` : ""}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Created At */}
-                      <td className="py-3.5 px-4 whitespace-nowrap text-xs text-slate-500">
-                        {formatDateTime(team.createdAt)}
-                      </td>
-
-                      {/* Actions */}
-                      <td
-                        className="py-3.5 px-4 text-right whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedTeamForDetails(team)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md cursor-pointer transition-colors"
-                            title="View roster & details"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span className="hidden md:inline">Members</span>
-                          </button>
-
-                          {isLeader && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedTeamForAddMember(team)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md cursor-pointer transition-colors"
-                                title="Add member"
-                              >
-                                <UserPlus className="w-3.5 h-3.5" />
-                                <span className="hidden md:inline">Add</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setTeamToDelete(team)}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md cursor-pointer transition-colors"
-                                title="Delete Team"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span className="hidden lg:inline">Delete</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="flex flex-col items-center justify-center rounded-xl bg-white px-6 py-16 text-center shadow-sm">
+          <span className="mb-4 grid h-16 w-16 place-items-center rounded-2xl bg-indigo-100 text-indigo-700"><Users className="h-8 w-8"/></span>
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">{teams.length === 0 ? "No Teams Formed Yet" : "No teams match your search"}</h2>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-slate-500">{teams.length === 0 ? "Create a team to participate in group competitions, hackathons, and collaborative campus challenges with fellow students." : "Try a different search or choose another team filter."}</p>
+          {teams.length === 0 ? (
+            <button type="button" onClick={onCreateTeamClick} className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-4 w-4"/>Create Your First Team</button>
+          ) : (
+            <button type="button" onClick={() => {setSearchQuery("");setRoleFilter("ALL");}} className="mt-5 text-xs font-semibold text-indigo-700 hover:text-indigo-900">Clear filters</button>
+          )}
         </div>
       ) : (
-        /* CARD VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTeams.map((team) => {
-            const isLeader = getIsLeader(team);
-            const members = getNormalizedMembers(team);
-
-            return (
-              <div
-                key={team.id}
-                className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-4 flex flex-col justify-between hover:border-slate-300 transition-colors"
-              >
-                <div className="space-y-3">
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="text-base font-bold text-slate-900 truncate">
-                        {team.name}
-                      </h3>
-                      <div className="flex items-center gap-1 text-xs text-slate-500 font-mono mt-0.5">
-                        <span>ID: {team.id?.slice(0, 10)}...</span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleCopyId(team.id, e)}
-                          className="text-slate-400 hover:text-indigo-600 p-0.5 rounded cursor-pointer"
-                          title="Copy full Team ID"
-                        >
-                          {copiedId === team.id ? (
-                            <Check className="w-3 h-3 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {isLeader ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                        <Shield className="w-3.5 h-3.5" />
-                        Leader
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                        <User className="w-3.5 h-3.5" />
-                        Member
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Members count & preview */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
-                    <span className="flex items-center gap-1.5 font-medium">
-                      <Users className="w-3.5 h-3.5 text-indigo-600" />
-                      {members.length} {members.length === 1 ? "Member" : "Members"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTeamForDetails(team)}
-                      className="text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
-                    >
-                      View Roster
-                    </button>
-                  </div>
-                </div>
-
-                {/* Card Footer Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-slate-400">
-                    {formatDateTime(team.createdAt)}
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    {isLeader && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedTeamForAddMember(team)}
-                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg cursor-pointer transition-colors"
-                          title="Add Member"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setTeamToDelete(team)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
-                          title="Delete Team"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+        <>
+          {viewMode === "TABLE" ? (
+            <div className={`hidden w-full overflow-hidden rounded-xl bg-white shadow-sm ${viewMode === "TABLE" ? "md:block" : "md:hidden"}`}>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead><tr className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600"><th className="px-6 py-3.5">Team</th><th className="px-6 py-3.5">Your role</th><th className="px-6 py-3.5">Members</th><th className="px-6 py-3.5">Created</th><th className="px-6 py-3.5 text-right">Actions</th></tr></thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredTeams.map(team => {
+                      const isLeader = getIsLeader(team);
+                      const members = getNormalizedMembers(team);
+                      const leaderMember = members.find(member => member.leader || member.userId === team.leaderId);
+                      return (
+                        <tr key={team.id} onClick={() => setSelectedTeamForDetails(team)} className="cursor-pointer transition-colors hover:bg-slate-50/60">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <span className="grid h-10 w-10 place-items-center rounded-lg bg-indigo-100 text-base font-bold uppercase text-indigo-700">{(team.name || "T").charAt(0)}</span>
+                              <div className="min-w-0">
+                                <p className="text-base font-semibold text-slate-900">{team.name}</p>
+                                <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
+                                  <span className="max-w-40 truncate font-mono">ID: {team.id}</span>
+                                  <button type="button" onClick={event => handleCopyId(team.id,event)} className="text-slate-400 hover:text-indigo-600" title="Copy Team ID">{copiedId === team.id ? <Check className="h-3.5 w-3.5 text-emerald-600"/> : <Copy className="h-3.5 w-3.5"/>}</button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isLeader ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>{isLeader ? <Shield className="h-3.5 w-3.5"/> : <User className="h-3.5 w-3.5"/>}{isLeader ? "Leader" : "Member"}</span></td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex -space-x-1.5">{members.slice(0,3).map((member,index) => <span key={member.userId || index} title={member.name} className="grid h-7 w-7 place-items-center rounded-full border-2 border-white bg-indigo-100 text-[10px] font-bold text-indigo-700">{(member.name || "P").charAt(0).toUpperCase()}</span>)}</div>
+                              <div className="min-w-0"><p className="text-xs font-semibold text-slate-900">{members.length} {members.length === 1 ? "member" : "members"}</p><p className="max-w-40 truncate text-[11px] text-slate-500">{leaderMember?.name || ""}{members.length > 1 ? ` +${members.length - 1} more` : ""}</p></div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4"><p className="text-xs font-medium text-slate-800">{createdDate(team.createdAt)}</p>{team.createdAt && <p className="mt-0.5 text-[11px] text-slate-500">{new Date(team.createdAt).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"})}</p>}</td>
+                          <td className="px-6 py-4 text-right" onClick={event => event.stopPropagation()}>
+                            <div className="inline-flex items-center justify-end gap-1.5">
+                              <button type="button" onClick={() => setSelectedTeamForDetails(team)} className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200"><Eye className="h-4 w-4"/>Members</button>
+                              {isLeader && <button type="button" onClick={() => setSelectedTeamForAddMember(team)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-100 px-2.5 py-1.5 text-xs font-medium text-indigo-800 hover:bg-indigo-200"><UserPlus className="h-4 w-4"/>Invite</button>}
+                              {isLeader && <button type="button" onClick={() => setTeamToDelete(team)} aria-label="Delete team" title="Delete team" className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-[18px] w-[18px]"/></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          ) : null}
+
+          <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "CARDS" ? "md:grid" : "md:hidden"}`}>
+            {filteredTeams.map(renderTeamCard)}
+          </div>
+        </>
       )}
+    </div>
+
 
       {/* Team Details & Roster Modal */}
       <TeamDetailsModal
@@ -611,6 +440,6 @@ export default function MyTeamsList({
           }
         }}
       />
-    </div>
+    </>
   );
 }

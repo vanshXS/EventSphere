@@ -48,13 +48,13 @@ export default function CreateTeamModal({ isOpen, onClose, onTeamCreated }) {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+      className="participant-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs transition-opacity"
       onClick={(e) => {
         if (e.target === e.currentTarget && !loading) onClose();
       }}
     >
       <div
-        className="relative w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left"
+        className="participant-dialog relative w-full max-w-md bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden text-left"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">

@@ -8,8 +8,7 @@ import {
   Users,
   FileText,
   Info,
-  Play,
-  CheckCircle2
+  Play
 } from "lucide-react";
 
 import {
@@ -34,6 +33,7 @@ export default function ActivityDetailsModal({
   isRegistered = false,
   registration = null,
   onRegisterClick,
+  onViewMyRegistrations,
   onClose
 }) {
   useEffect(() => {
@@ -86,14 +86,14 @@ export default function ActivityDetailsModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="activity-details-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
+      className="participant-dialog-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl">
+      <div className="participant-dialog flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/50 p-5 sm:p-6">
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -285,38 +285,49 @@ export default function ActivityDetailsModal({
           </section>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 p-4 sm:p-5">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white p-4 sm:p-5">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Close
           </button>
 
-          {onRegisterClick &&
-            (hasRegistration ? (
+          {hasRegistration ? (
+            <div className="flex flex-wrap items-center justify-end gap-3">
               <p className="max-w-sm text-xs font-medium text-slate-600">
                 {registrationMessage}
               </p>
-            ) : isRegistrationOpen(activity) ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onRegisterClick(activity);
-                }}
-                className="rounded-lg bg-indigo-600 px-5 py-2 text-xs font-medium text-white shadow-xs hover:bg-indigo-700"
-              >
-                Register Now
-              </button>
-            ) : (
-              <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600">
-                {isEnded(activity)
-                  ? "Activity Ended"
-                  : "Registration Closed"}
-              </span>
-            ))}
+              {onViewMyRegistrations && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onViewMyRegistrations();
+                  }}
+                  className="rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
+                >
+                  View My Registrations
+                </button>
+              )}
+            </div>
+          ) : onRegisterClick && isRegistrationOpen(activity) ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onRegisterClick(activity);
+              }}
+              className="rounded-lg bg-indigo-600 px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              Register Now
+            </button>
+          ) : (
+            <span className="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-xs font-semibold text-slate-600">
+              {isEnded(activity) ? "Activity Ended" : "Registration Closed"}
+            </span>
+          )}
         </footer>
       </div>
     </div>,

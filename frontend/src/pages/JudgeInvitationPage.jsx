@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import "../styles/auth-experience.css";
 import { CheckCircle2, Loader2, Trophy, UserPlus, AlertCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getJudgeInvitation, acceptJudgeInvitation } from "../features/judging/api/judgingApi";
@@ -76,8 +77,8 @@ export default function JudgeInvitationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-7 shadow-sm text-left">
+    <div className="auth-invitation-page min-h-screen bg-slate-50 px-4 py-10">
+      <div className="auth-invitation-card mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-7 shadow-sm text-left">
         {done ? (
           <div className="py-10 text-center">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
@@ -147,7 +148,7 @@ export default function JudgeInvitationPage() {
               </div>
             )}
 
-            <form onSubmit={accept} className="mt-6 space-y-4">
+            <form onSubmit={accept} className="auth-form mt-6 space-y-4">
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold text-slate-700">
                   Your Full Name

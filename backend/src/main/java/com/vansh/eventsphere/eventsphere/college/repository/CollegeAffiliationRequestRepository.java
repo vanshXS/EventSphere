@@ -12,6 +12,8 @@ public interface CollegeAffiliationRequestRepository extends MongoRepository<Col
 
     List<CollegeAffiliationRequest> findByParticipantId(String participantId);
 
+    Optional<CollegeAffiliationRequest> findFirstByParticipantIdAndCollegeIdOrderBySubmittedAtDesc(String participantId, String collegeId);
+
     List<CollegeAffiliationRequest> findByCollegeId(String collegeId);
 
     List<CollegeAffiliationRequest> findByCollegeIdAndStatus(String collegeId, String status);

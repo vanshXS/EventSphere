@@ -1,0 +1,422 @@
+/* EventSphere participant experience — aligned to approved Stitch references.
+   This stylesheet changes presentation only; product behavior remains in existing React/API code. */
+.participant-workspace {
+  --participant-primary: #4f46e5;
+  --participant-primary-hover: #4338ca;
+  --participant-navy: #1e2238;
+  --participant-ink: #0f172a;
+  --participant-muted: #64748b;
+  --participant-border: #e2e8f0;
+  min-height: 100vh;
+  background: #f8fafc;
+  color: var(--participant-ink);
+}
+.participant-main {
+  width: 100%;
+  max-width: 1248px;
+  margin-inline: auto;
+  padding: 32px 24px 48px;
+}
+.participant-page { min-width: 0; }
+.participant-page h1 {
+  margin: 0;
+  color: var(--participant-ink);
+  font-size: clamp(1.55rem, 2.2vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+.participant-page > div:first-child p,
+.participant-page > div:first-child .text-slate-500 {
+  color: #64748b;
+}
+.participant-affiliation-alert {
+  border: 1px solid #c7d2fe !important;
+  border-radius: 12px !important;
+  background: #eef2ff !important;
+  box-shadow: none !important;
+}
+.participant-affiliation-alert button { border-radius: 8px !important; }
+
+/* Participant-only navigation: avoids changing shared organizer/volunteer headers. */
+.participant-site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  width: 100%;
+  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255,255,255,.98);
+}
+.participant-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+  max-width: 1248px;
+  min-height: 64px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.participant-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  color: #0f172a;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -.035em;
+}
+.participant-brand-mark {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 9px;
+  background: #4f46e5;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+}
+.participant-desktop-nav {
+  display: flex;
+  align-self: stretch;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.participant-nav-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.participant-nav-button:hover { color: #0f172a; background: #f8fafc; }
+.participant-nav-button[aria-current="page"] {
+  border-bottom-color: #4f46e5;
+  color: #4338ca;
+  font-weight: 650;
+}
+.participant-nav-count {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 10px;
+  font-weight: 700;
+}
+.participant-header-spacer { flex: 1; }
+.participant-header-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 190px;
+  padding: 6px 10px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-header-context svg { color: #059669; flex: 0 0 auto; }
+.participant-header-user {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.participant-avatar {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #e0e7ff;
+  border-radius: 50%;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11px;
+  font-weight: 700;
+}
+.participant-user-copy { min-width: 0; line-height: 1.25; }
+.participant-user-name {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-user-email {
+  max-width: 150px;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-header-logout,
+.participant-mobile-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.participant-header-logout:hover,
+.participant-mobile-menu-button:hover { border-color: #cbd5e1; background: #f8fafc; }
+.participant-mobile-menu-button,
+.participant-mobile-nav { display: none; }
+
+/* Discovery: card-first layout from Stitch, with existing filters and existing actions retained. */
+.participant-event-explorer { display: flex; flex-direction: column; gap: 18px; }
+.participant-discovery-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.participant-discovery-controls input {
+  min-height: 42px;
+  border-radius: 9px !important;
+  border-color: #e2e8f0 !important;
+  background: #fff !important;
+}
+.participant-discovery-controls input:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px #eef2ff !important;
+}
+.participant-event-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.participant-event-card {
+  position: relative;
+  min-width: 0;
+  padding: 20px !important;
+  overflow: hidden;
+  border: 1px solid #e2e8f0 !important;
+  border-top: 3px solid #6366f1 !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.participant-event-card:hover {
+  border-color: #c7d2fe !important;
+  box-shadow: 0 4px 14px rgba(15,23,42,.045) !important;
+  transform: translateY(-1px);
+}
+.participant-event-card--activity { border-top-color: #10b981 !important; }
+.participant-event-card .rounded-xl.bg-slate-50\/80,
+.participant-event-card [class~="bg-slate-50/80"] {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+.participant-event-card button { font-weight: 600; }
+.participant-event-card .border-t { border-color: #f1f5f9 !important; }
+
+/* Registrations: keep the real status filters, ticket/result/certificate and cancellation actions. */
+.participant-registration-list { display: flex; flex-direction: column; gap: 16px; }
+.participant-registrations-toolbar {
+  padding: 0 0 14px !important;
+  border: 0 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.participant-registration-list input {
+  min-height: 42px;
+  border-radius: 9px !important;
+  background: #fff !important;
+}
+.participant-registration-list .overflow-hidden.rounded-2xl.border,
+.participant-registration-list .participant-registrations-table {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  background: white !important;
+  box-shadow: none !important;
+}
+.participant-registration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.participant-registration-card {
+  padding: 18px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+.participant-registration-card:hover { border-color: #c7d2fe !important; box-shadow: 0 4px 14px rgba(15,23,42,.045) !important; }
+.participant-registration-list thead { background: #f8fafc !important; }
+.participant-registration-list th {
+  color: #64748b !important;
+  font-size: 10px !important;
+  letter-spacing: .055em;
+}
+.participant-registration-list td { vertical-align: middle; }
+.participant-registrations-empty { border-radius: 12px !important; box-shadow: none !important; }
+
+/* Teams: existing team creation, member management and delete flows remain unchanged. */
+.participant-team-list { display: flex; flex-direction: column; gap: 14px; }
+.participant-teams-toolbar {
+  padding: 0 0 14px !important;
+  border: 0 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.participant-team-list input { min-height: 40px; border-radius: 9px !important; background: #fff !important; }
+.participant-team-list table { border-collapse: collapse; }
+.participant-team-list thead { background: #f8fafc !important; }
+.participant-team-list th { color: #64748b !important; font-size: 10px !important; letter-spacing: .055em; }
+.participant-team-list td { vertical-align: middle; }
+.participant-teams-empty { border-radius: 12px !important; box-shadow: none !important; }
+
+/* Shared auth shell used by participant login/registration; no form fields or validation are changed. */
+.participant-auth-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 16px;
+  background: #f8fafc;
+}
+.participant-auth-brand-mark {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 11px;
+  background: #4f46e5;
+  color: white;
+  font-size: 22px;
+  font-weight: 750;
+}
+.participant-auth-card {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: 0 8px 28px rgba(15,23,42,.045) !important;
+}
+.participant-auth-card input {
+  min-height: 44px;
+  border-radius: 9px !important;
+}
+.participant-auth-card input:focus {
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 0 3px #eef2ff !important;
+}
+
+/* Portalled participant dialogs. */
+.participant-dialog-backdrop { padding: 16px !important; background: rgba(15,23,42,.48) !important; }
+.participant-dialog {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 60px rgba(15,23,42,.18) !important;
+}
+.participant-ticket-page { min-height: 100vh; background: #f8fafc; padding: 32px 16px; }
+
+@media (max-width: 1023px) {
+  .participant-event-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .participant-header-inner { gap: 16px; }
+  .participant-header-context { max-width: 145px; }
+}
+@media (max-width: 767px) {
+  .participant-main { padding: 24px 16px 36px; }
+  .participant-header-inner { min-height: 62px; padding: 0 16px; gap: 12px; }
+  .participant-brand { font-size: 17px; }
+  .participant-brand-mark { width: 34px; height: 34px; }
+  .participant-desktop-nav,
+  .participant-header-context,
+  .participant-user-copy,
+  .participant-header-logout { display: none; }
+  .participant-header-spacer { display: block; }
+  .participant-header-user { margin-left: auto; }
+  .participant-mobile-menu-button { display: inline-flex; width: 38px; height: 38px; padding: 0; }
+  .participant-mobile-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 16px 14px;
+    border-top: 1px solid #f1f5f9;
+    background: #fff;
+  }
+  .participant-mobile-nav button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #475569;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .participant-mobile-nav button[aria-current="page"] { background: #eef2ff; color: #4338ca; }
+  .participant-mobile-nav .participant-mobile-logout { margin-top: 6px; border-top: 1px solid #f1f5f9; border-radius: 0; color: #b91c1c; }
+  .participant-event-grid,
+  .participant-registration-grid { grid-template-columns: 1fr; }
+  .participant-event-card,
+  .participant-registration-card { padding: 16px !important; }
+  .participant-discovery-controls { gap: 12px; }
+  .participant-registration-list .overflow-x-auto { overflow-x: auto; }
+  .participant-auth-shell { padding: 24px 14px; }
+  .participant-ticket-page { padding: 24px 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .participant-event-card { transition: none; }
+}
+
+.participant-page-heading { margin-bottom: 2px; }
+.participant-page-heading > p:not(.text-indigo-600) { max-width: 650px; }
+.participant-certificates-content { min-width: 0; }
+.participant-certificate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.participant-certificate-card { box-shadow: none; }
+.participant-certificate-card:hover { border-color: #c7d2fe; }
+.participant-certificates-page .participant-certificate-grid { margin-top: 4px; }
+@media (max-width: 767px) {
+  .participant-certificate-grid { grid-template-columns: 1fr; }
+  .participant-page-heading { display: block; }
+}

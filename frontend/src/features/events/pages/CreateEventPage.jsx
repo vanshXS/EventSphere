@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { createEvent } from "../eventApi";
 import { createActivity, createStandaloneActivity } from "../../activities/activityApi";
+import { setupActivityJudging } from "../../judging/api/judgingApi";
 import ActivityFormModal from "../../activities/components/ActivityFormModal";
 import CompetitionForm from "../components/CompetitionForm";
 import { 
@@ -14,7 +15,6 @@ import { formatDateTime } from "../utils/eventHelpers";
 import { 
   Calendar, 
   ArrowLeft, 
-  LogOut, 
   Plus, 
   Pencil,
   Trash2, 
@@ -23,9 +23,9 @@ import {
   Loader2
 } from "lucide-react";
 import { EVENT_VISIBILITIES } from "../utils/eventHelpers";
-import CollegeNavbarBadge from "../../../components/common/CollegeNavbarBadge";
 import AppHeader from "../../../components/common/AppHeader";
 import { useToast } from "../../../components/common/ToastContext";
+import "../../../styles/organizer-experience.css";
 
 export default function CreateEventPage() {
   const { user, logoutUser } = useAuth();
@@ -169,7 +169,15 @@ export default function CreateEventPage() {
 
       for (const act of activitiesToCreate) {
         try {
-          await createActivity(createdEvent.id, act);
+          const createdAct = await createActivity(createdEvent.id, act);
+
+          if (act.judgingConfig?.enabled) {
+            try {
+              await setupActivityJudging(createdAct.id, act.judgingConfig, act.registrationType);
+            } catch (jErr) {
+              console.error(`Failed to setup judging for "${act.name}":`, jErr);
+            }
+          }
         } catch (actErr) {
           console.error(`Failed to add activity "${act.name}":`, actErr);
           failedActivities.push({
@@ -215,6 +223,15 @@ export default function CreateEventPage() {
 
     try {
       const activity = await createStandaloneActivity(activityData);
+
+      if (activityData.judgingConfig?.enabled) {
+        try {
+          await setupActivityJudging(activity.id, activityData.judgingConfig, activityData.registrationType);
+        } catch (jErr) {
+          console.error("Failed to setup judging for standalone competition:", jErr);
+        }
+      }
+
       navigate("/organizer", {
         state: {
           flashMessage: `Competition "${activity.name}" created successfully.`,
@@ -236,7 +253,7 @@ export default function CreateEventPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16">
+    <div className="organizer-workspace organizer-create-page min-h-screen bg-slate-50 text-slate-900 pb-16">
       {/* Top Header */}
       <AppHeader
         user={user}
@@ -245,9 +262,9 @@ export default function CreateEventPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="organizer-page-main max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Navigation & Header */}
-        <div className="space-y-2">
+        <div className="organizer-page-title flex flex-col gap-3 border-b border-slate-200 pb-6">
           <Link
             to="/organizer"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
@@ -256,7 +273,8 @@ export default function CreateEventPage() {
             <span>Back to My Events</span>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-700">Organizer workspace / New</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-950 max-md:text-2xl">
               {creationMode === "competition" ? "Create Competition" : "Create Event"}
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -274,9 +292,9 @@ export default function CreateEventPage() {
             isSubmitting={isSubmitting}
           />
         ) : (
-        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="organizer-create-form space-y-6">
           {/* Section 1: Event Information */}
-          <div className="bg-white rounded-xl border border-slate-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="organizer-create-section space-y-4">
             <h2 className="text-base font-semibold text-slate-900 pb-2 border-b border-slate-100">
               Event Details
             </h2>
@@ -500,7 +518,7 @@ export default function CreateEventPage() {
                   return (
                     <div
                       key={index}
-                      className="p-4 bg-slate-50/80 rounded-xl border border-slate-200/80 flex items-start justify-between gap-3 text-xs"
+                      className="organizer-staged-activity flex items-start justify-between gap-3 text-xs"
                     >
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2">

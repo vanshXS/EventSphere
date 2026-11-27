@@ -12,7 +12,7 @@ import java.util.UUID;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StreamUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.vansh.eventsphere.eventsphere.college.model.StoredDocument;
@@ -25,13 +25,19 @@ import lombok.extern.slf4j.Slf4j;
 public class DocumentStorageService {
 
     private final Path storageRoot;
+    private final Path legacyStorageRoot;
 
-    public DocumentStorageService() {
+    private final long maxFileSize;
+
+    public DocumentStorageService(@Value("${app.documents.max-size-bytes:10485760}") long maxFileSize) {
         String configured = System.getenv("DOCUMENT_STORAGE_DIR");
         if (configured == null || configured.trim().isEmpty()) {
-            configured = System.getProperty("java.io.tmpdir") + "/eventsphere-documents";
+            configured = "./data/eventsphere-documents";
         }
         this.storageRoot = Paths.get(configured).toAbsolutePath().normalize();
+        this.legacyStorageRoot = System.getenv("DOCUMENT_STORAGE_DIR") == null || System.getenv("DOCUMENT_STORAGE_DIR").isBlank()
+                ? Paths.get(System.getProperty("java.io.tmpdir"), "eventsphere-documents").toAbsolutePath().normalize() : null;
+        this.maxFileSize = maxFileSize;
     }
 
     @PostConstruct
@@ -76,11 +82,23 @@ public class DocumentStorageService {
         return doc;
     }
 
+    public void delete(StoredDocument document) {
+        if (document == null || document.getStoragePath() == null) return;
+        Path target = storageRoot.resolve(document.getStoragePath()).normalize();
+        if (!target.startsWith(storageRoot)) return;
+        try { Files.deleteIfExists(target); }
+        catch (IOException e) { log.warn("Could not clean up failed document upload", e); }
+    }
+
     public Resource load(String storedName) {
         Path target = storageRoot.resolve(storedName).normalize();
-        if (!target.startsWith(storageRoot) || !Files.exists(target)) {
-            throw new IllegalArgumentException("Document not found");
+        if (!target.startsWith(storageRoot)) throw new IllegalArgumentException("Document not found");
+        // Preserve read access to uploads made before the persistent default was introduced.
+        if (!Files.exists(target) && legacyStorageRoot != null) {
+            Path legacy = legacyStorageRoot.resolve(storedName).normalize();
+            if (legacy.startsWith(legacyStorageRoot) && Files.exists(legacy)) target = legacy;
         }
+        if (!Files.exists(target)) throw new IllegalArgumentException("Document not found");
         try {
             return new UrlResource(target.toUri());
         } catch (Exception e) {
@@ -101,8 +119,8 @@ public class DocumentStorageService {
             throw new IllegalArgumentException("File is empty");
         }
 
-        if (size > 10 * 1024 * 1024) {
-            throw new IllegalArgumentException("File size exceeds 10MB limit");
+        if (size > maxFileSize) {
+            throw new IllegalArgumentException("File size exceeds the configured upload limit");
         }
 
         String ext = extension(originalName).toLowerCase();
@@ -114,6 +132,17 @@ public class DocumentStorageService {
             throw new IllegalArgumentException(
                     "Unsupported file type. Allowed: PDF, JPG, PNG"
             );
+        }
+
+        String expectedMime = switch (ext) {
+            case ".pdf" -> "application/pdf";
+            case ".jpg", ".jpeg" -> "image/jpeg";
+            case ".png" -> "image/png";
+            default -> null;
+        };
+        String suppliedMime = file.getContentType();
+        if (suppliedMime == null || !expectedMime.equalsIgnoreCase(suppliedMime)) {
+            throw new IllegalArgumentException("File MIME type does not match the declared file type");
         }
 
         try (InputStream inputStream = file.getInputStream()) {

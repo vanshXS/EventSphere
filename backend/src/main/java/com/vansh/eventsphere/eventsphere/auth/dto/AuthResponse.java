@@ -21,6 +21,7 @@ public class AuthResponse {
     private String collegeName;
     private String collegeCode;
     private String collegeVerificationStatus;
+    private String organizerAffiliationStatus;
 
 }
 
